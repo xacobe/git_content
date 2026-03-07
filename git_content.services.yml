@@ -1,0 +1,12 @@
+services:
+  git_content.field_discovery:
+    class: Drupal\git_content\Discovery\FieldDiscovery
+    arguments: ['@entity_type.manager', '@entity_field.manager']
+
+  git_content.exporter:
+    class: Drupal\git_content\Exporter\EntityExporter
+    arguments: ['@git_content.field_discovery']
+
+  git_content.importer:
+    class: Drupal\git_content\Importer\EntityImporter
+    arguments: ['@git_content.field_discovery']

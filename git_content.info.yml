@@ -1,0 +1,5 @@
+name: 'Git Content'
+type: module
+description: 'Export and import Drupal content to Markdown versionable in Git'
+package: Custom
+core_version_requirement: ^10 || ^11

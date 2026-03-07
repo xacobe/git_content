@@ -1,0 +1,14 @@
+git_content.export:
+  path: '/git-content/export-git'
+  defaults:
+    _controller: '\Drupal\git_content\Controller\GitContentController::exportGit'
+    _title: 'Git Content Export Test'
+  requirements:
+    _permission: 'administer site configuration'
+git_content.import:
+  path: '/git-content/import'
+  defaults:
+    _controller: '\Drupal\git_content\Controller\GitContentController::importGit'
+    _title: 'Git Content Import'
+  requirements:
+    _permission: 'administer site configuration'
