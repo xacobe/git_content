@@ -20,12 +20,12 @@ class NodeExporter extends BaseExporter {
   public function exportToFile(EntityInterface $entity): string {
     $markdown = $this->export($entity);
 
-    $dir = DRUPAL_ROOT . '/content_export/' . $entity->bundle();
+    $langcode = $entity->language()->getId();
+    $dir = DRUPAL_ROOT . '/content_export/content_types/' . $entity->bundle() . '/' . $langcode;
     $this->ensureDir($dir);
 
     $slug     = $this->getSlug($entity);
-    $langcode = $entity->language()->getId();
-    $filepath = $dir . '/' . $slug . '-' . $langcode . '.md';
+    $filepath = $dir . '/' . $slug . '.md';
 
     file_put_contents($filepath, $markdown);
 

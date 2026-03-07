@@ -56,6 +56,9 @@ class MarkdownImporter {
     // Recoger todos los .md de forma recursiva
     $files = $this->findMarkdownFiles($import_dir);
 
+    // Asegurarnos de que los enlaces de menú se procesan en orden de peso (padres antes de hijos)
+    usort($files, fn($a, $b) => $this->compareImportFiles($a, $b));
+
     foreach ($files as $filepath) {
       try {
         $op = $this->importFile($filepath);
@@ -559,6 +562,11 @@ class MarkdownImporter {
       'nid', 'vid', 'tid', 'mid', 'revision_log', 'revision_default',
       'revision_translation_affected', 'default_langcode',
       'content_translation_source', 'content_translation_outdated',
+      // Usuarios (no los importamos): contraseñas / campos de sesión
+      'pass', 'access', 'login', 'init',
+      // Comentarios - no los importamos para contenido estático
+      'comment', 'comment_count', 'comment_status', 'last_comment_timestamp',
+      'last_comment_name', 'last_comment_uid',
       // block_content system fields
       'id', 'revision_id', 'revision_created', 'revision_user', 'info', 'reusable',
     ];
@@ -869,6 +877,48 @@ class MarkdownImporter {
       }
     }
     return $files;
+  }
+
+  /**
+   * Compara dos archivos de importación para garantizar un orden estable.
+   *
+   * Para los menu_link_content ordena por menú y peso (padres antes que hijos).
+   * Para el resto usa el nombre de archivo.
+   */
+  protected function compareImportFiles(string $a, string $b): int {
+    $metaA = $this->getImportFileMeta($a);
+    $metaB = $this->getImportFileMeta($b);
+
+    if ($metaA['type'] === 'menu_link_content' && $metaB['type'] === 'menu_link_content') {
+      if ($metaA['menu'] !== $metaB['menu']) {
+        return $metaA['menu'] <=> $metaB['menu'];
+      }
+      return $metaA['weight'] <=> $metaB['weight'];
+    }
+
+    return $a <=> $b;
+  }
+
+  protected function getImportFileMeta(string $filepath): array {
+    $raw = @file_get_contents($filepath);
+    if ($raw === FALSE) {
+      return ['type' => '', 'menu' => '', 'weight' => 0];
+    }
+
+    try {
+      $parsed = $this->serializer->deserialize($raw);
+    }
+    catch (\Exception $e) {
+      return ['type' => '', 'menu' => '', 'weight' => 0];
+    }
+
+    $frontmatter = $this->serializer->flattenGroups($parsed['frontmatter']);
+
+    return [
+      'type'   => $frontmatter['type'] ?? '',
+      'menu'   => $frontmatter['menu'] ?? '',
+      'weight' => (int) ($frontmatter['weight'] ?? 0),
+    ];
   }
 
 }

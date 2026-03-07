@@ -26,12 +26,12 @@ class BlockContentExporter extends BaseExporter {
   public function exportToFile(EntityInterface $entity): string {
     $markdown = $this->export($entity);
 
-    $dir = DRUPAL_ROOT . '/content_export/blocks/' . $entity->bundle();
+    $langcode = $entity->language()->getId();
+    $dir = DRUPAL_ROOT . '/content_export/blocks/' . $entity->bundle() . '/' . $langcode;
     $this->ensureDir($dir);
 
     $slug     = $this->getBlockSlug($entity);
-    $langcode = $entity->language()->getId();
-    $filepath = $dir . '/' . $slug . '-' . $langcode . '.md';
+    $filepath = $dir . '/' . $slug . '.md';
 
     file_put_contents($filepath, $markdown);
 
@@ -97,10 +97,12 @@ class BlockContentExporter extends BaseExporter {
    * Usa el ID interno si no hay un nombre legible.
    */
   protected function getBlockSlug(EntityInterface $entity): string {
-    $label = $entity->label() ?? 'block-' . $entity->id();
+    $label = $entity->label() ?? 'block';
     $slug  = preg_replace('/[^a-z0-9]+/', '-', mb_strtolower($label));
-    // Prefijo con el ID para evitar colisiones entre bundles con mismo título
-    return 'block-' . $entity->id() . '-' . trim($slug, '-');
+    $slug  = trim($slug, '-');
+
+    // Añadimos el ID al final para evitar colisiones entre bloques con mismo título.
+    return $slug ? $slug . '-' . $entity->id() : 'block-' . $entity->id();
   }
 
 }

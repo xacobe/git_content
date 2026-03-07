@@ -18,10 +18,10 @@ use Drupal\git_content\Serializer\MarkdownSerializer;
  *   content_export/
  *     menus/
  *       {menu-id}/
- *         {weight}-{slug}-{langcode}.md
+ *         {langcode}/
+ *           {slug}[__{parent-slug}...].md
  *
- * El prefijo de peso ({weight}) en el nombre de archivo permite reconstruir
- * el orden correcto al importar sin necesidad de parsear el contenido.
+ * El orden y la jerarquía se reconstruyen a partir del frontmatter (`weight`, `parent`).
  *
  * Ejemplo de frontmatter generado:
  *   ---
@@ -83,21 +83,70 @@ class MenuLinkExporter extends BaseExporter {
   public function exportToFile(EntityInterface $entity): string {
     $markdown = $this->export($entity);
 
-    $menu_id = $entity->getMenuName();
-    $dir = DRUPAL_ROOT . '/content_export/menus/' . $menu_id;
+    $menu_id  = $entity->getMenuName();
+    $langcode = $entity->language()->getId();
+    $dir = DRUPAL_ROOT . '/content_export/menus/' . $menu_id . '/' . $langcode;
     $this->ensureDir($dir);
 
-    // Prefijo de peso para preservar orden al listar por nombre de archivo
-    $weight   = (int) $entity->getWeight();
-    $prefix   = sprintf('%+05d', $weight); // ej. +0000, -0003, +0010
-    $slug     = $this->getLinkSlug($entity);
-    $langcode = $entity->language()->getId();
-    $filename = $prefix . '-' . $slug . '-' . $langcode . '.md';
+    // Construimos el nombre de archivo con la jerarquía de padres:
+    // padre__hijo__nieto.md
+    $filename = $this->getLinkPath($entity) . '.md';
     $filepath = $dir . '/' . $filename;
 
     file_put_contents($filepath, $markdown);
 
     return $filepath;
+  }
+
+  /**
+   * Construye el nombre de archivo de un enlace de menú incluyendo su
+   * cadena de padres separados por doble guión bajo (__).
+   */
+  protected function getLinkPath(EntityInterface $entity): string {
+    $slug = $this->getLinkSlug($entity);
+    $parent_id = $entity->getParentId();
+
+    // Si no tiene padre, retornamos solo el slug.
+    if (empty($parent_id) || !str_starts_with($parent_id, 'menu_link_content:')) {
+      return $slug;
+    }
+
+    // Extraemos UUID del plugin_id.
+    $parent_uuid = substr($parent_id, strlen('menu_link_content:'));
+
+    // Intentamos cargar la entidad padre por UUID.
+    $parent = $this->loadMenuLinkByUuid($parent_uuid);
+    if (!$parent) {
+      return $slug;
+    }
+
+    $parent_path = $this->getLinkPath($parent);
+    return $parent_path . '__' . $slug;
+  }
+
+  /**
+   * Carga un menu_link_content por su UUID (completo o corto).
+   */
+  protected function loadMenuLinkByUuid(string $uuid): ?\Drupal\Core\Entity\EntityInterface {
+    $storage = $this->entityTypeManager->getStorage('menu_link_content');
+
+    // Intentar cargar por UUID completo.
+    $links = $storage->loadByProperties(['uuid' => $uuid]);
+    if (!empty($links)) {
+      return reset($links);
+    }
+
+    // Si no existe, intentar con uuid corto (8 chars sin guiones).
+    $clean = str_replace('-', '', $uuid);
+    if (strlen($clean) === 8) {
+      foreach ($storage->loadMultiple() as $link) {
+        if (substr(str_replace('-', '', $link->uuid()), 0, 8) === $clean) {
+          return $link;
+        }
+      }
+    }
+
+    return NULL;
   }
 
   /**

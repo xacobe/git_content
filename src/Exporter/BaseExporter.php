@@ -28,6 +28,11 @@ abstract class BaseExporter {
     'revision_timestamp', 'revision_uid', 'revision_log', 'revision_default',
     'revision_translation_affected', 'default_langcode',
     'content_translation_source', 'content_translation_outdated',
+    // Usuarios (no exportar campos sensibles o irrelevantes)
+    'pass', 'access', 'login', 'init',
+    // Comentarios - no los exportamos para contenido estático
+    'comment', 'comment_count', 'comment_status', 'last_comment_timestamp',
+    'last_comment_name', 'last_comment_uid',
     // block_content system fields
     'id', 'revision_id', 'revision_created', 'revision_user', 'info', 'reusable',
   ];
