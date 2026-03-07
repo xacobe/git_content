@@ -44,9 +44,10 @@ class TaxonomyExporter extends BaseExporter {
     $frontmatter['lang']       = $entity->language()->getId();
     $frontmatter['_']          = NULL;
 
+    $frontmatter['status'] = $entity->get('status')->value ? 'published' : 'draft';
     $frontmatter['name']   = $entity->label();
     $frontmatter['slug']   = $this->getTermSlug($entity);
-    $frontmatter['weight'] = $entity->get('weight')->value ?? 0;
+    $frontmatter['weight'] = (int) ($entity->get('weight')->value ?? 0);
     $frontmatter['__']     = NULL;
 
     // Término padre

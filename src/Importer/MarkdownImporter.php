@@ -175,13 +175,19 @@ class MarkdownImporter {
     }
     else {
       $term = $this->entityTypeManager->getStorage('taxonomy_term')->create([
-        'vid'      => $vid,
-        'langcode' => $langcode,
+        'vid'              => $vid,
+        'langcode'         => $langcode,
+        'default_langcode' => 1,
       ]);
       $operation = 'imported';
     }
 
-    $term->set('name', $frontmatter['name'] ?? 'Sin nombre');
+    // 'name' es obligatorio; usar el slug como fallback si está vacío.
+    $name = !empty($frontmatter['name']) ? $frontmatter['name'] : ucfirst(str_replace('-', ' ', $frontmatter['slug'] ?? 'term'));
+    $term->set('name', $name);
+    $term->set('status', ($frontmatter['status'] ?? 'published') === 'published' ? 1 : 0);
+    // default_langcode debe ser explícito; Drupal no lo inicializa en taxonomy_term.
+    $term->set('default_langcode', 1);
 
     if (isset($frontmatter['weight'])) {
       $term->set('weight', (int) $frontmatter['weight']);
@@ -257,7 +263,13 @@ class MarkdownImporter {
       throw new \Exception("El frontmatter del block_content no contiene 'bundle'.");
     }
 
-    $existing = $short_uuid ? $this->findByShortUuid($short_uuid, 'block_content', $bundle) : NULL;
+    // UUID vacío o nulo: no podemos identificar el bloque de forma segura.
+    // Requerir UUID para evitar duplicados al reimportar.
+    if (empty($short_uuid)) {
+      throw new \Exception("El block_content no tiene 'uuid' en el frontmatter. Añade un uuid para poder importarlo.");
+    }
+
+    $existing = $this->findByShortUuidGlobal($short_uuid, 'block_content');
 
     if ($existing) {
       $block = $existing->hasTranslation($langcode)
@@ -267,14 +279,16 @@ class MarkdownImporter {
     }
     else {
       $block = $this->entityTypeManager->getStorage('block_content')->create([
-        'type'     => $bundle,
-        'langcode' => $langcode,
+        'type'             => $bundle,
+        'langcode'         => $langcode,
+        'default_langcode' => 1,
       ]);
       $operation = 'imported';
     }
 
     $block->set('info', $frontmatter['title'] ?? 'Sin título');
     $block->set('status', ($frontmatter['status'] ?? 'draft') === 'published' ? 1 : 0);
+    $block->set('default_langcode', 1);
 
     if ($block->hasField('body') && !empty($body)) {
       $block->set('body', [
@@ -587,6 +601,22 @@ class MarkdownImporter {
       ->accessCheck(FALSE)
       ->condition($bundle_key, $bundle)
       ->execute();
+
+    foreach ($storage->loadMultiple($ids) as $entity) {
+      if (substr(str_replace('-', '', $entity->uuid()), 0, 8) === $short_uuid) {
+        return $entity;
+      }
+    }
+    return NULL;
+  }
+
+  /**
+   * Busca una entidad por UUID corto sin filtrar por bundle.
+   * Más seguro cuando el bundle puede haber cambiado o no es fiable.
+   */
+  protected function findByShortUuidGlobal(string $short_uuid, string $entity_type): mixed {
+    $storage = $this->entityTypeManager->getStorage($entity_type);
+    $ids = $storage->getQuery()->accessCheck(FALSE)->execute();
 
     foreach ($storage->loadMultiple($ids) as $entity) {
       if (substr(str_replace('-', '', $entity->uuid()), 0, 8) === $short_uuid) {
