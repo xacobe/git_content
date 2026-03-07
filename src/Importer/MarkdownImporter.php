@@ -46,7 +46,7 @@ class MarkdownImporter {
    */
   public function importAll(): array {
     $import_dir = DRUPAL_ROOT . '/content_export';
-    $result = ['imported' => [], 'updated' => [], 'errors' => []];
+    $result = ['imported' => [], 'updated' => [], 'deleted' => [], 'skipped' => [], 'errors' => []];
 
     if (!is_dir($import_dir)) {
       $result['errors'][] = 'El directorio content_export no existe.';
@@ -69,6 +69,18 @@ class MarkdownImporter {
       }
     }
 
+    // Registrar en watchlog un resumen de la importación.
+    $created = count($result['imported']);
+    $updated = count($result['updated']);
+    $skipped = count($result['skipped']);
+    $deleted = count($result['deleted']);
+    $errors  = count($result['errors']);
+
+    \Drupal::logger('git_content')->notice(
+      'Import finished: @created created, @updated updated, @skipped skipped, @deleted deleted, @errors errors.',
+      ['@created' => $created, '@updated' => $updated, '@skipped' => $skipped, '@deleted' => $deleted, '@errors' => $errors]
+    );
+
     return $result;
   }
 
@@ -87,6 +99,18 @@ class MarkdownImporter {
     $parsed = $this->serializer->deserialize($raw);
     $frontmatter = $this->serializer->flattenGroups($parsed['frontmatter']);
     $body = $parsed['body'];
+
+    // Si el archivo contiene un checksum, compararlo para evitar reimportar
+    // si no ha cambiado.
+    $checksum = $frontmatter['checksum'] ?? NULL;
+    if ($checksum) {
+      $fm_for_hash = $frontmatter;
+      unset($fm_for_hash['checksum']);
+      $computed = sha1($this->serializer->serialize($fm_for_hash, $body));
+      if ($computed === $checksum) {
+        return 'skipped';
+      }
+    }
 
     $type = $frontmatter['type'] ?? NULL;
     if (!$type) {

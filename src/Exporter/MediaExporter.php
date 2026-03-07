@@ -22,7 +22,12 @@ class MediaExporter extends BaseExporter {
   /**
    * {@inheritdoc}
    */
-  public function exportToFile(EntityInterface $entity): string {
+  /**
+   * {@inheritdoc}
+   *
+   * @return array{path: string, skipped: bool}
+   */
+  public function exportToFile(EntityInterface $entity): array {
     $markdown = $this->export($entity);
 
     $dir = DRUPAL_ROOT . '/content_export/media/' . $entity->bundle();
@@ -32,9 +37,8 @@ class MediaExporter extends BaseExporter {
     $langcode = $entity->language()->getId();
     $filepath = $dir . '/' . $slug . '-' . $langcode . '.md';
 
-    file_put_contents($filepath, $markdown);
-
-    return $filepath;
+    $written = $this->writeIfChanged($filepath, $markdown);
+    return ['path' => $filepath, 'skipped' => !$written];
   }
 
   /**
@@ -73,6 +77,7 @@ class MediaExporter extends BaseExporter {
 
     $frontmatter['translation_of'] = $this->getTranslationOf($entity);
 
+    $frontmatter = $this->addChecksum($frontmatter, '');
     return $this->serializer->serialize($frontmatter);
   }
 

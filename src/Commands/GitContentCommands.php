@@ -134,18 +134,29 @@ class GitContentCommands extends DrushCommands {
     $nodes = $storage->loadMultiple($nids);
     $count = 0;
 
+    $skipped = 0;
+
     foreach ($nodes as $node) {
       try {
-        $filepath = $this->nodeExporter->exportToFile($node);
-        $this->logger()->info("  ✔ Nodo {$node->id()} ({$node->bundle()}): $filepath");
-        $count++;
+        $result = $this->nodeExporter->exportToFile($node);
+        $filepath = is_array($result) ? $result['path'] : $result;
+        $skippedFile = is_array($result) ? ($result['skipped'] ?? FALSE) : FALSE;
+
+        if ($skippedFile) {
+          $skipped++;
+          $this->logger()->info("  → Nodo {$node->id()} ({$node->bundle()}): $filepath");
+        }
+        else {
+          $this->logger()->info("  ✔ Nodo {$node->id()} ({$node->bundle()}): $filepath");
+          $count++;
+        }
       }
       catch (\Exception $e) {
         $this->logger()->error("  ✘ Nodo {$node->id()}: " . $e->getMessage());
       }
     }
 
-    $this->logger()->notice("  $count nodos exportados.");
+    $this->logger()->notice("  $count nodos exportados, $skipped sin cambios.");
   }
 
   private function exportTaxonomy(): void {
@@ -155,18 +166,29 @@ class GitContentCommands extends DrushCommands {
     $terms = $storage->loadMultiple($tids);
     $count = 0;
 
+    $skipped = 0;
+
     foreach ($terms as $term) {
       try {
-        $filepath = $this->taxonomyExporter->exportToFile($term);
-        $this->logger()->info("  ✔ Término {$term->id()} ({$term->bundle()}): $filepath");
-        $count++;
+        $result = $this->taxonomyExporter->exportToFile($term);
+        $filepath = is_array($result) ? $result['path'] : $result;
+        $skippedFile = is_array($result) ? ($result['skipped'] ?? FALSE) : FALSE;
+
+        if ($skippedFile) {
+          $skipped++;
+          $this->logger()->info("  → Término {$term->id()} ({$term->bundle()}): $filepath");
+        }
+        else {
+          $this->logger()->info("  ✔ Término {$term->id()} ({$term->bundle()}): $filepath");
+          $count++;
+        }
       }
       catch (\Exception $e) {
         $this->logger()->error("  ✘ Término {$term->id()}: " . $e->getMessage());
       }
     }
 
-    $this->logger()->notice("  $count términos exportados.");
+    $this->logger()->notice("  $count términos exportados, $skipped sin cambios.");
   }
 
   private function exportFiles(): void {
@@ -177,20 +199,66 @@ class GitContentCommands extends DrushCommands {
 
   private function exportUsers(): void {
     $this->logger()->notice('Exportando usuarios...');
-    $files = $this->userExporter->exportAll();
-    foreach ($files as $f) {
-      $this->logger()->info("  ✔ $f");
+    $storage = $this->entityTypeManager->getStorage('user');
+    $uids = $storage->getQuery()->accessCheck(FALSE)->condition('uid', 0, '>')->execute();
+    $users = $storage->loadMultiple($uids);
+
+    $count = 0;
+    $skipped = 0;
+
+    foreach ($users as $user) {
+      try {
+        $result = $this->userExporter->exportToFile($user);
+        $filepath = is_array($result) ? $result['path'] : $result;
+        $skippedFile = is_array($result) ? ($result['skipped'] ?? FALSE) : FALSE;
+
+        if ($skippedFile) {
+          $skipped++;
+          $this->logger()->info("  → Usuario {$user->id()}: $filepath");
+        }
+        else {
+          $this->logger()->info("  ✔ Usuario {$user->id()}: $filepath");
+          $count++;
+        }
+      }
+      catch (\Exception $e) {
+        $this->logger()->error("  ✘ Usuario {$user->id()}: " . $e->getMessage());
+      }
     }
-    $this->logger()->notice('  ' . count($files) . ' usuarios exportados.');
+
+    $this->logger()->notice("  $count usuarios exportados, $skipped sin cambios.");
   }
 
   private function exportMenuLinks(): void {
     $this->logger()->notice('Exportando enlaces de menú...');
-    $files = $this->menuLinkExporter->exportAll();
-    foreach ($files as $filepath) {
-      $this->logger()->info("  ✔ $filepath");
+    $storage = $this->entityTypeManager->getStorage('menu_link_content');
+    $ids = $storage->getQuery()->accessCheck(FALSE)->execute();
+    $links = $storage->loadMultiple($ids);
+
+    $count = 0;
+    $skipped = 0;
+
+    foreach ($links as $link) {
+      try {
+        $result = $this->menuLinkExporter->exportToFile($link);
+        $filepath = is_array($result) ? $result['path'] : $result;
+        $skippedFile = is_array($result) ? ($result['skipped'] ?? FALSE) : FALSE;
+
+        if ($skippedFile) {
+          $skipped++;
+          $this->logger()->info("  → Enlace {$link->id()}: $filepath");
+        }
+        else {
+          $this->logger()->info("  ✔ Enlace {$link->id()}: $filepath");
+          $count++;
+        }
+      }
+      catch (\Exception $e) {
+        $this->logger()->error("  ✘ Enlace {$link->id()}: " . $e->getMessage());
+      }
     }
-    $this->logger()->notice('  ' . count($files) . ' enlaces exportados.');
+
+    $this->logger()->notice("  $count enlaces exportados, $skipped sin cambios.");
   }
 
   private function exportBlocks(): void {
@@ -199,18 +267,29 @@ class GitContentCommands extends DrushCommands {
     $ids = $storage->getQuery()->accessCheck(FALSE)->execute();
     $count = 0;
 
+    $skipped = 0;
+
     foreach ($storage->loadMultiple($ids) as $block) {
       try {
-        $filepath = $this->blockContentExporter->exportToFile($block);
-        $this->logger()->info("  ✔ Bloque {$block->id()} ({$block->bundle()}): $filepath");
-        $count++;
+        $result = $this->blockContentExporter->exportToFile($block);
+        $filepath = is_array($result) ? $result['path'] : $result;
+        $skippedFile = is_array($result) ? ($result['skipped'] ?? FALSE) : FALSE;
+
+        if ($skippedFile) {
+          $skipped++;
+          $this->logger()->info("  → Bloque {$block->id()} ({$block->bundle()}): $filepath");
+        }
+        else {
+          $this->logger()->info("  ✔ Bloque {$block->id()} ({$block->bundle()}): $filepath");
+          $count++;
+        }
       }
       catch (\Exception $e) {
         $this->logger()->error("  ✘ Bloque {$block->id()}: " . $e->getMessage());
       }
     }
 
-    $this->logger()->notice("  $count bloques exportados.");
+    $this->logger()->notice("  $count bloques exportados, $skipped sin cambios.");
   }
 
   private function exportMedia(): void {
@@ -220,18 +299,29 @@ class GitContentCommands extends DrushCommands {
     $medias = $storage->loadMultiple($mids);
     $count = 0;
 
+    $skipped = 0;
+
     foreach ($medias as $media) {
       try {
-        $filepath = $this->mediaExporter->exportToFile($media);
-        $this->logger()->info("  ✔ Media {$media->id()} ({$media->bundle()}): $filepath");
-        $count++;
+        $result = $this->mediaExporter->exportToFile($media);
+        $filepath = is_array($result) ? $result['path'] : $result;
+        $skippedFile = is_array($result) ? ($result['skipped'] ?? FALSE) : FALSE;
+
+        if ($skippedFile) {
+          $skipped++;
+          $this->logger()->info("  → Media {$media->id()} ({$media->bundle()}): $filepath");
+        }
+        else {
+          $this->logger()->info("  ✔ Media {$media->id()} ({$media->bundle()}): $filepath");
+          $count++;
+        }
       }
       catch (\Exception $e) {
         $this->logger()->error("  ✘ Media {$media->id()}: " . $e->getMessage());
       }
     }
 
-    $this->logger()->notice("  $count media exportados.");
+    $this->logger()->notice("  $count media exportados, $skipped sin cambios.");
   }
 
 }

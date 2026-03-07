@@ -17,7 +17,12 @@ class NodeExporter extends BaseExporter {
   /**
    * {@inheritdoc}
    */
-  public function exportToFile(EntityInterface $entity): string {
+  /**
+   * {@inheritdoc}
+   *
+   * @return array{path: string, skipped: bool}
+   */
+  public function exportToFile(EntityInterface $entity): array {
     $markdown = $this->export($entity);
 
     $langcode = $entity->language()->getId();
@@ -27,9 +32,9 @@ class NodeExporter extends BaseExporter {
     $slug     = $this->getSlug($entity);
     $filepath = $dir . '/' . $slug . '.md';
 
-    file_put_contents($filepath, $markdown);
+    $written = $this->writeIfChanged($filepath, $markdown);
 
-    return $filepath;
+    return ['path' => $filepath, 'skipped' => !$written];
   }
 
   /**
@@ -87,6 +92,7 @@ class NodeExporter extends BaseExporter {
       $body = $this->serializer->htmlToMarkdown($entity->get('body')->value);
     }
 
+    $frontmatter = $this->addChecksum($frontmatter, $body);
     return $this->serializer->serialize($frontmatter, $body);
   }
 

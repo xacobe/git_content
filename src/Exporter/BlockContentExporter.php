@@ -22,8 +22,10 @@ class BlockContentExporter extends BaseExporter {
 
   /**
    * {@inheritdoc}
+   *
+   * @return array{path: string, skipped: bool}
    */
-  public function exportToFile(EntityInterface $entity): string {
+  public function exportToFile(EntityInterface $entity): array {
     $markdown = $this->export($entity);
 
     $langcode = $entity->language()->getId();
@@ -33,9 +35,8 @@ class BlockContentExporter extends BaseExporter {
     $slug     = $this->getBlockSlug($entity);
     $filepath = $dir . '/' . $slug . '.md';
 
-    file_put_contents($filepath, $markdown);
-
-    return $filepath;
+    $written = $this->writeIfChanged($filepath, $markdown);
+    return ['path' => $filepath, 'skipped' => !$written];
   }
 
   /**
@@ -89,6 +90,7 @@ class BlockContentExporter extends BaseExporter {
       $body = $this->serializer->htmlToMarkdown($entity->get('body')->value);
     }
 
+    $frontmatter = $this->addChecksum($frontmatter, $body);
     return $this->serializer->serialize($frontmatter, $body);
   }
 

@@ -69,7 +69,8 @@ class UserExporter extends BaseExporter {
     $files = [];
     foreach ($storage->loadMultiple($uids) as $user) {
       try {
-        $files[] = $this->exportToFile($user);
+        $result = $this->exportToFile($user);
+        $files[] = is_array($result) ? $result['path'] : $result;
       }
       catch (\Exception $e) {
         \Drupal::logger('git_content')->error(
@@ -83,8 +84,10 @@ class UserExporter extends BaseExporter {
 
   /**
    * {@inheritdoc}
+   *
+   * @return array{path: string, skipped: bool}
    */
-  public function exportToFile(EntityInterface $entity): string {
+  public function exportToFile(EntityInterface $entity): array {
     $markdown = $this->export($entity);
 
     $dir = DRUPAL_ROOT . '/content_export/users';
@@ -93,9 +96,8 @@ class UserExporter extends BaseExporter {
     $username = preg_replace('/[^a-z0-9]+/', '-', mb_strtolower($entity->getAccountName()));
     $filepath = $dir . '/' . $entity->id() . '-' . $username . '.md';
 
-    file_put_contents($filepath, $markdown);
-
-    return $filepath;
+    $written = $this->writeIfChanged($filepath, $markdown);
+    return ['path' => $filepath, 'skipped' => !$written];
   }
 
   /**
@@ -144,6 +146,7 @@ class UserExporter extends BaseExporter {
     // NUNCA exportar la contraseña
     // $frontmatter['pass'] se omite intencionalmente
 
+    $frontmatter = $this->addChecksum($frontmatter, '');
     return $this->serializer->serialize($frontmatter);
   }
 

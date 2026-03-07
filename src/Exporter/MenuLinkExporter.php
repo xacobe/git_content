@@ -65,7 +65,8 @@ class MenuLinkExporter extends BaseExporter {
 
     foreach ($storage->loadMultiple($ids) as $link) {
       try {
-        $files[] = $this->exportToFile($link);
+        $result = $this->exportToFile($link);
+        $files[] = is_array($result) ? $result['path'] : $result;
       }
       catch (\Exception $e) {
         \Drupal::logger('git_content')->error(
@@ -79,8 +80,10 @@ class MenuLinkExporter extends BaseExporter {
 
   /**
    * {@inheritdoc}
+   *
+   * @return array{path: string, skipped: bool}
    */
-  public function exportToFile(EntityInterface $entity): string {
+  public function exportToFile(EntityInterface $entity): array {
     $markdown = $this->export($entity);
 
     $menu_id  = $entity->getMenuName();
@@ -93,9 +96,8 @@ class MenuLinkExporter extends BaseExporter {
     $filename = $this->getLinkPath($entity) . '.md';
     $filepath = $dir . '/' . $filename;
 
-    file_put_contents($filepath, $markdown);
-
-    return $filepath;
+    $written = $this->writeIfChanged($filepath, $markdown);
+    return ['path' => $filepath, 'skipped' => !$written];
   }
 
   /**
@@ -180,6 +182,7 @@ class MenuLinkExporter extends BaseExporter {
       $body = $entity->get('description')->value ?? '';
     }
 
+    $frontmatter = $this->addChecksum($frontmatter, $body);
     return $this->serializer->serialize($frontmatter, $body);
   }
 

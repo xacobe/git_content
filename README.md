@@ -49,11 +49,12 @@ Cada `.md` tiene un frontmatter YAML con campos clave como `uuid`, `type`, `lang
 - Importar: `drush git-content:import` (alias `gci`)
 
 ## Formato Markdown / YAML
-Cada archivo `.md` contiene:
+Cada archivo `.md` contiene (entre otros campos) un `checksum` que permite detectar cambios y evitar reimportar cuando no se han realizado modificaciones:
 
 ```md
 ---
 uuid: a1b2c3d4
+checksum: 0beec7b5ea3f0fdbc95d0dd47f3c5bc275da8a33
 type: article
 lang: es
 status: published

@@ -45,9 +45,9 @@ abstract class BaseExporter {
   /**
    * Exporta la entidad a un archivo Markdown en disco.
    *
-   * @return string Ruta del archivo generado.
+   * @return array{path: string, skipped: bool} Información del archivo generado.
    */
-  abstract public function exportToFile(EntityInterface $entity): string;
+  abstract public function exportToFile(EntityInterface $entity): array;
 
   /**
    * Genera el contenido Markdown completo de la entidad.
@@ -230,6 +230,21 @@ abstract class BaseExporter {
   }
 
   /**
+   * Añade un checksum SHA1 al frontmatter para detectar cambios en el archivo.
+   *
+   * El checksum se calcula sobre el Markdown generado sin el campo `checksum`.
+   */
+  protected function addChecksum(array $frontmatter, string $body): array {
+    $fm = $frontmatter;
+    unset($fm['checksum']);
+
+    $hash = sha1($this->serializer->serialize($fm, $body));
+    $frontmatter['checksum'] = $hash;
+
+    return $frontmatter;
+  }
+
+  /**
    * Acorta un UUID a 8 caracteres para legibilidad en el frontmatter.
    */
   protected function shortenUuid(string $uuid): string {
@@ -244,6 +259,24 @@ abstract class BaseExporter {
       return $this->shortenUuid($entity->getUntranslated()->uuid());
     }
     return NULL;
+  }
+
+  /**
+   * Escribe un archivo solo si su contenido ha cambiado respecto al existente.
+   *
+   * @return bool
+   *   TRUE si se escribió el archivo (nuevo o actualizado), FALSE si se omitió.
+   */
+  protected function writeIfChanged(string $filepath, string $content): bool {
+    if (file_exists($filepath)) {
+      $existing = file_get_contents($filepath);
+      if ($existing === $content) {
+        return false;
+      }
+    }
+
+    file_put_contents($filepath, $content);
+    return true;
   }
 
   /**

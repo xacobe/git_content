@@ -60,7 +60,8 @@ class FileExporter extends BaseExporter {
 
     foreach ($storage->loadMultiple($fids) as $file) {
       try {
-        $files[] = $this->exportToFile($file);
+        $result = $this->exportToFile($file);
+        $files[] = is_array($result) ? $result['path'] : $result;
       }
       catch (\Exception $e) {
         \Drupal::logger('git_content')->error(
@@ -74,8 +75,10 @@ class FileExporter extends BaseExporter {
 
   /**
    * {@inheritdoc}
+   *
+   * @return array{path: string, skipped: bool}
    */
-  public function exportToFile(EntityInterface $entity): string {
+  public function exportToFile(EntityInterface $entity): array {
     $markdown = $this->export($entity);
 
     $dir = DRUPAL_ROOT . '/content_export/files';
@@ -84,9 +87,9 @@ class FileExporter extends BaseExporter {
     $filename = $this->sanitizeFilename($entity->getFilename());
     $filepath = $dir . '/' . $entity->id() . '-' . $filename . '.md';
 
-    file_put_contents($filepath, $markdown);
+    $written = $this->writeIfChanged($filepath, $markdown);
 
-    return $filepath;
+    return ['path' => $filepath, 'skipped' => !$written];
   }
 
   /**
@@ -117,6 +120,7 @@ class FileExporter extends BaseExporter {
     $frontmatter['created'] = date('Y-m-d', $entity->getCreatedTime());
     $frontmatter['owner']   = $owner_name;
 
+    $frontmatter = $this->addChecksum($frontmatter, '');
     return $this->serializer->serialize($frontmatter);
   }
 

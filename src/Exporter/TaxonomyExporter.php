@@ -18,7 +18,12 @@ class TaxonomyExporter extends BaseExporter {
   /**
    * {@inheritdoc}
    */
-  public function exportToFile(EntityInterface $entity): string {
+  /**
+   * {@inheritdoc}
+   *
+   * @return array{path: string, skipped: bool}
+   */
+  public function exportToFile(EntityInterface $entity): array {
     $markdown = $this->export($entity);
 
     $langcode = $entity->language()->getId();
@@ -28,9 +33,8 @@ class TaxonomyExporter extends BaseExporter {
     $slug     = $this->getTermSlug($entity);
     $filepath = $dir . '/' . $slug . '.md';
 
-    file_put_contents($filepath, $markdown);
-
-    return $filepath;
+    $written = $this->writeIfChanged($filepath, $markdown);
+    return ['path' => $filepath, 'skipped' => !$written];
   }
 
   /**
@@ -70,6 +74,7 @@ class TaxonomyExporter extends BaseExporter {
       $body = $this->serializer->htmlToMarkdown($entity->get('description')->value ?? '');
     }
 
+    $frontmatter = $this->addChecksum($frontmatter, $body);
     return $this->serializer->serialize($frontmatter, $body);
   }
 
