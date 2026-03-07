@@ -28,6 +28,8 @@ abstract class BaseExporter {
     'revision_timestamp', 'revision_uid', 'revision_log', 'revision_default',
     'revision_translation_affected', 'default_langcode',
     'content_translation_source', 'content_translation_outdated',
+    // block_content system fields
+    'id', 'revision_id', 'revision_created', 'revision_user', 'info', 'reusable',
   ];
 
   public function __construct(FieldDiscovery $fieldDiscovery, MarkdownSerializer $serializer) {

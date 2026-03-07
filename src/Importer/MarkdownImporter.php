@@ -120,7 +120,11 @@ class MarkdownImporter {
       $operation = 'updated';
     }
     else {
-      $node = Node::create(['type' => $bundle, 'langcode' => $langcode]);
+      $node = Node::create([
+        'type'     => $bundle,
+        'langcode' => $langcode,
+        'uuid'     => $short_uuid ? $this->expandShortUuid($short_uuid) : \Drupal::service('uuid')->generate(),
+      ]);
       $operation = 'imported';
     }
 
@@ -178,6 +182,7 @@ class MarkdownImporter {
         'vid'              => $vid,
         'langcode'         => $langcode,
         'default_langcode' => 1,
+        'uuid'             => $short_uuid ? $this->expandShortUuid($short_uuid) : \Drupal::service('uuid')->generate(),
       ]);
       $operation = 'imported';
     }
@@ -236,6 +241,7 @@ class MarkdownImporter {
       $media = $this->entityTypeManager->getStorage('media')->create([
         'bundle'   => $bundle,
         'langcode' => $langcode,
+        'uuid'     => $short_uuid ? $this->expandShortUuid($short_uuid) : \Drupal::service('uuid')->generate(),
       ]);
       $operation = 'imported';
     }
@@ -263,13 +269,7 @@ class MarkdownImporter {
       throw new \Exception("El frontmatter del block_content no contiene 'bundle'.");
     }
 
-    // UUID vacío o nulo: no podemos identificar el bloque de forma segura.
-    // Requerir UUID para evitar duplicados al reimportar.
-    if (empty($short_uuid)) {
-      throw new \Exception("El block_content no tiene 'uuid' en el frontmatter. Añade un uuid para poder importarlo.");
-    }
-
-    $existing = $this->findByShortUuidGlobal($short_uuid, 'block_content');
+    $existing = $short_uuid ? $this->findByShortUuidGlobal($short_uuid, 'block_content') : NULL;
 
     if ($existing) {
       $block = $existing->hasTranslation($langcode)
@@ -282,6 +282,7 @@ class MarkdownImporter {
         'type'             => $bundle,
         'langcode'         => $langcode,
         'default_langcode' => 1,
+        'uuid'             => $short_uuid ? $this->expandShortUuid($short_uuid) : \Drupal::service('uuid')->generate(),
       ]);
       $operation = 'imported';
     }
@@ -332,6 +333,7 @@ class MarkdownImporter {
       $link = $this->entityTypeManager->getStorage('menu_link_content')->create([
         'langcode'  => $langcode,
         'menu_name' => $menu_name,
+        'uuid'      => $short_uuid ? $this->expandShortUuid($short_uuid) : \Drupal::service('uuid')->generate(),
       ]);
       $operation = 'imported';
     }
@@ -409,6 +411,8 @@ class MarkdownImporter {
       'nid', 'vid', 'tid', 'mid', 'revision_log', 'revision_default',
       'revision_translation_affected', 'default_langcode',
       'content_translation_source', 'content_translation_outdated',
+      // block_content system fields
+      'id', 'revision_id', 'revision_created', 'revision_user', 'info', 'reusable',
     ];
 
     foreach ($definitions as $field_name => $definition) {
@@ -665,6 +669,28 @@ class MarkdownImporter {
       return $ts !== FALSE ? $ts : \Drupal::time()->getCurrentTime();
     }
     return \Drupal::time()->getCurrentTime();
+  }
+
+
+  /**
+   * Intenta reconstruir un UUID completo a partir de un UUID corto (8 chars).
+   *
+   * El UUID corto es los primeros 8 caracteres del UUID sin guiones.
+   * No es posible recuperar el UUID original exacto, así que generamos uno
+   * nuevo que empieza con esos 8 caracteres para mantener trazabilidad.
+   * Si el frontmatter tiene el UUID completo (32 chars sin guiones) lo usamos tal cual.
+   */
+  protected function expandShortUuid(string $short): string {
+    $clean = str_replace('-', '', $short);
+
+    // Si ya es un UUID completo sin guiones (32 chars), formatear con guiones
+    if (strlen($clean) === 32) {
+      return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split($clean, 4));
+    }
+
+    // UUID corto: completar con ceros y generar formato UUID válido
+    $padded = str_pad($clean, 32, '0');
+    return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split($padded, 4));
   }
 
   protected function isAssoc(array $arr): bool {
