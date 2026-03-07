@@ -6,6 +6,8 @@ use Drupal\git_content\Exporter\NodeExporter;
 use Drupal\git_content\Exporter\TaxonomyExporter;
 use Drupal\git_content\Exporter\MediaExporter;
 use Drupal\git_content\Exporter\BlockContentExporter;
+use Drupal\git_content\Exporter\FileExporter;
+use Drupal\git_content\Exporter\UserExporter;
 use Drupal\git_content\Exporter\MenuLinkExporter;
 use Drupal\git_content\Importer\MarkdownImporter;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
@@ -27,6 +29,8 @@ class GitContentCommands extends DrushCommands {
   protected TaxonomyExporter $taxonomyExporter;
   protected MediaExporter $mediaExporter;
   protected BlockContentExporter $blockContentExporter;
+  protected FileExporter $fileExporter;
+  protected UserExporter $userExporter;
   protected MenuLinkExporter $menuLinkExporter;
   protected MarkdownImporter $importer;
   protected EntityTypeManagerInterface $entityTypeManager;
@@ -36,6 +40,8 @@ class GitContentCommands extends DrushCommands {
     TaxonomyExporter $taxonomyExporter,
     MediaExporter $mediaExporter,
     BlockContentExporter $blockContentExporter,
+    FileExporter $fileExporter,
+    UserExporter $userExporter,
     MenuLinkExporter $menuLinkExporter,
     MarkdownImporter $importer,
     EntityTypeManagerInterface $entityTypeManager
@@ -45,6 +51,8 @@ class GitContentCommands extends DrushCommands {
     $this->taxonomyExporter = $taxonomyExporter;
     $this->mediaExporter        = $mediaExporter;
     $this->blockContentExporter = $blockContentExporter;
+    $this->fileExporter         = $fileExporter;
+    $this->userExporter         = $userExporter;
     $this->menuLinkExporter     = $menuLinkExporter;
     $this->importer         = $importer;
     $this->entityTypeManager = $entityTypeManager;
@@ -68,7 +76,7 @@ class GitContentCommands extends DrushCommands {
       'nodes'    => ['nodes'],
       'taxonomy' => ['taxonomy'],
       'media'    => ['media'],
-      default    => ['nodes', 'taxonomy', 'media', 'blocks', 'menus'],
+      default    => ['files', 'users', 'nodes', 'taxonomy', 'media', 'blocks', 'menus'],
     };
 
     foreach ($types as $t) {
@@ -77,6 +85,8 @@ class GitContentCommands extends DrushCommands {
         'taxonomy' => $this->exportTaxonomy(),
         'media'    => $this->exportMedia(),
       'blocks'   => $this->exportBlocks(),
+      'files'    => $this->exportFiles(),
+      'users'    => $this->exportUsers(),
       'menus'    => $this->exportMenuLinks(),
       };
     }
@@ -157,6 +167,21 @@ class GitContentCommands extends DrushCommands {
     }
 
     $this->logger()->notice("  $count términos exportados.");
+  }
+
+  private function exportFiles(): void {
+    $this->logger()->notice('Exportando archivos...');
+    $files = $this->fileExporter->exportAll();
+    $this->logger()->notice('  ' . count($files) . ' archivos exportados.');
+  }
+
+  private function exportUsers(): void {
+    $this->logger()->notice('Exportando usuarios...');
+    $files = $this->userExporter->exportAll();
+    foreach ($files as $f) {
+      $this->logger()->info("  ✔ $f");
+    }
+    $this->logger()->notice('  ' . count($files) . ' usuarios exportados.');
   }
 
   private function exportMenuLinks(): void {

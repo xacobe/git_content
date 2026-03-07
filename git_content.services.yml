@@ -19,6 +19,14 @@ services:
     class: Drupal\git_content\Exporter\TaxonomyExporter
     arguments: ['@git_content.field_discovery', '@git_content.serializer']
 
+  git_content.file_exporter:
+    class: Drupal\git_content\Exporter\FileExporter
+    arguments: ['@git_content.field_discovery', '@git_content.serializer', '@entity_type.manager']
+
+  git_content.user_exporter:
+    class: Drupal\git_content\Exporter\UserExporter
+    arguments: ['@git_content.field_discovery', '@git_content.serializer', '@entity_type.manager']
+
   git_content.menu_link_exporter:
     class: Drupal\git_content\Exporter\MenuLinkExporter
     arguments: ['@git_content.field_discovery', '@git_content.serializer', '@entity_type.manager']
@@ -46,6 +54,8 @@ services:
       - '@git_content.taxonomy_exporter'
       - '@git_content.media_exporter'
       - '@git_content.block_content_exporter'
+      - '@git_content.file_exporter'
+      - '@git_content.user_exporter'
       - '@git_content.menu_link_exporter'
       - '@git_content.importer'
       - '@entity_type.manager'

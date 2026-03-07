@@ -7,6 +7,8 @@ use Drupal\git_content\Exporter\NodeExporter;
 use Drupal\git_content\Exporter\TaxonomyExporter;
 use Drupal\git_content\Exporter\MediaExporter;
 use Drupal\git_content\Exporter\BlockContentExporter;
+use Drupal\git_content\Exporter\FileExporter;
+use Drupal\git_content\Exporter\UserExporter;
 use Drupal\git_content\Exporter\MenuLinkExporter;
 use Drupal\git_content\Importer\MarkdownImporter;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
@@ -26,6 +28,8 @@ class GitContentController extends ControllerBase {
   protected MediaExporter $mediaExporter;
   protected MarkdownImporter $importer;
   protected BlockContentExporter $blockContentExporter;
+  protected FileExporter $fileExporter;
+  protected UserExporter $userExporter;
   protected MenuLinkExporter $menuLinkExporter;
 
   public function __construct(
@@ -34,6 +38,8 @@ class GitContentController extends ControllerBase {
     MediaExporter $mediaExporter,
     MarkdownImporter $importer,
     BlockContentExporter $blockContentExporter,
+    FileExporter $fileExporter,
+    UserExporter $userExporter,
     MenuLinkExporter $menuLinkExporter,
     EntityTypeManagerInterface $entityTypeManager
   ) {
@@ -42,6 +48,8 @@ class GitContentController extends ControllerBase {
     $this->mediaExporter        = $mediaExporter;
     $this->importer             = $importer;
     $this->blockContentExporter = $blockContentExporter;
+    $this->fileExporter         = $fileExporter;
+    $this->userExporter         = $userExporter;
     $this->menuLinkExporter     = $menuLinkExporter;
     $this->entityTypeManager    = $entityTypeManager;
   }
@@ -53,6 +61,8 @@ class GitContentController extends ControllerBase {
       $container->get('git_content.media_exporter'),
       $container->get('git_content.importer'),
       $container->get('git_content.block_content_exporter'),
+      $container->get('git_content.file_exporter'),
+      $container->get('git_content.user_exporter'),
       $container->get('git_content.menu_link_exporter'),
       $container->get('entity_type.manager'),
     );
@@ -68,6 +78,25 @@ class GitContentController extends ControllerBase {
     $output .= $this->exportEntities('taxonomy_term', $this->taxonomyExporter, 'Taxonomía');
     $output .= $this->exportEntities('media', $this->mediaExporter, 'Media');
     $output .= $this->exportEntities('block_content', $this->blockContentExporter, 'Bloques de contenido');
+
+    // Files and users (run before nodes so references resolve correctly)
+    try {
+      $files = $this->fileExporter->exportAll();
+      $output .= '<strong>Archivos (' . count($files) . '):</strong> exportados<br><br>';
+    } catch (\Exception $e) {
+      $output .= '✘ Error exportando archivos: ' . $e->getMessage() . '<br>';
+    }
+
+    try {
+      $files = $this->userExporter->exportAll();
+      $output .= '<strong>Usuarios (' . count($files) . '):</strong><br>';
+      foreach ($files as $f) {
+        $output .= '✔ ' . str_replace(DRUPAL_ROOT . '/', '', $f) . '<br>';
+      }
+      $output .= '<br>';
+    } catch (\Exception $e) {
+      $output .= '✘ Error exportando usuarios: ' . $e->getMessage() . '<br>';
+    }
 
     // Menu links - exportAll() handles its own loop internally
     try {

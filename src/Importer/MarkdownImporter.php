@@ -91,8 +91,10 @@ class MarkdownImporter {
     }
 
     return match ($type) {
-      'taxonomy_term' => $this->importTerm($frontmatter, $body),
-      'media'         => $this->importMedia($frontmatter, $body),
+      'file'             => $this->importFile_($frontmatter),
+      'user'             => $this->importUser($frontmatter),
+      'taxonomy_term'    => $this->importTerm($frontmatter, $body),
+      'media'            => $this->importMedia($frontmatter, $body),
       'block_content'    => $this->importBlockContent($frontmatter, $body),
       'menu_link_content'=> $this->importMenuLink($frontmatter, $body),
       default            => $this->importNode($frontmatter, $body),
@@ -153,6 +155,152 @@ class MarkdownImporter {
     if (!empty($frontmatter['path'])) {
       $this->savePathAlias($node, $frontmatter['path'], $langcode);
     }
+
+    return $operation;
+  }
+
+
+  /**
+   * Importa o actualiza una entidad file (solo metadatos).
+   *
+   * El archivo físico debe existir ya en sites/default/files/.
+   * Este método registra o actualiza la entidad en la tabla managed_file.
+   * Nombre del método: importFile_ para evitar colisión con importFile().
+   */
+  protected function importFile_(array $frontmatter): string {
+    $short_uuid = $frontmatter['uuid'] ?? NULL;
+    $uri        = $frontmatter['uri'] ?? NULL;
+    $langcode   = $frontmatter['lang'] ?? 'und';
+
+    if (!$uri) {
+      throw new \Exception("El frontmatter del file no contiene 'uri'.");
+    }
+
+    // Buscar por UUID corto primero, luego por URI como fallback
+    $existing = $short_uuid ? $this->findByShortUuidGlobal($short_uuid, 'file') : NULL;
+
+    if (!$existing) {
+      $existing_files = $this->entityTypeManager->getStorage('file')
+        ->loadByProperties(['uri' => $uri]);
+      $existing = !empty($existing_files) ? reset($existing_files) : NULL;
+    }
+
+    if ($existing) {
+      $file = $existing;
+      $operation = 'updated';
+    }
+    else {
+      $file = $this->entityTypeManager->getStorage('file')->create([
+        'langcode' => $langcode,
+        'uuid'     => $short_uuid ? $this->expandShortUuid($short_uuid) : \Drupal::service('uuid')->generate(),
+      ]);
+      $operation = 'imported';
+    }
+
+    $file->set('filename', $frontmatter['filename'] ?? basename($uri));
+    $file->set('uri', $uri);
+    $file->set('filemime', $frontmatter['mime'] ?? 'application/octet-stream');
+    $file->set('filesize', (int) ($frontmatter['size'] ?? 0));
+    $file->set('status', ($frontmatter['status'] ?? 'permanent') === 'permanent' ? 1 : 0);
+
+    if (!empty($frontmatter['created'])) {
+      $file->set('created', $this->parseDate($frontmatter['created']));
+    }
+
+    // Resolver propietario por nombre de usuario
+    if (!empty($frontmatter['owner'])) {
+      $uid = $this->findUserByName($frontmatter['owner']);
+      if ($uid) {
+        $file->set('uid', $uid);
+      }
+    }
+
+    $file->save();
+
+    return $operation;
+  }
+
+  /**
+   * Importa o actualiza un usuario.
+   *
+   * Si el usuario ya existe (por UUID o por nombre/email) se actualiza.
+   * El usuario 1 se omite al importar si ya existe para no sobreescribir
+   * credenciales. Las contraseñas nunca se importan; si es un usuario nuevo
+   * se genera una contraseña aleatoria que deberá resetearse.
+   */
+  protected function importUser(array $frontmatter): string {
+    $short_uuid = $frontmatter['uuid'] ?? NULL;
+    $name       = $frontmatter['name'] ?? NULL;
+    $mail       = $frontmatter['mail'] ?? NULL;
+    $langcode   = $frontmatter['lang'] ?? 'und';
+
+    if (!$name) {
+      throw new \Exception("El frontmatter del usuario no contiene 'name'.");
+    }
+
+    // Buscar existente por UUID, luego por nombre, luego por email
+    $existing = $short_uuid ? $this->findByShortUuidGlobal($short_uuid, 'user') : NULL;
+
+    if (!$existing && $name) {
+      $users = $this->entityTypeManager->getStorage('user')
+        ->loadByProperties(['name' => $name]);
+      $existing = !empty($users) ? reset($users) : NULL;
+    }
+
+    if (!$existing && $mail) {
+      $users = $this->entityTypeManager->getStorage('user')
+        ->loadByProperties(['mail' => $mail]);
+      $existing = !empty($users) ? reset($users) : NULL;
+    }
+
+    // Si el usuario 1 ya existe, actualizar solo datos no críticos
+    if ($existing && (int) $existing->id() === 1) {
+      $existing->set('timezone', $frontmatter['timezone'] ?? 'UTC');
+      $existing->save();
+      return 'updated';
+    }
+
+    if ($existing) {
+      $user = $existing;
+      $operation = 'updated';
+    }
+    else {
+      $user = $this->entityTypeManager->getStorage('user')->create([
+        'langcode' => $langcode,
+        'uuid'     => $short_uuid ? $this->expandShortUuid($short_uuid) : \Drupal::service('uuid')->generate(),
+        // Contraseña aleatoria segura; debe resetearse manualmente
+        'pass'     => \Drupal::service('password_generator')->generate(20),
+      ]);
+      $operation = 'imported';
+    }
+
+    $user->set('name', $name);
+    $user->set('status', ($frontmatter['status'] ?? 'active') === 'active' ? 1 : 0);
+    $user->set('langcode', $langcode);
+    $user->set('preferred_langcode', $langcode);
+    $user->set('timezone', $frontmatter['timezone'] ?? 'UTC');
+
+    if ($mail) {
+      $user->set('mail', $mail);
+      $user->set('init', $mail);
+    }
+
+    if (!empty($frontmatter['created'])) {
+      $user->set('created', $this->parseDate($frontmatter['created']));
+    }
+
+    // Asignar roles (deben existir ya en config)
+    if (!empty($frontmatter['roles']) && is_array($frontmatter['roles'])) {
+      foreach ($frontmatter['roles'] as $role) {
+        $user->addRole($role);
+      }
+    }
+
+    // Campos extra del perfil
+    $definitions = $this->fieldDiscovery->getFields('user', 'user');
+    $this->populateDynamicFields($user, $frontmatter, $definitions);
+
+    $user->save();
 
     return $operation;
   }
@@ -691,6 +839,16 @@ class MarkdownImporter {
     // UUID corto: completar con ceros y generar formato UUID válido
     $padded = str_pad($clean, 32, '0');
     return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split($padded, 4));
+  }
+
+
+  /**
+   * Busca un usuario por nombre de cuenta.
+   */
+  protected function findUserByName(string $name): ?int {
+    $users = $this->entityTypeManager->getStorage('user')
+      ->loadByProperties(['name' => $name]);
+    return !empty($users) ? (int) reset($users)->id() : NULL;
   }
 
   protected function isAssoc(array $arr): bool {
