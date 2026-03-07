@@ -1,0 +1,16 @@
+{
+  "name": "drupal/git_content",
+  "description": "Export and import Drupal content to Markdown versionable in Git",
+  "type": "drupal-module",
+  "license": "GPL-2.0-or-later",
+  "require": {
+    "league/commonmark": "^2.4",
+    "league/html-to-markdown": "^5.1"
+  },
+  "require-dev": {},
+  "extra": {
+    "drupal": {
+      "version": "1.0.0"
+    }
+  }
+}

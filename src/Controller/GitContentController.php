@@ -6,6 +6,8 @@ use Drupal\Core\Controller\ControllerBase;
 use Drupal\git_content\Exporter\NodeExporter;
 use Drupal\git_content\Exporter\TaxonomyExporter;
 use Drupal\git_content\Exporter\MediaExporter;
+use Drupal\git_content\Exporter\BlockContentExporter;
+use Drupal\git_content\Exporter\MenuLinkExporter;
 use Drupal\git_content\Importer\MarkdownImporter;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -23,20 +25,25 @@ class GitContentController extends ControllerBase {
   protected TaxonomyExporter $taxonomyExporter;
   protected MediaExporter $mediaExporter;
   protected MarkdownImporter $importer;
+  protected BlockContentExporter $blockContentExporter;
+  protected MenuLinkExporter $menuLinkExporter;
 
   public function __construct(
     NodeExporter $nodeExporter,
     TaxonomyExporter $taxonomyExporter,
     MediaExporter $mediaExporter,
     MarkdownImporter $importer,
+    BlockContentExporter $blockContentExporter,
+    MenuLinkExporter $menuLinkExporter,
     EntityTypeManagerInterface $entityTypeManager
   ) {
-    $this->nodeExporter     = $nodeExporter;
-    $this->taxonomyExporter = $taxonomyExporter;
-    $this->mediaExporter    = $mediaExporter;
-    $this->importer         = $importer;
-    // Asignar a la propiedad de ControllerBase para reutilizar entityTypeManager()
-    $this->entityTypeManager = $entityTypeManager;
+    $this->nodeExporter         = $nodeExporter;
+    $this->taxonomyExporter     = $taxonomyExporter;
+    $this->mediaExporter        = $mediaExporter;
+    $this->importer             = $importer;
+    $this->blockContentExporter = $blockContentExporter;
+    $this->menuLinkExporter     = $menuLinkExporter;
+    $this->entityTypeManager    = $entityTypeManager;
   }
 
   public static function create(ContainerInterface $container): static {
@@ -45,6 +52,8 @@ class GitContentController extends ControllerBase {
       $container->get('git_content.taxonomy_exporter'),
       $container->get('git_content.media_exporter'),
       $container->get('git_content.importer'),
+      $container->get('git_content.block_content_exporter'),
+      $container->get('git_content.menu_link_exporter'),
       $container->get('entity_type.manager'),
     );
   }
@@ -58,6 +67,20 @@ class GitContentController extends ControllerBase {
     $output .= $this->exportEntities('node', $this->nodeExporter, 'Nodos');
     $output .= $this->exportEntities('taxonomy_term', $this->taxonomyExporter, 'Taxonomía');
     $output .= $this->exportEntities('media', $this->mediaExporter, 'Media');
+    $output .= $this->exportEntities('block_content', $this->blockContentExporter, 'Bloques de contenido');
+
+    // Menu links - exportAll() handles its own loop internally
+    try {
+      $files = $this->menuLinkExporter->exportAll();
+      $output .= '<strong>Enlaces de menú (' . count($files) . '):</strong><br>';
+      foreach ($files as $f) {
+        $output .= '✔ ' . str_replace(DRUPAL_ROOT . '/', '', $f) . '<br>';
+      }
+      $output .= '<br>';
+    }
+    catch (\Exception $e) {
+      $output .= '✘ Error exportando menús: ' . $e->getMessage() . '<br>';
+    }
 
     return ['#markup' => $output];
   }

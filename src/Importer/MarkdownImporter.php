@@ -93,7 +93,9 @@ class MarkdownImporter {
     return match ($type) {
       'taxonomy_term' => $this->importTerm($frontmatter, $body),
       'media'         => $this->importMedia($frontmatter, $body),
-      default         => $this->importNode($frontmatter, $body),
+      'block_content'    => $this->importBlockContent($frontmatter, $body),
+      'menu_link_content'=> $this->importMenuLink($frontmatter, $body),
+      default            => $this->importNode($frontmatter, $body),
     };
   }
 
@@ -242,6 +244,144 @@ class MarkdownImporter {
 
     return $operation;
   }
+
+  /**
+   * Importa o actualiza un block_content (bloque de contenido personalizado).
+   */
+  protected function importBlockContent(array $frontmatter, string $body): string {
+    $bundle     = $frontmatter['bundle'] ?? NULL;
+    $langcode   = $frontmatter['lang'] ?? 'und';
+    $short_uuid = $frontmatter['uuid'] ?? NULL;
+
+    if (!$bundle) {
+      throw new \Exception("El frontmatter del block_content no contiene 'bundle'.");
+    }
+
+    $existing = $short_uuid ? $this->findByShortUuid($short_uuid, 'block_content', $bundle) : NULL;
+
+    if ($existing) {
+      $block = $existing->hasTranslation($langcode)
+        ? $existing->getTranslation($langcode)
+        : $existing->addTranslation($langcode);
+      $operation = 'updated';
+    }
+    else {
+      $block = $this->entityTypeManager->getStorage('block_content')->create([
+        'type'     => $bundle,
+        'langcode' => $langcode,
+      ]);
+      $operation = 'imported';
+    }
+
+    $block->set('info', $frontmatter['title'] ?? 'Sin título');
+    $block->set('status', ($frontmatter['status'] ?? 'draft') === 'published' ? 1 : 0);
+
+    if ($block->hasField('body') && !empty($body)) {
+      $block->set('body', [
+        'value'  => $this->serializer->markdownToHtml($body),
+        'format' => 'basic_html',
+      ]);
+    }
+
+    $definitions = $this->fieldDiscovery->getFields('block_content', $bundle);
+    $this->populateDynamicFields($block, $frontmatter, $definitions);
+
+    $block->save();
+
+    return $operation;
+  }
+
+  /**
+   * Importa o actualiza un menu_link_content.
+   *
+   * Los enlaces se importan respetando la jerarquía: los padres antes que los
+   * hijos. El método importAllMenuLinks() de importAll() ya ordena los archivos
+   * por nombre (que lleva el peso como prefijo), pero la jerarquía se resuelve
+   * aquí mediante un mapa uuid_corto → plugin_id real.
+   */
+  protected function importMenuLink(array $frontmatter, string $body): string {
+    $langcode   = $frontmatter['lang'] ?? 'und';
+    $short_uuid = $frontmatter['uuid'] ?? NULL;
+    $menu_name  = $frontmatter['menu'] ?? 'main';
+
+    $existing = $short_uuid
+      ? $this->findByShortUuid($short_uuid, 'menu_link_content', $menu_name)
+      : NULL;
+
+    if ($existing) {
+      $link = $existing->hasTranslation($langcode)
+        ? $existing->getTranslation($langcode)
+        : $existing->addTranslation($langcode);
+      $operation = 'updated';
+    }
+    else {
+      $link = $this->entityTypeManager->getStorage('menu_link_content')->create([
+        'langcode'  => $langcode,
+        'menu_name' => $menu_name,
+      ]);
+      $operation = 'imported';
+    }
+
+    $link->set('title', $frontmatter['title'] ?? '');
+    $link->set('link', ['uri' => $frontmatter['url'] ?? 'internal:/']);
+    $link->set('weight', (int) ($frontmatter['weight'] ?? 0));
+    $link->set('expanded', (bool) ($frontmatter['expanded'] ?? FALSE));
+    $link->set('enabled', (bool) ($frontmatter['enabled'] ?? TRUE));
+
+    // Resolver el padre: el frontmatter guarda el UUID corto del padre.
+    // Lo resolvemos contra el mapa que construye importAll().
+    $parent_ref = $frontmatter['parent'] ?? NULL;
+    if ($parent_ref) {
+      $parent_plugin_id = $this->resolveMenuLinkParent($parent_ref, $menu_name);
+      if ($parent_plugin_id) {
+        $link->set('parent', $parent_plugin_id);
+      }
+    }
+
+    if (!empty($body) && $link->hasField('description')) {
+      $link->set('description', trim($body));
+    }
+
+    $link->save();
+
+    // Registrar el plugin_id real en el mapa para que los hijos puedan usarlo
+    if ($short_uuid) {
+      $this->menuLinkUuidMap[$short_uuid] = 'menu_link_content:' . $link->uuid();
+    }
+
+    return $operation;
+  }
+
+  /**
+   * Mapa temporal uuid_corto → plugin_id real, usado durante la importación.
+   * Se rellena conforme se van importando los enlaces.
+   */
+  protected array $menuLinkUuidMap = [];
+
+  /**
+   * Resuelve el plugin_id del padre a partir de su UUID corto.
+   * Si el padre es un plugin de otro módulo, lo devuelve tal cual.
+   */
+  protected function resolveMenuLinkParent(string $parent_ref, string $menu_name): ?string {
+    // Si ya está en el mapa (importado en esta sesión)
+    if (isset($this->menuLinkUuidMap[$parent_ref])) {
+      return $this->menuLinkUuidMap[$parent_ref];
+    }
+
+    // Si es un plugin externo (no menu_link_content), devolverlo tal cual
+    if (!preg_match('/^[a-f0-9]{8}$/', $parent_ref)) {
+      return $parent_ref;
+    }
+
+    // Buscar en base de datos por UUID corto
+    $existing = $this->findByShortUuid($parent_ref, 'menu_link_content', $menu_name);
+    if ($existing) {
+      return 'menu_link_content:' . $existing->uuid();
+    }
+
+    return NULL;
+  }
+
 
   // ---------------------------------------------------------------------------
   // Población de campos dinámicos
@@ -434,10 +574,12 @@ class MarkdownImporter {
 
   protected function findByShortUuid(string $short_uuid, string $entity_type, string $bundle): mixed {
     $bundle_key = match($entity_type) {
-      'node'          => 'type',
-      'taxonomy_term' => 'vid',
-      'media'         => 'bundle',
-      default         => 'type',
+      'node'             => 'type',
+      'taxonomy_term'    => 'vid',
+      'media'            => 'bundle',
+      'block_content'    => 'type',
+      'menu_link_content'=> 'menu_name',
+      default            => 'type',
     };
 
     $storage = $this->entityTypeManager->getStorage($entity_type);
