@@ -3,62 +3,67 @@
 namespace Drupal\git_content\Controller;
 
 use Drupal\Core\Controller\ControllerBase;
-use Drupal\git_content\Discovery\FieldDiscovery;
-use Drupal\git_content\Exporter\EntityExporter;
-use Drupal\git_content\Importer\EntityImporter;
+use Drupal\git_content\Exporter\NodeExporter;
+use Drupal\git_content\Exporter\TaxonomyExporter;
+use Drupal\git_content\Exporter\MediaExporter;
+use Drupal\git_content\Importer\MarkdownImporter;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
-use Drupal\Core\Entity\EntityFieldManagerInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
+/**
+ * Controlador web para exportar e importar contenido desde la UI de Drupal.
+ *
+ * Rutas disponibles:
+ *   /git-content/export  → exporta nodos, taxonomía y media
+ *   /git-content/import  → importa desde content_export/
+ */
 class GitContentController extends ControllerBase {
 
-  protected EntityExporter $exporter;
-  protected EntityImporter $importer;
+  protected NodeExporter $nodeExporter;
+  protected TaxonomyExporter $taxonomyExporter;
+  protected MediaExporter $mediaExporter;
+  protected MarkdownImporter $importer;
 
   public function __construct(
-    EntityTypeManagerInterface $entityTypeManager,
-    EntityFieldManagerInterface $entityFieldManager
+    NodeExporter $nodeExporter,
+    TaxonomyExporter $taxonomyExporter,
+    MediaExporter $mediaExporter,
+    MarkdownImporter $importer,
+    EntityTypeManagerInterface $entityTypeManager
   ) {
+    $this->nodeExporter     = $nodeExporter;
+    $this->taxonomyExporter = $taxonomyExporter;
+    $this->mediaExporter    = $mediaExporter;
+    $this->importer         = $importer;
+    // Asignar a la propiedad de ControllerBase para reutilizar entityTypeManager()
     $this->entityTypeManager = $entityTypeManager;
-    $fieldDiscovery = new FieldDiscovery($entityTypeManager, $entityFieldManager);
-    $this->exporter = new EntityExporter($fieldDiscovery);
-    $this->importer = new EntityImporter($fieldDiscovery, $entityTypeManager);
   }
 
   public static function create(ContainerInterface $container): static {
     return new static(
+      $container->get('git_content.node_exporter'),
+      $container->get('git_content.taxonomy_exporter'),
+      $container->get('git_content.media_exporter'),
+      $container->get('git_content.importer'),
       $container->get('entity_type.manager'),
-      $container->get('entity_field.manager'),
     );
   }
 
   /**
-   * Exporta todos los nodos a archivos Markdown en content_export/.
+   * Exporta nodos, términos de taxonomía y media a content_export/.
    */
   public function exportGit(): array {
-    $nids = $this->entityTypeManager->getStorage('node')->getQuery()
-      ->accessCheck(TRUE)
-      ->execute();
-
-    $nodes = $this->entityTypeManager->getStorage('node')->loadMultiple($nids);
-
     $output = '<strong>Git Content Export</strong><br><br>';
 
-    foreach ($nodes as $node) {
-      try {
-        $filepath = $this->exporter->exportToFile($node);
-        $output .= '✔ Nodo ' . $node->id() . ' (' . $node->bundle() . '): ' . $filepath . '<br>';
-      }
-      catch (\Exception $e) {
-        $output .= '✘ Nodo ' . $node->id() . ': error — ' . $e->getMessage() . '<br>';
-      }
-    }
+    $output .= $this->exportEntities('node', $this->nodeExporter, 'Nodos');
+    $output .= $this->exportEntities('taxonomy_term', $this->taxonomyExporter, 'Taxonomía');
+    $output .= $this->exportEntities('media', $this->mediaExporter, 'Media');
 
     return ['#markup' => $output];
   }
 
   /**
-   * Importa todos los archivos Markdown de content_export/ a nodos de Drupal.
+   * Importa todos los archivos .md de content_export/ a Drupal.
    */
   public function importGit(): array {
     $result = $this->importer->importAll();
@@ -93,6 +98,44 @@ class GitContentController extends ControllerBase {
     }
 
     return ['#markup' => $output];
+  }
+
+  // ---------------------------------------------------------------------------
+  // Helpers
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Exporta todas las entidades de un tipo y devuelve el HTML de resultado.
+   */
+  private function exportEntities(string $entity_type, $exporter, string $label): string {
+    $storage = $this->entityTypeManager()->getStorage($entity_type);
+
+    // Algunos entity types pueden no estar instalados (ej. media)
+    try {
+      $ids = $storage->getQuery()->accessCheck(TRUE)->execute();
+    }
+    catch (\Exception $e) {
+      return "<em>$label: no disponible ({$e->getMessage()})</em><br><br>";
+    }
+
+    if (empty($ids)) {
+      return "<em>$label: ninguna entidad encontrada.</em><br><br>";
+    }
+
+    $entities = $storage->loadMultiple($ids);
+    $lines = "<strong>$label (" . count($entities) . "):</strong><br>";
+
+    foreach ($entities as $entity) {
+      try {
+        $filepath = $exporter->exportToFile($entity);
+        $lines .= '✔ ' . $entity->id() . ' (' . $entity->bundle() . '): ' . $filepath . '<br>';
+      }
+      catch (\Exception $e) {
+        $lines .= '✘ ' . $entity->id() . ': ' . $e->getMessage() . '<br>';
+      }
+    }
+
+    return $lines . '<br>';
   }
 
 }

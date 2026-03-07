@@ -1,12 +1,43 @@
 services:
+
+  # --- Infraestructura compartida ---
+
   git_content.field_discovery:
     class: Drupal\git_content\Discovery\FieldDiscovery
     arguments: ['@entity_type.manager', '@entity_field.manager']
 
-  git_content.exporter:
-    class: Drupal\git_content\Exporter\EntityExporter
-    arguments: ['@git_content.field_discovery']
+  git_content.serializer:
+    class: Drupal\git_content\Serializer\MarkdownSerializer
+
+  # --- Exportadores ---
+
+  git_content.node_exporter:
+    class: Drupal\git_content\Exporter\NodeExporter
+    arguments: ['@git_content.field_discovery', '@git_content.serializer']
+
+  git_content.taxonomy_exporter:
+    class: Drupal\git_content\Exporter\TaxonomyExporter
+    arguments: ['@git_content.field_discovery', '@git_content.serializer']
+
+  git_content.media_exporter:
+    class: Drupal\git_content\Exporter\MediaExporter
+    arguments: ['@git_content.field_discovery', '@git_content.serializer']
+
+  # --- Importador ---
 
   git_content.importer:
-    class: Drupal\git_content\Importer\EntityImporter
-    arguments: ['@git_content.field_discovery']
+    class: Drupal\git_content\Importer\MarkdownImporter
+    arguments: ['@git_content.field_discovery', '@git_content.serializer', '@entity_type.manager']
+
+  # --- Comandos Drush ---
+
+  git_content.commands:
+    class: Drupal\git_content\Commands\GitContentCommands
+    arguments:
+      - '@git_content.node_exporter'
+      - '@git_content.taxonomy_exporter'
+      - '@git_content.media_exporter'
+      - '@git_content.importer'
+      - '@entity_type.manager'
+    tags:
+      - { name: drush.command }
