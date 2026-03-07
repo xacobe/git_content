@@ -1,0 +1,15 @@
+git_content.export:
+  title: 'Exportar contenido a Git'
+  description: 'Exporta el contenido de Drupal a archivos Markdown en content_export/'.
+  route_name: git_content.export
+  parent: system.admin_config_development
+  menu_name: admin
+  weight: 0
+
+git_content.import:
+  title: 'Importar contenido desde Git'
+  description: 'Importa contenido desde archivos Markdown en content_export/ a Drupal.'
+  route_name: git_content.import
+  parent: system.admin_config_development
+  menu_name: admin
+  weight: 1
