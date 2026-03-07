@@ -232,13 +232,20 @@ abstract class BaseExporter {
   /**
    * Añade un checksum SHA1 al frontmatter para detectar cambios en el archivo.
    *
-   * El checksum se calcula sobre el Markdown generado sin el campo `checksum`.
+   * El checksum se calcula sobre una representación canónica del frontmatter
+   * + body (JSON con claves ordenadas) para que sea estable aun cuando cambie
+   * el orden del YAML o el formato de serialización.
    */
   protected function addChecksum(array $frontmatter, string $body): array {
-    $fm = $frontmatter;
+    // Aseguramos que el checksum se calcula sobre la misma estructura que el
+    // importador utiliza para comparar (grupos aplanados).
+    $fm = $this->serializer->flattenGroups($frontmatter);
     unset($fm['checksum']);
+    $fm = array_filter($fm, fn($key) => !preg_match('/^_+$/', (string) $key), ARRAY_FILTER_USE_KEY);
 
-    $hash = sha1($this->serializer->serialize($fm, $body));
+    $canonical = $this->canonicalizeForHash(['frontmatter' => $fm, 'body' => $body]);
+    $hash = sha1(json_encode($canonical, \JSON_UNESCAPED_UNICODE | \JSON_UNESCAPED_SLASHES | \JSON_PRESERVE_ZERO_FRACTION));
+
     $frontmatter['checksum'] = $hash;
 
     return $frontmatter;
@@ -249,6 +256,43 @@ abstract class BaseExporter {
    */
   protected function shortenUuid(string $uuid): string {
     return substr(str_replace('-', '', $uuid), 0, 8);
+  }
+
+  /**
+   * Canonicaliza una estructura de datos para hashing.
+   *
+   * Asegura un orden de claves estable y aplica la misma transformación a
+   * arrays anidados (ordenando recursivamente) para que el hash sea
+   * determinista sin depender de constantes JSON específicas.
+   */
+  protected function canonicalizeForHash(mixed $data): mixed {
+    if (is_array($data)) {
+      $keys = array_keys($data);
+      $is_sequential = $keys === range(0, count($data) - 1);
+
+      if ($is_sequential) {
+        $data = array_map(fn($item) => $this->canonicalizeForHash($item), $data);
+
+        // Para valores escalares, ordenar para que cambios de orden no modifiquen el checksum.
+        $all_scalars = array_reduce($data, fn($carry, $item) => $carry && (is_null($item) || is_scalar($item)), TRUE);
+        if ($all_scalars) {
+          sort($data);
+        }
+        else {
+          // Para arrays de objetos/arrays, ordenar por su representación JSON.
+          usort($data, fn($a, $b) => strcmp(json_encode($a), json_encode($b)));
+        }
+
+        return $data;
+      }
+
+      // Asociativo: ordenar claves y canonicalizar recursivamente.
+      ksort($data);
+      foreach ($data as $key => $value) {
+        $data[$key] = $this->canonicalizeForHash($value);
+      }
+    }
+    return $data;
   }
 
   /**

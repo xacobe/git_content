@@ -92,7 +92,7 @@ class GitContentController extends ControllerBase {
 
     // Registrar en watchlog la cantidad de entidades exportadas y saltadas.
     \Drupal::logger('git_content')->notice(
-      'Export finished: @nodes exported (@nodes_skipped skipped), @taxonomy exported (@taxonomy_skipped skipped), @media exported (@media_skipped skipped), @blocks exported (@blocks_skipped skipped), @files exported (@files_skipped skipped), @users exported (@users_skipped skipped), @menus exported (@menus_skipped skipped).',
+      'Export finished: nodes: @nodes exported (@nodes_skipped skipped), taxonomy: @taxonomy exported (@taxonomy_skipped skipped), media: @media exported (@media_skipped skipped), blocks: @blocks exported (@blocks_skipped skipped), files: @files exported (@files_skipped skipped), users: @users exported (@users_skipped skipped), menus: @menus exported (@menus_skipped skipped).',
       [
         '@nodes' => $nodes['exported'],
         '@nodes_skipped' => $nodes['skipped'],

@@ -59,10 +59,22 @@ class MarkdownImporter {
     // Asegurarnos de que los enlaces de menú se procesan en orden de peso (padres antes de hijos)
     usort($files, fn($a, $b) => $this->compareImportFiles($a, $b));
 
+    $typeCounts = [];
+
     foreach ($files as $filepath) {
       try {
-        $op = $this->importFile($filepath);
+        $import = $this->importFile($filepath);
+        $op = $import['op'];
+        $type = $import['type'];
+
         $result[$op][] = str_replace(DRUPAL_ROOT . '/content_export/', '', $filepath);
+
+        if (!isset($typeCounts[$type])) {
+          $typeCounts[$type] = ['imported' => 0, 'updated' => 0, 'skipped' => 0, 'deleted' => 0];
+        }
+        if (isset($typeCounts[$type][$op])) {
+          $typeCounts[$type][$op]++;
+        }
       }
       catch (\Exception $e) {
         $result['errors'][] = basename($filepath) . ': ' . $e->getMessage();
@@ -76,9 +88,15 @@ class MarkdownImporter {
     $deleted = count($result['deleted']);
     $errors  = count($result['errors']);
 
+    $parts = [];
+    foreach ($typeCounts as $type => $counts) {
+      $parts[] = "$type: {$counts['imported']} created, {$counts['updated']} updated, {$counts['skipped']} skipped";
+    }
+    $summary = implode('; ', $parts);
+
     \Drupal::logger('git_content')->notice(
-      'Import finished: @created created, @updated updated, @skipped skipped, @deleted deleted, @errors errors.',
-      ['@created' => $created, '@updated' => $updated, '@skipped' => $skipped, '@deleted' => $deleted, '@errors' => $errors]
+      'Import finished: @summary. Total: @created created, @updated updated, @skipped skipped, @deleted deleted, @errors errors.',
+      ['@summary' => $summary, '@created' => $created, '@updated' => $updated, '@skipped' => $skipped, '@deleted' => $deleted, '@errors' => $errors]
     );
 
     return $result;
@@ -87,37 +105,39 @@ class MarkdownImporter {
   /**
    * Importa un único archivo Markdown.
    *
-   * @return string 'imported' | 'updated'
+   * @return array{op: string, type: string}
+   *   'op' es uno de 'imported', 'updated', 'skipped'.
+   *   'type' es el valor de frontmatter.type usado para importar.
+   *
    * @throws \Exception
    */
-  public function importFile(string $filepath): string {
+  public function importFile(string $filepath): array {
     if (!file_exists($filepath)) {
       throw new \Exception("Archivo no encontrado: $filepath");
     }
 
     $raw = file_get_contents($filepath);
+
     $parsed = $this->serializer->deserialize($raw);
     $frontmatter = $this->serializer->flattenGroups($parsed['frontmatter']);
     $body = $parsed['body'];
-
-    // Si el archivo contiene un checksum, compararlo para evitar reimportar
-    // si no ha cambiado.
-    $checksum = $frontmatter['checksum'] ?? NULL;
-    if ($checksum) {
-      $fm_for_hash = $frontmatter;
-      unset($fm_for_hash['checksum']);
-      $computed = sha1($this->serializer->serialize($fm_for_hash, $body));
-      if ($computed === $checksum) {
-        return 'skipped';
-      }
-    }
 
     $type = $frontmatter['type'] ?? NULL;
     if (!$type) {
       throw new \Exception("El frontmatter no contiene el campo 'type'.");
     }
 
-    return match ($type) {
+    // Si el archivo contiene un checksum, compararlo para evitar reimportar
+    // si no ha cambiado.
+    $checksum = $frontmatter['checksum'] ?? NULL;
+    if ($checksum) {
+      $computed = $this->computeChecksum($frontmatter, $body);
+      if ($computed === $checksum) {
+        return ['op' => 'skipped', 'type' => $type];
+      }
+    }
+
+    $op = match ($type) {
       'file'             => $this->importFile_($frontmatter),
       'user'             => $this->importUser($frontmatter),
       'taxonomy_term'    => $this->importTerm($frontmatter, $body),
@@ -126,6 +146,8 @@ class MarkdownImporter {
       'menu_link_content'=> $this->importMenuLink($frontmatter, $body),
       default            => $this->importNode($frontmatter, $body),
     };
+
+    return ['op' => $op, 'type' => $type];
   }
 
   // ---------------------------------------------------------------------------
@@ -135,6 +157,55 @@ class MarkdownImporter {
   /**
    * Importa o actualiza un nodo.
    */
+  /**
+   * Calcula el checksum canónico usado para detectar cambios.
+   *
+   * Se basa en la estructura de datos lógica (frontmatter + body) y no en la
+   * representación YAML específica. Esto permite detectar de forma estable si
+   * el contenido ha cambiado incluso si el formato YAML cambia.
+   */
+  protected function computeChecksum(array $frontmatter, string $body): string {
+    $fm = $frontmatter;
+    unset($fm['checksum']);
+    $fm = array_filter($fm, fn($key) => !preg_match('/^_+$/', (string) $key), ARRAY_FILTER_USE_KEY);
+    $data = $this->canonicalizeForHash(['frontmatter' => $fm, 'body' => $body]);
+
+    return sha1(json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION));
+  }
+
+  /**
+   * Canonicaliza una estructura de datos para hashing.
+   *
+   * Igual que el exportador, ordena claves recursivamente para que el hash sea
+   * determinista sin depender del orden YAML/JSON.
+   */
+  protected function canonicalizeForHash(mixed $data): mixed {
+    if (is_array($data)) {
+      $keys = array_keys($data);
+      $is_sequential = $keys === range(0, count($data) - 1);
+
+      if ($is_sequential) {
+        $data = array_map(fn($item) => $this->canonicalizeForHash($item), $data);
+
+        $all_scalars = array_reduce($data, fn($carry, $item) => $carry && (is_null($item) || is_scalar($item)), TRUE);
+        if ($all_scalars) {
+          sort($data);
+        }
+        else {
+          usort($data, fn($a, $b) => strcmp(json_encode($a), json_encode($b)));
+        }
+
+        return $data;
+      }
+
+      ksort($data);
+      foreach ($data as $key => $value) {
+        $data[$key] = $this->canonicalizeForHash($value);
+      }
+    }
+    return $data;
+  }
+
   protected function importNode(array $frontmatter, string $body): string {
     $bundle    = $frontmatter['type'];
     $langcode  = $frontmatter['lang'] ?? 'und';
