@@ -4,6 +4,7 @@ namespace Drupal\git_content\Importer;
 
 use Drupal\git_content\Serializer\MarkdownSerializer;
 use Drupal\git_content\Utility\ChecksumTrait;
+use Drupal\git_content\Utility\SummaryTrait;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Logger\LoggerChannelFactoryInterface;
 use Drupal\Core\Session\AccountProxyInterface;
@@ -27,6 +28,7 @@ use Psr\Log\LoggerInterface;
 class MarkdownImporter {
 
   use ChecksumTrait;
+  use SummaryTrait;
 
   protected LoggerInterface $logger;
 
@@ -93,10 +95,12 @@ class MarkdownImporter {
         $result[$op][] = str_replace(DRUPAL_ROOT . '/content_export/', '', $filepath);
 
         if (!isset($typeCounts[$type])) {
-          $typeCounts[$type] = ['imported' => 0, 'updated' => 0, 'skipped' => 0, 'deleted' => 0];
+          $typeCounts[$type] = ['created' => 0, 'updated' => 0, 'skipped' => 0, 'deleted' => 0];
         }
-        if (isset($typeCounts[$type][$op])) {
-          $typeCounts[$type][$op]++;
+        // Map op 'imported' → 'created' to match the display label.
+        $countKey = $op === 'imported' ? 'created' : $op;
+        if (isset($typeCounts[$type][$countKey])) {
+          $typeCounts[$type][$countKey]++;
         }
 
         if ($entity_type && $uuid) {
@@ -116,33 +120,21 @@ class MarkdownImporter {
       if (count($parts) === 2) {
         $deletedType = trim($parts[0]);
         if (!isset($typeCounts[$deletedType])) {
-          $typeCounts[$deletedType] = ['imported' => 0, 'updated' => 0, 'skipped' => 0, 'deleted' => 0];
+          $typeCounts[$deletedType] = ['created' => 0, 'updated' => 0, 'skipped' => 0, 'deleted' => 0];
         }
         $typeCounts[$deletedType]['deleted']++;
       }
     }
 
-    // Log a summary of the import to watchdog.
-    $created = count($result['imported']);
-    $updated = count($result['updated']);
-    $skipped = count($result['skipped']);
-    $deleted = count($result['deleted']);
-    $errors  = count($result['errors']);
-
-    $parts = [];
-    foreach ($typeCounts as $type => $counts) {
-      $parts[] = "$type: {$counts['imported']} created, {$counts['updated']} updated, {$counts['skipped']} skipped";
-    }
-
     $this->logger->notice(
       'Import finished: @summary. Total: @created created, @updated updated, @skipped skipped, @deleted deleted, @errors errors.',
       [
-        '@summary' => implode('; ', $parts),
-        '@created' => (string) $created,
-        '@updated' => (string) $updated,
-        '@skipped' => (string) $skipped,
-        '@deleted' => (string) $deleted,
-        '@errors'  => (string) $errors,
+        '@summary' => $this->buildTypeSummary($typeCounts),
+        '@created' => (string) count($result['imported']),
+        '@updated' => (string) count($result['updated']),
+        '@skipped' => (string) count($result['skipped']),
+        '@deleted' => (string) count($result['deleted']),
+        '@errors'  => (string) count($result['errors']),
       ]
     );
 

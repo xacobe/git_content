@@ -2,6 +2,7 @@
 
 namespace Drupal\git_content\Exporter;
 
+use Drupal\git_content\Utility\SummaryTrait;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Logger\LoggerChannelFactoryInterface;
 use Psr\Log\LoggerInterface;
@@ -14,6 +15,8 @@ use Psr\Log\LoggerInterface;
  * Mirrors MarkdownImporter::importAll() on the export side.
  */
 class MarkdownExporter {
+
+  use SummaryTrait;
 
   protected LoggerInterface $logger;
 
@@ -55,9 +58,14 @@ class MarkdownExporter {
     ];
 
     $touchedFiles = [];
+    $typeCounts   = [];
 
     foreach ($exporters as $entity_type => $exporter) {
       $typeResult = $this->exportEntityType($entity_type, $exporter);
+
+      $exp = count($typeResult['exported_files']);
+      $skp = count($typeResult['skipped_files']);
+      $typeCounts[$entity_type] = ['exported' => $exp, 'skipped' => $skp];
 
       foreach ($typeResult['exported_files'] as $file) {
         $result['exported'][] = $file;
@@ -85,8 +93,9 @@ class MarkdownExporter {
     }
 
     $this->logger->notice(
-      'Export finished: @exported exported, @skipped unchanged, @deleted deleted, @errors errors.',
+      'Export finished: @summary. Total: @exported exported, @skipped unchanged, @deleted deleted, @errors errors.',
       [
+        '@summary'  => $this->buildTypeSummary($typeCounts),
         '@exported' => (string) count($result['exported']),
         '@skipped'  => (string) count($result['skipped']),
         '@deleted'  => (string) count($result['deleted']),
