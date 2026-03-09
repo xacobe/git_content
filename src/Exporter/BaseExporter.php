@@ -5,6 +5,7 @@ namespace Drupal\git_content\Exporter;
 use Drupal\git_content\Discovery\FieldDiscovery;
 use Drupal\git_content\Serializer\MarkdownSerializer;
 use Drupal\git_content\Utility\ChecksumTrait;
+use Drupal\git_content\Utility\ManagedFields;
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Field\FieldDefinitionInterface;
@@ -29,20 +30,16 @@ abstract class BaseExporter {
 
   /**
    * Base fields handled manually; excluded from the dynamic field loop.
+   *
+   * Extends ManagedFields::CORE with exporter-specific fields that are
+   * serialized individually (body, uid) or intentionally omitted.
    */
   protected array $managedFields = [
-    'nid', 'vid', 'uuid', 'langcode', 'status', 'created', 'changed',
-    'uid', 'title', 'body', 'path', 'type',
-    'revision_timestamp', 'revision_uid', 'revision_log', 'revision_log_message', 'revision_default',
-    'revision_translation_affected', 'default_langcode',
-    'content_translation_source', 'content_translation_outdated',
-    // Users (do not export sensitive or irrelevant fields)
-    'pass', 'access', 'login', 'init',
-    // Comments – not exported for static content workflows
-    'comment', 'comment_count', 'comment_status', 'last_comment_timestamp',
-    'last_comment_name', 'last_comment_uid',
-    // block_content system fields
-    'id', 'revision_id', 'revision_created', 'revision_user', 'info', 'reusable',
+    ...ManagedFields::CORE,
+    // Exported individually by each exporter, not via the dynamic loop.
+    'body', 'uid',
+    // Revision owner — not meaningful for static content.
+    'revision_uid',
   ];
 
   public function __construct(

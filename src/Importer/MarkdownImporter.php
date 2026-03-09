@@ -5,6 +5,7 @@ namespace Drupal\git_content\Importer;
 use Drupal\git_content\Discovery\FieldDiscovery;
 use Drupal\git_content\Serializer\MarkdownSerializer;
 use Drupal\git_content\Utility\ChecksumTrait;
+use Drupal\git_content\Utility\ManagedFields;
 use Drupal\Component\Datetime\TimeInterface;
 use Drupal\Component\Uuid\UuidInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
@@ -707,19 +708,10 @@ class MarkdownImporter {
 
   protected function populateDynamicFields($entity, array $frontmatter, array $definitions): void {
     $skip = [
-      'uuid', 'type', 'bundle', 'vocabulary', 'lang', 'langcode', 'status',
-      'created', 'changed', 'title', 'name', 'slug', 'path', 'translation_of',
-      'weight', 'parent', 'file',
-      'nid', 'vid', 'tid', 'mid', 'revision_log', 'revision_default',
-      'revision_translation_affected', 'default_langcode',
-      'content_translation_source', 'content_translation_outdated',
-      // User fields not imported: passwords / session fields.
-      'pass', 'access', 'login', 'init',
-      // Comments - not imported for static content workflows.
-      'comment', 'comment_count', 'comment_status', 'last_comment_timestamp',
-      'last_comment_name', 'last_comment_uid',
-      // block_content system fields
-      'id', 'revision_id', 'revision_created', 'revision_user', 'info', 'reusable',
+      ...ManagedFields::CORE,
+      // Frontmatter keys handled explicitly before this loop.
+      'bundle', 'vocabulary', 'lang', 'name', 'slug', 'translation_of',
+      'weight', 'parent', 'file', 'checksum',
     ];
 
     foreach ($definitions as $field_name => $definition) {
