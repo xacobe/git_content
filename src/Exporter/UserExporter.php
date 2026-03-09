@@ -8,21 +8,21 @@ use Drupal\git_content\Discovery\FieldDiscovery;
 use Drupal\git_content\Serializer\MarkdownSerializer;
 
 /**
- * Exporta cuentas de usuario a archivos Markdown.
+ * Export user accounts to Markdown files.
  *
- * Consideraciones de seguridad:
- *   - Las contraseñas hasheadas NO se exportan nunca.
- *   - El usuario 1 (superadmin) se exporta pero al importar se omite si ya
- *     existe, para no sobreescribir credenciales de producción.
- *   - Los roles son config (drush cex los gestiona), aquí solo se exporta
- *     la lista de nombres de rol como referencia informativa.
+ * Security considerations:
+ *   - Hashed passwords are NEVER exported.
+ *   - User 1 (superadmin) is exported but skipped on import if it already exists
+ *     to avoid overwriting production credentials.
+ *   - Roles are configuration (drush cex manages them); here we only export a
+ *     list of role names for reference.
  *
- * Estructura de salida:
+ * Output structure:
  *   content_export/
  *     users/
  *       {uid}-{username}.md
  *
- * Ejemplo de frontmatter:
+ * Example frontmatter:
  *   ---
  *   uuid: a1b2c3d4
  *   type: user
@@ -55,15 +55,15 @@ class UserExporter extends BaseExporter {
   }
 
   /**
-   * Exporta todos los usuarios (excepto el anónimo uid=0).
+   * Export all users (except anonymous uid=0).
    *
-   * @return string[] Rutas de archivos generados.
+   * @return string[] Generated file paths.
    */
   public function exportAll(): array {
     $storage = $this->entityTypeManager->getStorage('user');
     $uids = $storage->getQuery()
       ->accessCheck(FALSE)
-      ->condition('uid', 0, '>')  // excluir usuario anónimo
+      ->condition('uid', 0, '>')  // exclude anonymous user
       ->execute();
 
     $files = [];
@@ -104,7 +104,7 @@ class UserExporter extends BaseExporter {
    * {@inheritdoc}
    */
   public function export(EntityInterface $entity): string {
-    // Roles (excluir 'authenticated' que es implícito)
+    // Roles (exclude 'authenticated' which is implicit)
     $roles = array_values(array_filter(
       $entity->getRoles(),
       fn($r) => !in_array($r, ['authenticated', 'anonymous'])
@@ -126,13 +126,13 @@ class UserExporter extends BaseExporter {
     $frontmatter['changed'] = date('Y-m-d', $entity->getChangedTime());
     $frontmatter['___']     = NULL;
 
-    // Roles como lista legible (la configuración real viene de drush cex)
+    // Roles as a readable list (actual role configuration comes from drush cex)
     if (!empty($roles)) {
       $frontmatter['roles'] = $roles;
       $frontmatter['____'] = NULL;
     }
 
-    // Campos extra del perfil de usuario (bio, avatar, etc.)
+    // Extra profile fields (bio, avatar, etc.)
     $groups = $this->buildDynamicGroups($entity, 'user');
 
     if (!empty($groups['media'])) {
@@ -143,8 +143,8 @@ class UserExporter extends BaseExporter {
       $frontmatter[$key] = $val;
     }
 
-    // NUNCA exportar la contraseña
-    // $frontmatter['pass'] se omite intencionalmente
+    // NEVER export the password
+    // $frontmatter['pass'] is intentionally omitted
 
     $frontmatter = $this->addChecksum($frontmatter, '');
     return $this->serializer->serialize($frontmatter);

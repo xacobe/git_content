@@ -7,7 +7,7 @@ use Drupal\Core\Field\FieldDefinitionInterface;
 use Drupal\Core\Entity\EntityFieldManagerInterface;
 
 /**
- * Descubre los campos relevantes de un bundle de entidad.
+ * Discover relevant fields for an entity bundle.
  */
 class FieldDiscovery {
 
@@ -28,23 +28,23 @@ class FieldDiscovery {
   }
 
   /**
-   * Obtiene la lista de campos relevantes de un bundle.
+   * Get the list of relevant fields for a bundle.
    *
    * @param string $entity_type
-   *   Tipo de entidad, por ejemplo 'node'.
+   *   Entity type, e.g. 'node'.
    * @param string $bundle
-   *   Bundle, por ejemplo 'article'.
+   *   Bundle, e.g. 'article'.
    *
    * @return FieldDefinitionInterface[]
-   *   Array de definiciones de campo relevantes.
+   *   Array of relevant field definitions.
    */
   public function getFields(string $entity_type, string $bundle): array {
-    // Usar entity_field.manager para obtener los field definitions
+    // Use entity_field.manager to fetch field definitions.
     $fields = $this->entityFieldManager->getFieldDefinitions($entity_type, $bundle);
 
     $relevant = [];
     foreach ($fields as $field_name => $field_definition) {
-      // Ignorar campos irrelevantes
+      // Skip irrelevant fields
       if (in_array($field_name, ['nid', 'vid', 'uuid', 'langcode', 'revision_timestamp', 'revision_uid'])) {
         continue;
       }

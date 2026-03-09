@@ -5,9 +5,9 @@ namespace Drupal\git_content\Exporter;
 use Drupal\Core\Entity\EntityInterface;
 
 /**
- * Exporta términos de taxonomía a archivos Markdown con frontmatter YAML.
+ * Export taxonomy terms to Markdown files with YAML frontmatter.
  *
- * Estructura de salida:
+ * Output structure:
  *   content_export/
  *     taxonomy/
  *       {vocabulary}/
@@ -54,25 +54,25 @@ class TaxonomyExporter extends BaseExporter {
     $frontmatter['weight'] = (int) ($entity->get('weight')->value ?? 0);
     $frontmatter['__']     = NULL;
 
-    // Término padre
+    // Parent term
     $parent_tid = $this->getParentTid($entity);
     $frontmatter['parent'] = $parent_tid;
     $frontmatter['___']    = NULL;
 
-    // Campos dinámicos extra del vocabulario
+    // Extra dynamic fields for the vocabulary
     $groups = $this->buildDynamicGroups($entity, 'taxonomy_term');
 
     foreach ($groups['extra'] as $key => $val) {
       $frontmatter[$key] = $val;
     }
 
-    // Si la descripción está en el grupo 'extra', no la duplicamos como campo
-    // en el frontmatter: la representamos únicamente como cuerpo Markdown.
+    // If the description is stored in the 'extra' group, avoid duplicating it
+    // in frontmatter; represent it solely as the Markdown body.
     unset($frontmatter['description']);
 
     $frontmatter['translation_of'] = $this->getTranslationOf($entity);
 
-    // Descripción como cuerpo
+    // Description as the body
     $body = '';
     if ($entity->hasField('description') && !$entity->get('description')->isEmpty()) {
       $body = $this->serializer->htmlToMarkdown($entity->get('description')->value ?? '');
@@ -83,7 +83,7 @@ class TaxonomyExporter extends BaseExporter {
   }
 
   /**
-   * Genera un slug para el término: nombre en minúsculas con guiones.
+   * Generate a slug for the term: lowercase name with hyphens.
    */
   protected function getTermSlug(EntityInterface $entity): string {
     $name = $entity->label() ?? 'term-' . $entity->id();
@@ -91,7 +91,7 @@ class TaxonomyExporter extends BaseExporter {
   }
 
   /**
-   * Obtiene el TID del término padre, o NULL si es raíz.
+   * Get the parent term ID, or NULL for root terms.
    */
   protected function getParentTid(EntityInterface $entity): ?int {
     if ($entity->hasField('parent')) {

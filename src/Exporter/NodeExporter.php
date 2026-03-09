@@ -5,9 +5,9 @@ namespace Drupal\git_content\Exporter;
 use Drupal\Core\Entity\EntityInterface;
 
 /**
- * Exporta nodos a archivos Markdown con frontmatter YAML.
+ * Export nodes to Markdown files with YAML frontmatter.
  *
- * Estructura de salida:
+ * Output structure:
  *   content_export/
  *     {bundle}/
  *       {slug}-{langcode}.md
@@ -43,7 +43,7 @@ class NodeExporter extends BaseExporter {
   public function export(EntityInterface $entity): string {
     $langcode = $entity->language()->getId();
 
-    // --- Campos base ---
+    // --- Base fields ---
     $frontmatter = [];
     $frontmatter['uuid']   = $this->shortenUuid($entity->uuid());
     $frontmatter['type']   = $entity->bundle();
@@ -62,7 +62,7 @@ class NodeExporter extends BaseExporter {
     $frontmatter['path']    = $this->getPathAlias($entity);
     $frontmatter['____']    = NULL;
 
-    // --- Campos dinámicos agrupados ---
+    // --- Grouped dynamic fields ---
     $groups = $this->buildDynamicGroups($entity, 'node');
 
     if (!empty($groups['taxonomy'])) {
@@ -86,7 +86,7 @@ class NodeExporter extends BaseExporter {
 
     $frontmatter['translation_of'] = $this->getTranslationOf($entity);
 
-    // --- Cuerpo ---
+    // --- Body ---
     $body = '';
     if ($entity->hasField('body') && !$entity->get('body')->isEmpty()) {
       $body = $this->serializer->htmlToMarkdown($entity->get('body')->value);

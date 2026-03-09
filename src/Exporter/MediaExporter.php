@@ -5,13 +5,13 @@ namespace Drupal\git_content\Exporter;
 use Drupal\Core\Entity\EntityInterface;
 
 /**
- * Exporta entidades de tipo Media a archivos Markdown con frontmatter YAML.
+ * Export media entities to Markdown files with YAML frontmatter.
  *
- * El archivo exportado describe los metadatos del media (título, tipo, campos
- * de texto/alt). El archivo físico (imagen, vídeo…) no se copia; se referencia
- * por su nombre de archivo para que pueda versionarse por separado si se desea.
+ * The exported file describes media metadata (title, type, text/alt fields).
+ * The physical file (image, video, etc.) is not copied; it is referenced by
+ * filename so it can be versioned separately if desired.
  *
- * Estructura de salida:
+ * Output structure:
  *   content_export/
  *     media/
  *       {bundle}/
@@ -61,14 +61,14 @@ class MediaExporter extends BaseExporter {
     $frontmatter['changed'] = date('Y-m-d', $entity->get('changed')->value ?? time());
     $frontmatter['___']     = NULL;
 
-    // Archivo fuente (campo thumbnail o campo de source del bundle)
+    // Source file (thumbnail field or bundle source file field)
     $source_file = $this->getSourceFile($entity);
     if ($source_file) {
       $frontmatter['file'] = $source_file;
       $frontmatter['____'] = NULL;
     }
 
-    // Campos dinámicos (alt text, caption, etc.)
+    // Dynamic fields (alt text, caption, etc.)
     $groups = $this->buildDynamicGroups($entity, 'media');
 
     foreach ($groups['extra'] as $key => $val) {
@@ -82,10 +82,10 @@ class MediaExporter extends BaseExporter {
   }
 
   /**
-   * Intenta obtener el nombre del archivo fuente del media.
+   * Try to determine the media source filename.
    */
   protected function getSourceFile(EntityInterface $entity): ?string {
-    // Campos comunes según el tipo de media bundle
+    // Common source fields by media bundle type
     $source_fields = ['field_media_image', 'field_media_file', 'field_media_video_file',
                       'field_media_audio_file', 'thumbnail'];
 
@@ -107,7 +107,7 @@ class MediaExporter extends BaseExporter {
   }
 
   /**
-   * Genera un slug para el media a partir de su nombre.
+   * Generate a slug for the media based on its name.
    */
   protected function getMediaSlug(EntityInterface $entity): string {
     $name = $entity->label() ?? 'media-' . $entity->id();

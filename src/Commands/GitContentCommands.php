@@ -14,14 +14,14 @@ use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drush\Commands\DrushCommands;
 
 /**
- * Comandos Drush para exportar e importar contenido desde/hacia Git.
+ * Drush commands to export and import content to/from Git.
  *
- * Uso:
- *   drush git-content:export          # Exporta todo
- *   drush git-content:export nodes    # Solo nodos
- *   drush git-content:export taxonomy # Solo términos
- *   drush git-content:export media    # Solo media
- *   drush git-content:import          # Importa todo
+ * Usage:
+ *   drush git-content:export          # Export everything
+ *   drush git-content:export nodes    # Export nodes only
+ *   drush git-content:export taxonomy # Export taxonomy terms only
+ *   drush git-content:export media    # Export media only
+ *   drush git-content:import          # Import everything
  */
 class GitContentCommands extends DrushCommands {
 
@@ -59,17 +59,17 @@ class GitContentCommands extends DrushCommands {
   }
 
   /**
-   * Exporta contenido de Drupal a archivos Markdown versionables.
+   * Export Drupal content to versionable Markdown files.
    *
    * @param string $type
-   *   Tipo a exportar: all, nodes, taxonomy, media. Por defecto: all.
+   *   Type to export: all, nodes, taxonomy, media. Default: all.
    *
    * @command git-content:export
    * @aliases gce
    * @usage drush git-content:export
-   *   Exporta nodos, taxonomía y media.
+   *   Export nodes, taxonomy, and media.
    * @usage drush git-content:export nodes
-   *   Exporta solo los nodos.
+   *   Export nodes only.
    */
   public function export(string $type = 'all'): void {
     $types = match ($type) {
@@ -91,27 +91,27 @@ class GitContentCommands extends DrushCommands {
       };
     }
 
-    $this->logger()->success('Exportación completada.');
+    $this->logger()->success('Export completed.');
   }
 
   /**
-   * Importa archivos Markdown de content_export/ a Drupal.
+   * Import Markdown files from content_export/ into Drupal.
    *
    * @command git-content:import
    * @aliases gci
    * @usage drush git-content:import
-   *   Importa todos los archivos Markdown de content_export/.
+   *   Import all Markdown files in content_export/.
    */
   public function import(): void {
-    $this->logger()->notice('Iniciando importación desde content_export/...');
+    $this->logger()->notice('Starting import from content_export/...');
 
     $result = $this->importer->importAll();
 
     foreach ($result['imported'] as $file) {
-      $this->logger()->success("Creado: $file");
+      $this->logger()->success("Created: $file");
     }
     foreach ($result['updated'] as $file) {
-      $this->logger()->notice("Actualizado: $file");
+      $this->logger()->notice("Updated: $file");
     }
     foreach ($result['errors'] as $error) {
       $this->logger()->error("Error: $error");
@@ -119,16 +119,16 @@ class GitContentCommands extends DrushCommands {
 
     $total = count($result['imported']) + count($result['updated']);
     $this->logger()->success(
-      "Importación completada: {$total} archivos procesados, " . count($result['errors']) . " errores."
+      "Import completed: {$total} files processed, " . count($result['errors']) . " errors."
     );
   }
 
   // ---------------------------------------------------------------------------
-  // Exportadores privados
+  // Private exporters
   // ---------------------------------------------------------------------------
 
   private function exportNodes(): void {
-    $this->logger()->notice('Exportando nodos...');
+    $this->logger()->notice('Exporting nodes...');
     $storage = $this->entityTypeManager->getStorage('node');
     $nids = $storage->getQuery()->accessCheck(FALSE)->execute();
     $nodes = $storage->loadMultiple($nids);
@@ -144,23 +144,23 @@ class GitContentCommands extends DrushCommands {
 
         if ($skippedFile) {
           $skipped++;
-          $this->logger()->info("  → Nodo {$node->id()} ({$node->bundle()}): $filepath");
+          $this->logger()->info("  → Node {$node->id()} ({$node->bundle()}): $filepath");
         }
         else {
-          $this->logger()->info("  ✔ Nodo {$node->id()} ({$node->bundle()}): $filepath");
+          $this->logger()->info("  ✔ Node {$node->id()} ({$node->bundle()}): $filepath");
           $count++;
         }
       }
       catch (\Exception $e) {
-        $this->logger()->error("  ✘ Nodo {$node->id()}: " . $e->getMessage());
+        $this->logger()->error("  ✘ Node {$node->id()}: " . $e->getMessage());
       }
     }
 
-    $this->logger()->notice("  $count nodos exportados, $skipped sin cambios.");
+    $this->logger()->notice("  $count nodes exported, $skipped unchanged.");
   }
 
   private function exportTaxonomy(): void {
-    $this->logger()->notice('Exportando términos de taxonomía...');
+    $this->logger()->notice('Exporting taxonomy terms...');
     $storage = $this->entityTypeManager->getStorage('taxonomy_term');
     $tids = $storage->getQuery()->accessCheck(FALSE)->execute();
     $terms = $storage->loadMultiple($tids);
@@ -176,29 +176,29 @@ class GitContentCommands extends DrushCommands {
 
         if ($skippedFile) {
           $skipped++;
-          $this->logger()->info("  → Término {$term->id()} ({$term->bundle()}): $filepath");
+          $this->logger()->info("  → Term {$term->id()} ({$term->bundle()}): $filepath");
         }
         else {
-          $this->logger()->info("  ✔ Término {$term->id()} ({$term->bundle()}): $filepath");
+          $this->logger()->info("  ✔ Term {$term->id()} ({$term->bundle()}): $filepath");
           $count++;
         }
       }
       catch (\Exception $e) {
-        $this->logger()->error("  ✘ Término {$term->id()}: " . $e->getMessage());
+        $this->logger()->error("  ✘ Term {$term->id()}: " . $e->getMessage());
       }
     }
 
-    $this->logger()->notice("  $count términos exportados, $skipped sin cambios.");
+    $this->logger()->notice("  $count terms exported, $skipped unchanged.");
   }
 
   private function exportFiles(): void {
-    $this->logger()->notice('Exportando archivos...');
+    $this->logger()->notice('Exporting files...');
     $files = $this->fileExporter->exportAll();
-    $this->logger()->notice('  ' . count($files) . ' archivos exportados.');
+    $this->logger()->notice('  ' . count($files) . ' files exported.');
   }
 
   private function exportUsers(): void {
-    $this->logger()->notice('Exportando usuarios...');
+    $this->logger()->notice('Exporting users...');
     $storage = $this->entityTypeManager->getStorage('user');
     $uids = $storage->getQuery()->accessCheck(FALSE)->condition('uid', 0, '>')->execute();
     $users = $storage->loadMultiple($uids);
@@ -214,23 +214,23 @@ class GitContentCommands extends DrushCommands {
 
         if ($skippedFile) {
           $skipped++;
-          $this->logger()->info("  → Usuario {$user->id()}: $filepath");
+          $this->logger()->info("  → User {$user->id()}: $filepath");
         }
         else {
-          $this->logger()->info("  ✔ Usuario {$user->id()}: $filepath");
+          $this->logger()->info("  ✔ User {$user->id()}: $filepath");
           $count++;
         }
       }
       catch (\Exception $e) {
-        $this->logger()->error("  ✘ Usuario {$user->id()}: " . $e->getMessage());
+        $this->logger()->error("  ✘ User {$user->id()}: " . $e->getMessage());
       }
     }
 
-    $this->logger()->notice("  $count usuarios exportados, $skipped sin cambios.");
+    $this->logger()->notice("  $count users exported, $skipped unchanged.");
   }
 
   private function exportMenuLinks(): void {
-    $this->logger()->notice('Exportando enlaces de menú...');
+    $this->logger()->notice('Exporting menu links...');
     $storage = $this->entityTypeManager->getStorage('menu_link_content');
     $ids = $storage->getQuery()->accessCheck(FALSE)->execute();
     $links = $storage->loadMultiple($ids);
@@ -246,23 +246,23 @@ class GitContentCommands extends DrushCommands {
 
         if ($skippedFile) {
           $skipped++;
-          $this->logger()->info("  → Enlace {$link->id()}: $filepath");
+          $this->logger()->info("  → Menu link {$link->id()}: $filepath");
         }
         else {
-          $this->logger()->info("  ✔ Enlace {$link->id()}: $filepath");
+          $this->logger()->info("  ✔ Menu link {$link->id()}: $filepath");
           $count++;
         }
       }
       catch (\Exception $e) {
-        $this->logger()->error("  ✘ Enlace {$link->id()}: " . $e->getMessage());
+        $this->logger()->error("  ✘ Menu link {$link->id()}: " . $e->getMessage());
       }
     }
 
-    $this->logger()->notice("  $count enlaces exportados, $skipped sin cambios.");
+    $this->logger()->notice("  $count links exported, $skipped unchanged.");
   }
 
   private function exportBlocks(): void {
-    $this->logger()->notice('Exportando bloques de contenido...');
+    $this->logger()->notice('Exporting block content...');
     $storage = $this->entityTypeManager->getStorage('block_content');
     $ids = $storage->getQuery()->accessCheck(FALSE)->execute();
     $count = 0;
@@ -293,7 +293,7 @@ class GitContentCommands extends DrushCommands {
   }
 
   private function exportMedia(): void {
-    $this->logger()->notice('Exportando media...');
+    $this->logger()->notice('Exporting media...');
     $storage = $this->entityTypeManager->getStorage('media');
     $mids = $storage->getQuery()->accessCheck(FALSE)->execute();
     $medias = $storage->loadMultiple($mids);

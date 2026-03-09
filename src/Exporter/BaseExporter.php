@@ -8,11 +8,11 @@ use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Field\FieldDefinitionInterface;
 
 /**
- * Clase base para todos los exportadores de entidades.
+ * Base class for all entity exporters.
  *
- * Contiene la lógica común de normalización de campos y construcción del
- * frontmatter. Cada exportador concreto (NodeExporter, TaxonomyExporter…)
- * extiende esta clase e implementa los métodos específicos de su entidad.
+ * Contains shared logic for normalizing fields and building frontmatter.
+ * Each concrete exporter (NodeExporter, TaxonomyExporter, etc.) extends
+ * this class and implements entity-specific behavior.
  */
 abstract class BaseExporter {
 
@@ -20,7 +20,7 @@ abstract class BaseExporter {
   protected MarkdownSerializer $serializer;
 
   /**
-   * Campos base gestionados manualmente; se excluyen del bucle dinámico.
+   * Base fields handled manually; excluded from the dynamic field loop.
    */
   protected array $managedFields = [
     'nid', 'vid', 'uuid', 'langcode', 'status', 'created', 'changed',
@@ -28,9 +28,9 @@ abstract class BaseExporter {
     'revision_timestamp', 'revision_uid', 'revision_log', 'revision_log_message', 'revision_default',
     'revision_translation_affected', 'default_langcode',
     'content_translation_source', 'content_translation_outdated',
-    // Usuarios (no exportar campos sensibles o irrelevantes)
+    // Users (do not export sensitive or irrelevant fields)
     'pass', 'access', 'login', 'init',
-    // Comentarios - no los exportamos para contenido estático
+    // Comments – not exported for static content workflows
     'comment', 'comment_count', 'comment_status', 'last_comment_timestamp',
     'last_comment_name', 'last_comment_uid',
     // block_content system fields
@@ -43,25 +43,27 @@ abstract class BaseExporter {
   }
 
   /**
-   * Exporta la entidad a un archivo Markdown en disco.
+   * Export the entity to a Markdown file on disk.
    *
-   * @return array{path: string, skipped: bool} Información del archivo generado.
+   * @return array{path: string, skipped: bool}
+   *   Generated file information.
    */
   abstract public function exportToFile(EntityInterface $entity): array;
 
   /**
-   * Genera el contenido Markdown completo de la entidad.
+   * Generate the full Markdown contents for the entity.
    *
-   * @return string Contenido del archivo .md.
+   * @return string
+   *   The .md file contents.
    */
   abstract public function export(EntityInterface $entity): string;
 
   // ---------------------------------------------------------------------------
-  // Helpers compartidos
+  // Shared helpers
   // ---------------------------------------------------------------------------
 
   /**
-   * Construye el bloque de campos dinámicos agrupados por tipo
+   * Build the block of dynamic fields grouped by type
    * (taxonomy, media, references, extra).
    */
   protected function buildDynamicGroups(EntityInterface $entity, string $entity_type): array {
@@ -114,7 +116,7 @@ abstract class BaseExporter {
   }
 
   /**
-   * Normaliza el valor de un campo al formato limpio para el frontmatter.
+   * Normalize a field value into a clean format for frontmatter.
    */
   protected function normalizeField($field, FieldDefinitionInterface $definition): mixed {
     $field_type  = $definition->getType();
@@ -204,7 +206,7 @@ abstract class BaseExporter {
   }
 
   /**
-   * Obtiene el slug a partir del alias de path de la entidad.
+   * Get a slug based on the entity's path alias.
    */
   protected function getSlug(EntityInterface $entity): string {
     if ($entity->hasField('path') && !$entity->get('path')->isEmpty()) {
@@ -217,7 +219,7 @@ abstract class BaseExporter {
   }
 
   /**
-   * Obtiene el alias de path completo de la entidad.
+   * Get the full path alias for the entity.
    */
   protected function getPathAlias(EntityInterface $entity): string {
     if ($entity->hasField('path') && !$entity->get('path')->isEmpty()) {
@@ -230,15 +232,15 @@ abstract class BaseExporter {
   }
 
   /**
-   * Añade un checksum SHA1 al frontmatter para detectar cambios en el archivo.
+   * Add a SHA1 checksum to frontmatter to detect changes to the file.
    *
-   * El checksum se calcula sobre una representación canónica del frontmatter
-   * + body (JSON con claves ordenadas) para que sea estable aun cuando cambie
-   * el orden del YAML o el formato de serialización.
+   * The checksum is calculated over a canonical representation of the
+   * frontmatter + body (JSON with sorted keys) so it remains stable even when
+   * YAML key order or serialization formatting changes.
    */
   protected function addChecksum(array $frontmatter, string $body): array {
-    // Aseguramos que el checksum se calcula sobre la misma estructura que el
-    // importador utiliza para comparar (grupos aplanados).
+    // Ensure the checksum is calculated over the same structure the
+    // importer uses for comparison (flattened groups).
     $fm = $this->serializer->flattenGroups($frontmatter);
     unset($fm['checksum']);
     $fm = array_filter($fm, fn($key) => !preg_match('/^_+$/', (string) $key), ARRAY_FILTER_USE_KEY);
@@ -252,18 +254,18 @@ abstract class BaseExporter {
   }
 
   /**
-   * Acorta un UUID a 8 caracteres para legibilidad en el frontmatter.
+   * Shorten a UUID to 8 characters for readability in frontmatter.
    */
   protected function shortenUuid(string $uuid): string {
     return substr(str_replace('-', '', $uuid), 0, 8);
   }
 
   /**
-   * Canonicaliza una estructura de datos para hashing.
+   * Canonicalize a data structure for hashing.
    *
-   * Asegura un orden de claves estable y aplica la misma transformación a
-   * arrays anidados (ordenando recursivamente) para que el hash sea
-   * determinista sin depender de constantes JSON específicas.
+   * Ensures a stable key order and applies the same transformation to nested
+   * arrays (recursive sorting) so the hash is deterministic regardless of
+   * JSON encoding details.
    */
   protected function canonicalizeForHash(mixed $data): mixed {
     if (is_array($data)) {
@@ -273,20 +275,20 @@ abstract class BaseExporter {
       if ($is_sequential) {
         $data = array_map(fn($item) => $this->canonicalizeForHash($item), $data);
 
-        // Para valores escalares, ordenar para que cambios de orden no modifiquen el checksum.
+        // For scalar values, sort so order changes don’t affect the checksum.
         $all_scalars = array_reduce($data, fn($carry, $item) => $carry && (is_null($item) || is_scalar($item)), TRUE);
         if ($all_scalars) {
           sort($data);
         }
         else {
-          // Para arrays de objetos/arrays, ordenar por su representación JSON.
+          // For arrays of objects/arrays, sort by their JSON representation.
           usort($data, fn($a, $b) => strcmp(json_encode($a), json_encode($b)));
         }
 
         return $data;
       }
 
-      // Asociativo: ordenar claves y canonicalizar recursivamente.
+      // Associative: sort keys and canonicalize recursively.
       ksort($data);
       foreach ($data as $key => $value) {
         $data[$key] = $this->canonicalizeForHash($value);
@@ -296,7 +298,7 @@ abstract class BaseExporter {
   }
 
   /**
-   * Devuelve el UUID corto de la entidad original si esta es una traducción.
+   * Return the short UUID of the original entity when this is a translation.
    */
   protected function getTranslationOf(EntityInterface $entity): ?string {
     if (!$entity->isDefaultTranslation()) {
@@ -306,10 +308,10 @@ abstract class BaseExporter {
   }
 
   /**
-   * Escribe un archivo solo si su contenido ha cambiado respecto al existente.
+   * Write a file only if its contents have changed.
    *
    * @return bool
-   *   TRUE si se escribió el archivo (nuevo o actualizado), FALSE si se omitió.
+   *   TRUE if the file was written (new or updated), FALSE if skipped.
    */
   protected function writeIfChanged(string $filepath, string $content): bool {
     if (file_exists($filepath)) {
@@ -324,7 +326,7 @@ abstract class BaseExporter {
   }
 
   /**
-   * Crea el directorio de exportación si no existe.
+   * Create the export directory if it does not exist.
    */
   protected function ensureDir(string $dir): void {
     if (!file_exists($dir)) {

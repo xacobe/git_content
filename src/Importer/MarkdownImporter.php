@@ -9,14 +9,14 @@ use Drupal\Core\Field\FieldDefinitionInterface;
 use Drupal\node\Entity\Node;
 
 /**
- * Importa archivos Markdown con frontmatter YAML a entidades de Drupal.
+ * Import Markdown files with YAML frontmatter into Drupal entities.
  *
- * Detecta automáticamente el tipo de entidad a partir del campo 'type' del
- * frontmatter y delega en el método de importación correspondiente.
+ * Automatically detects the entity type from the 'type' field in the
+ * frontmatter and delegates to the appropriate import method.
  *
- * Tipos soportados:
- *   - Nodos:             type: {bundle}  (article, page, project…)
- *   - Términos:          type: taxonomy_term
+ * Supported types:
+ *   - Nodes:             type: {bundle}  (article, page, project…)
+ *   - Taxonomy terms:    type: taxonomy_term
  *   - Media:             type: media
  */
 class MarkdownImporter {
@@ -36,7 +36,7 @@ class MarkdownImporter {
   }
 
   // ---------------------------------------------------------------------------
-  // Importación masiva
+  // Bulk import
   // ---------------------------------------------------------------------------
 
   /**
@@ -49,14 +49,14 @@ class MarkdownImporter {
     $result = ['imported' => [], 'updated' => [], 'deleted' => [], 'skipped' => [], 'errors' => []];
 
     if (!is_dir($import_dir)) {
-      $result['errors'][] = 'El directorio content_export no existe.';
+      $result['errors'][] = t('The content_export directory does not exist.');
       return $result;
     }
 
-    // Recoger todos los .md de forma recursiva
+    // Collect all .md files recursively
     $files = $this->findMarkdownFiles($import_dir);
 
-    // Asegurarnos de que los enlaces de menú se procesan en orden de peso (padres antes de hijos)
+    // Ensure menu links are processed in weight order (parents before children)
     usort($files, fn($a, $b) => $this->compareImportFiles($a, $b));
 
     $typeCounts = [];
@@ -97,11 +97,11 @@ class MarkdownImporter {
       }
     }
 
-    // Eliminar entidades en Drupal que ya no tienen un .md correspondiente.
+    // Remove Drupal entities that no longer have a corresponding .md file.
     $deleted = $this->cleanupDeletedEntities($seenUuids);
     foreach ($deleted as $deletedItem) {
       $result['deleted'][] = $deletedItem;
-      // Contamos borrados en el resumen por tipo si aplica.
+      // Count deleted items in the per-type summary if applicable.
       $parts = explode(':', $deletedItem, 2);
       if (count($parts) === 2) {
         $deletedType = trim($parts[0]);
@@ -112,7 +112,7 @@ class MarkdownImporter {
       }
     }
 
-    // Registrar en watchlog un resumen de la importación.
+    // Log a summary of the import to watchdog.
     $created = count($result['imported']);
     $updated = count($result['updated']);
     $skipped = count($result['skipped']);
@@ -134,19 +134,19 @@ class MarkdownImporter {
   }
 
   /**
-   * Importa un único archivo Markdown.
+   * Import a single Markdown file.
    *
    * @return array{op: string, entity_type: string, type: string, uuid?: string|null, bundle?: string|null}
    *   'op' es uno de 'imported', 'updated', 'skipped'.
    *   'entity_type' es el tipo de entidad de Drupal (node, taxonomy_term, ...).
-   *   'type' es el valor de frontmatter.type usado para importar.
+   *   'type' is the frontmatter.type value used for importing.
    *   'uuid' es el UUID corto extraído del frontmatter (si está presente).
    *   'bundle' es el bundle/vocab/menu correspondiente para este tipo.
    * @throws \Exception
    */
   public function importFile(string $filepath): array {
     if (!file_exists($filepath)) {
-      throw new \Exception("Archivo no encontrado: $filepath");
+      throw new \Exception(t('File not found: @file', ['@file' => $filepath]));
     }
 
     $raw = file_get_contents($filepath);
@@ -157,7 +157,7 @@ class MarkdownImporter {
 
     $type = $frontmatter['type'] ?? NULL;
     if (!$type) {
-      throw new \Exception("El frontmatter no contiene el campo 'type'.");
+      throw new \Exception(t("The frontmatter is missing the 'type' field."));
     }
 
     $short_uuid = $frontmatter['uuid'] ?? NULL;
@@ -177,7 +177,7 @@ class MarkdownImporter {
         $bundle = $frontmatter['vocabulary'] ?? NULL;
         break;
       case 'node':
-        $bundle = $type; // en nodos, type == bundle
+        $bundle = $type; // for nodes, type == bundle
         break;
       case 'media':
       case 'block_content':
@@ -190,8 +190,8 @@ class MarkdownImporter {
         $bundle = NULL;
     }
 
-    // Si el archivo contiene un checksum, compararlo para evitar reimportar
-    // si no ha cambiado.
+    // If the file contains a checksum, compare it to avoid reimporting
+    // when nothing has changed.
     $checksum = $frontmatter['checksum'] ?? NULL;
     if ($checksum) {
       $computed = $this->computeChecksum($frontmatter, $body);
@@ -334,7 +334,7 @@ class MarkdownImporter {
     $langcode   = $frontmatter['lang'] ?? 'und';
 
     if (!$uri) {
-      throw new \Exception("El frontmatter del file no contiene 'uri'.");
+      throw new \Exception(t("The file frontmatter is missing 'uri'."));
     }
 
     // Buscar por UUID corto primero, luego por URI como fallback
@@ -396,7 +396,7 @@ class MarkdownImporter {
     $langcode   = $frontmatter['lang'] ?? 'und';
 
     if (!$name) {
-      throw new \Exception("El frontmatter del usuario no contiene 'name'.");
+      throw new \Exception(t("The user frontmatter is missing 'name'."));
     }
 
     // Buscar existente por UUID, luego por nombre, luego por email
@@ -475,7 +475,7 @@ class MarkdownImporter {
     $short_uuid = $frontmatter['uuid'] ?? NULL;
 
     if (!$vid) {
-      throw new \Exception("El frontmatter del término no contiene 'vocabulary'.");
+      throw new \Exception(t("The term frontmatter is missing 'vocabulary'."));
     }
 
     $existing = $short_uuid ? $this->findByShortUuid($short_uuid, 'taxonomy_term', $vid) : NULL;
@@ -535,7 +535,7 @@ class MarkdownImporter {
     $short_uuid = $frontmatter['uuid'] ?? NULL;
 
     if (!$bundle) {
-      throw new \Exception("El frontmatter del media no contiene 'bundle'.");
+      throw new \Exception(t("The media frontmatter is missing 'bundle'."));
     }
 
     $existing = $short_uuid ? $this->findByShortUuid($short_uuid, 'media', $bundle) : NULL;
@@ -575,7 +575,7 @@ class MarkdownImporter {
     $short_uuid = $frontmatter['uuid'] ?? NULL;
 
     if (!$bundle) {
-      throw new \Exception("El frontmatter del block_content no contiene 'bundle'.");
+      throw new \Exception(t("The block_content frontmatter is missing 'bundle'."));
     }
 
     $existing = $short_uuid ? $this->findByShortUuidGlobal($short_uuid, 'block_content') : NULL;

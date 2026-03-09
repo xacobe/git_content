@@ -8,18 +8,18 @@ use Drupal\git_content\Discovery\FieldDiscovery;
 use Drupal\git_content\Serializer\MarkdownSerializer;
 
 /**
- * Exporta entidades file (archivos gestionados por Drupal) a Markdown.
+ * Export Drupal file entities to Markdown.
  *
- * Exporta SOLO los metadatos de la entidad file (URI, nombre, mime type,
- * propietario, fechas). El archivo físico debe gestionarse por separado
- * (git-lfs, rsync, etc.) ya que puede ser muy grande para un repositorio git.
+ * Only metadata is exported for the file entity (URI, name, mime type,
+ * owner, timestamps). The binary file itself must be managed separately
+ * (git-lfs, rsync, etc.) since it can be too large for a Git repository.
  *
- * Estructura de salida:
+ * Output structure:
  *   content_export/
  *     files/
  *       {fid}-{filename}.md
  *
- * Ejemplo de frontmatter:
+ * Example frontmatter:
  *   ---
  *   uuid: a1b2c3d4
  *   type: file
@@ -49,9 +49,9 @@ class FileExporter extends BaseExporter {
   }
 
   /**
-   * Exporta todos los archivos gestionados.
+   * Export all managed files.
    *
-   * @return string[] Rutas de archivos generados.
+   * @return string[] Generated file paths.
    */
   public function exportAll(): array {
     $storage = $this->entityTypeManager->getStorage('file');
@@ -96,7 +96,7 @@ class FileExporter extends BaseExporter {
    * {@inheritdoc}
    */
   public function export(EntityInterface $entity): string {
-    // Resolver el nombre del propietario
+    // Resolve owner name
     $owner_name = NULL;
     $owner_id = $entity->getOwnerId();
     if ($owner_id) {
@@ -125,7 +125,7 @@ class FileExporter extends BaseExporter {
   }
 
   /**
-   * Sanitiza el nombre de archivo para usarlo como parte del nombre del .md.
+   * Sanitize the file name for use as part of the .md file name.
    */
   protected function sanitizeFilename(string $filename): string {
     $name = pathinfo($filename, PATHINFO_FILENAME);

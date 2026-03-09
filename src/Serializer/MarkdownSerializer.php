@@ -5,25 +5,25 @@ namespace Drupal\git_content\Serializer;
 use Symfony\Component\Yaml\Yaml;
 
 /**
- * Serializa y deserializa el formato Markdown + frontmatter YAML.
+ * Serialize and deserialize Markdown files with YAML frontmatter.
  *
- * Esta clase es la única responsable del formato de archivo en disco:
- * cómo se construye el YAML legible y cómo se parsea de vuelta.
- * Los exportadores e importadores delegan aquí toda la lógica de formato.
+ * This class is the single source of truth for the on-disk file format:
+ * how human-readable YAML is built and how it is parsed back.
+ * Exporters and importers delegate formatting logic to this class.
  */
 class MarkdownSerializer {
 
   /**
-   * Construye un archivo Markdown completo a partir de frontmatter y cuerpo.
+   * Build a full Markdown file from frontmatter and body.
    *
    * @param array $frontmatter
-   *   Datos estructurados. Las claves que son solo guiones bajos ('_', '__'…)
-   *   se renderizan como líneas en blanco para mejorar la legibilidad.
+   *   Structured data. Keys that are only underscores ('_', '__', …) are
+   *   rendered as blank lines for readability.
    * @param string $body
-   *   Contenido del cuerpo en Markdown (puede estar vacío).
+   *   Body content in Markdown (may be empty).
    *
    * @return string
-   *   Contenido completo del archivo .md.
+   *   The full .md file contents.
    */
   public function serialize(array $frontmatter, string $body = ''): string {
     $yaml = $this->buildCleanYaml($frontmatter);
@@ -31,30 +31,30 @@ class MarkdownSerializer {
   }
 
   /**
-   * Parsea un archivo Markdown con frontmatter YAML.
+   * Parse a Markdown file with YAML frontmatter.
    *
    * @param string $raw
-   *   Contenido crudo del archivo .md.
+   *   Raw contents of the .md file.
    *
    * @return array{frontmatter: array, body: string}
-   *   Array con claves 'frontmatter' (array) y 'body' (string).
+   *   Array with keys 'frontmatter' (array) and 'body' (string).
    *
    * @throws \InvalidArgumentException
    */
   public function deserialize(string $raw): array {
     if (!str_starts_with(ltrim($raw), '---')) {
-      throw new \InvalidArgumentException('El archivo no tiene frontmatter YAML válido (falta el delimitador ---).');
+      throw new \InvalidArgumentException('File does not contain valid YAML frontmatter (missing --- delimiter).');
     }
 
     $pattern = '/^---\s*\n(.*?)\n---\s*\n?(.*)/s';
     if (!preg_match($pattern, ltrim($raw), $matches)) {
-      throw new \InvalidArgumentException('No se pudo parsear el frontmatter YAML.');
+      throw new \InvalidArgumentException('Failed to parse YAML frontmatter.');
     }
 
     $yaml_raw = $matches[1];
     $body = trim($matches[2]);
 
-    // Limpiar claves ficticias de línea en blanco que el serializador inserta
+    // Remove placeholder blank-line keys that the serializer inserts.
     $yaml_clean = preg_replace('/^_+:\s*(null|~)?\s*$/m', '', $yaml_raw);
     $yaml_clean = preg_replace('/^\s*:\s*(null|~)?\s*$/m', '', $yaml_clean);
 
@@ -67,14 +67,14 @@ class MarkdownSerializer {
   }
 
   /**
-   * Aplana los grupos taxonomy, media y references al nivel raíz.
-   * Útil para el importador, que trabaja campo a campo.
+   * Flatten taxonomy, media and references groups to the root level.
+   * Useful for the importer, which operates on a per-field basis.
    *
    * @param array $frontmatter
-   *   Frontmatter con posibles grupos anidados.
+   *   Frontmatter with possible nested groups.
    *
    * @return array
-   *   Frontmatter con los grupos aplanados.
+   *   Frontmatter with groups flattened.
    */
   public function flattenGroups(array $frontmatter): array {
     foreach (['taxonomy', 'media', 'references'] as $group) {
@@ -91,14 +91,14 @@ class MarkdownSerializer {
   }
 
   /**
-   * Convierte HTML básico a Markdown.
-   * Usa league/html-to-markdown si está disponible.
+   * Convert basic HTML to Markdown.
+   * Uses league/html-to-markdown if available.
    *
    * @param string $html
-   *   HTML a convertir.
+   *   HTML to convert.
    *
    * @return string
-   *   Markdown resultante.
+   *   Resulting Markdown.
    */
   public function htmlToMarkdown(string $html): string {
     if (class_exists('\League\HTMLToMarkdown\HtmlConverter')) {
@@ -110,7 +110,7 @@ class MarkdownSerializer {
       return $converter->convert($html);
     }
 
-    // Fallback con regex básico
+    // Fallback with a basic regex approach
     $md = $html;
     for ($i = 6; $i >= 1; $i--) {
       $md = preg_replace('/<h' . $i . '[^>]*>(.*?)<\/h' . $i . '>/is', str_repeat('#', $i) . ' $1', $md);
@@ -131,14 +131,14 @@ class MarkdownSerializer {
   }
 
   /**
-   * Convierte Markdown a HTML.
-   * Usa league/commonmark si está disponible.
+   * Convert Markdown to HTML.
+   * Uses league/commonmark if available.
    *
    * @param string $markdown
-   *   Markdown a convertir.
+   *   Markdown to convert.
    *
    * @return string
-   *   HTML resultante.
+   *   Resulting HTML.
    */
   public function markdownToHtml(string $markdown): string {
     if (class_exists('\League\CommonMark\CommonMarkConverter')) {
@@ -167,7 +167,7 @@ class MarkdownSerializer {
   // ---------------------------------------------------------------------------
 
   /**
-   * Construye YAML limpio con soporte de líneas en blanco mediante claves ficticias.
+   * Build clean YAML with support for blank lines via placeholder keys.
    */
   private function buildCleanYaml(array $frontmatter): string {
     $lines = [];

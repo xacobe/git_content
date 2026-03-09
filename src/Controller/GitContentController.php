@@ -72,15 +72,15 @@ class GitContentController extends ControllerBase {
    * Exporta nodos, términos de taxonomía y media a content_export/.
    */
   public function exportGit(): array {
-    $output = '<strong>Git Content Export</strong><br><br>';
+    $output = '<strong>' . $this->t('Git Content Export') . '</strong><br><br>';
 
-    $nodes = $this->exportEntities('node', $this->nodeExporter, 'Nodos');
-    $taxonomy = $this->exportEntities('taxonomy_term', $this->taxonomyExporter, 'Taxonomía');
-    $media = $this->exportEntities('media', $this->mediaExporter, 'Media');
-    $blocks = $this->exportEntities('block_content', $this->blockContentExporter, 'Bloques de contenido');
-    $files = $this->exportEntities('file', $this->fileExporter, 'Archivos');
-    $users = $this->exportEntities('user', $this->userExporter, 'Usuarios');
-    $menus = $this->exportEntities('menu_link_content', $this->menuLinkExporter, 'Enlaces de menú');
+    $nodes = $this->exportEntities('node', $this->nodeExporter, $this->t('Nodes'));
+    $taxonomy = $this->exportEntities('taxonomy_term', $this->taxonomyExporter, $this->t('Taxonomy'));
+    $media = $this->exportEntities('media', $this->mediaExporter, $this->t('Media'));
+    $blocks = $this->exportEntities('block_content', $this->blockContentExporter, $this->t('Block content'));
+    $files = $this->exportEntities('file', $this->fileExporter, $this->t('Files'));
+    $users = $this->exportEntities('user', $this->userExporter, $this->t('Users'));
+    $menus = $this->exportEntities('menu_link_content', $this->menuLinkExporter, $this->t('Menu links'));
 
     // Primarily use grouped output for the UI, but keep the log format.
     $grouped = [
@@ -130,9 +130,9 @@ class GitContentController extends ControllerBase {
     }
 
     $opInfo = [
-      'exported' => ['label' => 'Exportados', 'icon' => '✔'],
-      'skipped'  => ['label' => 'Sin cambios', 'icon' => '→'],
-      'deleted'  => ['label' => 'Borrados', 'icon' => '✖'],
+      'exported' => ['label' => $this->t('Exported'), 'icon' => '✔'],
+      'skipped'  => ['label' => $this->t('Unchanged'), 'icon' => '→'],
+      'deleted'  => ['label' => $this->t('Deleted'), 'icon' => '✖'],
     ];
 
     foreach ($opInfo as $op => $info) {
@@ -141,7 +141,7 @@ class GitContentController extends ControllerBase {
       }
 
       $total = array_sum(array_map('count', $grouped[$op]));
-      $output .= '<strong>' . $info['label'] . ' (' . $total . '):</strong><br>';
+      $output .= '<strong>' . $this->t('@label (@count):', ['@label' => $info['label'], '@count' => $total]) . '</strong><br>';
 
       foreach ($grouped[$op] as $type => $files) {
         $label = $this->labelForImportType($type);
@@ -155,10 +155,9 @@ class GitContentController extends ControllerBase {
       $output .= '<br>';
     }
 
-    // Registrar en watchlog la cantidad de entidades exportadas y saltadas.
+    // Log the number of entities exported and skipped.
     \Drupal::logger('git_content')->notice(
-      'Export finished: nodes: @nodes exported (@nodes_skipped skipped), taxonomy: @taxonomy exported (@taxonomy_skipped skipped), media: @media exported (@media_skipped skipped), blocks: @blocks exported (@blocks_skipped skipped), files: @files exported (@files_skipped skipped), users: @users exported (@users_skipped skipped), menus: @menus exported (@menus_skipped skipped).',
-      [
+      $this->t('Export finished: nodes: @nodes exported (@nodes_skipped skipped), taxonomy: @taxonomy exported (@taxonomy_skipped skipped), media: @media exported (@media_skipped skipped), blocks: @blocks exported (@blocks_skipped skipped), files: @files exported (@files_skipped skipped), users: @users exported (@users_skipped skipped), menus: @menus exported (@menus_skipped skipped).', [
         '@nodes' => $nodes['exported'] ?? 0,
         '@nodes_skipped' => $nodes['skipped'] ?? 0,
         '@taxonomy' => $taxonomy['exported'] ?? 0,
@@ -173,7 +172,7 @@ class GitContentController extends ControllerBase {
         '@users_skipped' => $users['skipped'] ?? 0,
         '@menus' => $menus['exported'] ?? 0,
         '@menus_skipped' => $menus['skipped'] ?? 0,
-      ]
+      ])
     );
 
     return ['#markup' => $output];
@@ -191,7 +190,7 @@ class GitContentController extends ControllerBase {
   public function importGit(): array {
     $result = $this->importer->importAll();
 
-    $output = '<strong>Git Content Import</strong><br><br>';
+    $output = '<strong>' . $this->t('Git Content Import') . '</strong><br><br>';
 
     // Agrupar resultados por tipo de operación y por tipo de entidad.
     $grouped = [
@@ -210,10 +209,10 @@ class GitContentController extends ControllerBase {
     }
 
     $opInfo = [
-      'imported' => ['label' => 'Creados', 'icon' => '✔'],
-      'updated'  => ['label' => 'Actualizados', 'icon' => '↻'],
-      'skipped'  => ['label' => 'Sin cambios', 'icon' => '→'],
-      'deleted'  => ['label' => 'Borrados', 'icon' => '✖'],
+      'imported' => ['label' => $this->t('Created'), 'icon' => '✔'],
+      'updated'  => ['label' => $this->t('Updated'), 'icon' => '↻'],
+      'skipped'  => ['label' => $this->t('Unchanged'), 'icon' => '→'],
+      'deleted'  => ['label' => $this->t('Deleted'), 'icon' => '✖'],
     ];
 
     foreach ($opInfo as $op => $info) {
@@ -222,7 +221,7 @@ class GitContentController extends ControllerBase {
       }
 
       $total = array_sum(array_map('count', $grouped[$op]));
-      $output .= '<strong>' . $info['label'] . ' (' . $total . '):</strong><br>';
+      $output .= '<strong>' . $this->t('@label (@count):', ['@label' => $info['label'], '@count' => $total]) . '</strong><br>';
 
       foreach ($grouped[$op] as $type => $files) {
         $label = $this->labelForImportType($type);
@@ -237,18 +236,18 @@ class GitContentController extends ControllerBase {
     }
 
     if (!empty($result['deleted'])) {
-      $output .= '<em>Se han eliminado entidades en Drupal porque no existían archivos .md correspondientes.</em><br><br>';
+      $output .= '<em>' . $this->t('Some entities were deleted in Drupal because no corresponding .md files were found.') . '</em><br><br>';
     }
 
     if (!empty($result['errors'])) {
-      $output .= '<strong>Errores (' . count($result['errors']) . '):</strong><br>';
+      $output .= '<strong>' . $this->t('Errors (@count):', ['@count' => count($result['errors'])]) . '</strong><br>';
       foreach ($result['errors'] as $error) {
         $output .= '✘ ' . $error . '<br>';
       }
     }
 
     if (empty($result['imported']) && empty($result['updated']) && empty($result['skipped']) && empty($result['deleted']) && empty($result['errors'])) {
-      $output .= 'No se encontraron archivos para importar en content_export/.';
+      $output .= $this->t('No files found to import in content_export/.');
     }
 
     return ['#markup' => $output];
@@ -299,14 +298,14 @@ class GitContentController extends ControllerBase {
 
   private function labelForImportType(string $type): string {
     return match ($type) {
-      'nodes' => 'Nodos',
-      'taxonomy' => 'Taxonomía',
-      'media' => 'Media',
-      'blocks' => 'Bloques de contenido',
-      'files' => 'Archivos',
-      'users' => 'Usuarios',
-      'menus' => 'Enlaces de menú',
-      default => 'Otros',
+      'nodes' => $this->t('Nodes'),
+      'taxonomy' => $this->t('Taxonomy'),
+      'media' => $this->t('Media'),
+      'blocks' => $this->t('Block content'),
+      'files' => $this->t('Files'),
+      'users' => $this->t('Users'),
+      'menus' => $this->t('Menu links'),
+      default => $this->t('Other'),
     };
   }
 
@@ -386,7 +385,7 @@ class GitContentController extends ControllerBase {
     }
 
     if ($skipped > 0) {
-      $lines .= '<em>Saltados (' . $skipped . ' sin cambios)</em><br>';
+      $lines .= '<em>' . $this->t('Skipped (@count unchanged)', ['@count' => $skipped]) . '</em><br>';
     }
 
     return [

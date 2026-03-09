@@ -1,6 +1,6 @@
 services:
 
-  # --- Infraestructura compartida ---
+  # --- Shared infrastructure ---
 
   git_content.field_discovery:
     class: Drupal\git_content\Discovery\FieldDiscovery
@@ -9,7 +9,7 @@ services:
   git_content.serializer:
     class: Drupal\git_content\Serializer\MarkdownSerializer
 
-  # --- Exportadores ---
+  # --- Exporters ---
 
   git_content.node_exporter:
     class: Drupal\git_content\Exporter\NodeExporter
@@ -39,13 +39,13 @@ services:
     class: Drupal\git_content\Exporter\MediaExporter
     arguments: ['@git_content.field_discovery', '@git_content.serializer']
 
-  # --- Importador ---
+  # --- Importer ---
 
   git_content.importer:
     class: Drupal\git_content\Importer\MarkdownImporter
     arguments: ['@git_content.field_discovery', '@git_content.serializer', '@entity_type.manager']
 
-  # --- Comandos Drush ---
+  # --- Drush commands ---
 
   git_content.commands:
     class: Drupal\git_content\Commands\GitContentCommands

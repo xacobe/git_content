@@ -5,14 +5,13 @@ namespace Drupal\git_content\Exporter;
 use Drupal\Core\Entity\EntityInterface;
 
 /**
- * Exporta bloques de contenido personalizados (block_content) a Markdown.
+ * Export custom block content entities (block_content) to Markdown.
  *
- * Los block_content son entidades de contenido con bundles y campos propios,
- * equivalentes a nodos en estructura. NO exporta los bloques de configuración
- * (bloque colocados en regiones, visibilidad, etc.) ya que eso lo gestiona
- * `drush config:export` (cex).
+ * Block content entities are fieldable content entities similar to nodes.
+ * This exporter does NOT export block placement/configuration (regions,
+ * visibility, etc.) since that is handled via `drush config:export`.
  *
- * Estructura de salida:
+ * Output structure:
  *   content_export/
  *     blocks/
  *       {bundle}/
@@ -60,7 +59,7 @@ class BlockContentExporter extends BaseExporter {
     $frontmatter['created'] = date('Y-m-d', $entity->get('changed')->value ?? time());
     $frontmatter['___']     = NULL;
 
-    // Campos dinámicos del bundle (igual que NodeExporter)
+    // Dynamic bundle fields (same approach as NodeExporter)
     $groups = $this->buildDynamicGroups($entity, 'block_content');
 
     if (!empty($groups['taxonomy'])) {
@@ -84,7 +83,7 @@ class BlockContentExporter extends BaseExporter {
 
     $frontmatter['translation_of'] = $this->getTranslationOf($entity);
 
-    // Cuerpo: block_content puede tener campo body
+    // Body: block_content may have a body field
     $body = '';
     if ($entity->hasField('body') && !$entity->get('body')->isEmpty()) {
       $body = $this->serializer->htmlToMarkdown($entity->get('body')->value);
@@ -95,8 +94,8 @@ class BlockContentExporter extends BaseExporter {
   }
 
   /**
-   * Genera un slug para el bloque a partir de su info/label.
-   * Usa el ID interno si no hay un nombre legible.
+   * Generate a slug for the block from its title/label.
+   * Falls back to the internal ID if no readable name is available.
    */
   protected function getBlockSlug(EntityInterface $entity): string {
     $label = $entity->label() ?? 'block';

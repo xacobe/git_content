@@ -8,22 +8,22 @@ use Drupal\git_content\Discovery\FieldDiscovery;
 use Drupal\git_content\Serializer\MarkdownSerializer;
 
 /**
- * Exporta los enlaces de menú personalizados (menu_link_content) a Markdown.
+ * Export custom menu links (menu_link_content) to Markdown.
  *
- * La configuración del menú (nombre, descripción) la gestiona `drush cex`.
- * Este exportador se ocupa de los enlaces que el editor ha creado, que son
- * entidades de contenido con UUID propio y traducibles.
+ * Menu configuration (name, description) is handled by `drush cex`.
+ * This exporter is responsible for the menu link entities created by editors,
+ * which have their own UUID and are translatable.
  *
- * Estructura de salida:
+ * Output structure:
  *   content_export/
  *     menus/
  *       {menu-id}/
  *         {langcode}/
  *           {slug}[__{parent-slug}...].md
  *
- * El orden y la jerarquía se reconstruyen a partir del frontmatter (`weight`, `parent`).
+ * Order and hierarchy are reconstructed from frontmatter fields (`weight`, `parent`).
  *
- * Ejemplo de frontmatter generado:
+ * Example frontmatter produced:
  *   ---
  *   uuid: a1b2c3d4
  *   type: menu_link_content
@@ -54,9 +54,9 @@ class MenuLinkExporter extends BaseExporter {
   }
 
   /**
-   * Exporta todos los menu_link_content agrupados por menú.
+   * Export all menu_link_content items grouped by menu.
    *
-   * @return string[] Rutas de archivos generados.
+   * @return string[] Generated file paths.
    */
   public function exportAll(): array {
     $storage = $this->entityTypeManager->getStorage('menu_link_content');
@@ -91,8 +91,8 @@ class MenuLinkExporter extends BaseExporter {
     $dir = DRUPAL_ROOT . '/content_export/menus/' . $menu_id . '/' . $langcode;
     $this->ensureDir($dir);
 
-    // Construimos el nombre de archivo con la jerarquía de padres:
-    // padre__hijo__nieto.md
+    // Build the file name using parent hierarchy:
+    // parent__child__grandchild.md
     $filename = $this->getLinkPath($entity) . '.md';
     $filepath = $dir . '/' . $filename;
 
@@ -101,14 +101,14 @@ class MenuLinkExporter extends BaseExporter {
   }
 
   /**
-   * Construye el nombre de archivo de un enlace de menú incluyendo su
-   * cadena de padres separados por doble guión bajo (__).
+   * Build the file name for a menu link including its parent chain separated by
+   * double underscores (__).
    */
   protected function getLinkPath(EntityInterface $entity): string {
     $slug = $this->getLinkSlug($entity);
     $parent_id = $entity->getParentId();
 
-    // Si no tiene padre, retornamos solo el slug.
+    // If there is no parent, just return the slug.
     if (empty($parent_id) || !str_starts_with($parent_id, 'menu_link_content:')) {
       return $slug;
     }
@@ -116,7 +116,7 @@ class MenuLinkExporter extends BaseExporter {
     // Extraemos UUID del plugin_id.
     $parent_uuid = substr($parent_id, strlen('menu_link_content:'));
 
-    // Intentamos cargar la entidad padre por UUID.
+    // Try to load the parent entity by UUID.
     $parent = $this->loadMenuLinkByUuid($parent_uuid);
     if (!$parent) {
       return $slug;
@@ -127,7 +127,7 @@ class MenuLinkExporter extends BaseExporter {
   }
 
   /**
-   * Carga un menu_link_content por su UUID (completo o corto).
+   * Load a menu_link_content by its UUID (full or short).
    */
   protected function loadMenuLinkByUuid(string $uuid): ?\Drupal\Core\Entity\EntityInterface {
     $storage = $this->entityTypeManager->getStorage('menu_link_content');
@@ -171,12 +171,12 @@ class MenuLinkExporter extends BaseExporter {
     $frontmatter['expanded'] = (bool) $entity->isExpanded();
     $frontmatter['__']       = NULL;
 
-    // Referencia al enlace padre (UUID corto del menu_link_content padre)
+    // Reference to the parent link (short UUID of the parent menu_link_content)
     $frontmatter['parent'] = $this->getParentUuid($entity);
 
     $frontmatter['translation_of'] = $this->getTranslationOf($entity);
 
-    // Descripción como cuerpo si existe
+    // Description as body if it exists
     $body = '';
     if ($entity->hasField('description') && !$entity->get('description')->isEmpty()) {
       $body = $entity->get('description')->value ?? '';
@@ -187,10 +187,10 @@ class MenuLinkExporter extends BaseExporter {
   }
 
   /**
-   * Devuelve el UUID corto del enlace padre, o null si es raíz.
+   * Return the short UUID of the parent link, or null for root links.
    *
-   * El campo 'parent' de menu_link_content almacena el plugin ID completo
-   * en formato "menu_link_content:{uuid}". Extraemos solo el UUID corto.
+   * The 'parent' field of menu_link_content stores the full plugin ID as
+   * "menu_link_content:{uuid}". We extract only the short UUID.
    */
   protected function getParentUuid(EntityInterface $entity): ?string {
     $parent_plugin_id = $entity->getParentId();
@@ -205,13 +205,13 @@ class MenuLinkExporter extends BaseExporter {
       return $this->shortenUuid($uuid);
     }
 
-    // Si el padre es un enlace de otro plugin (ruta de módulo, etc.)
-    // lo guardamos tal cual para no perder la referencia.
+    // If the parent is a link from another plugin (module route, etc.),
+    // keep it as-is to preserve the reference.
     return $parent_plugin_id;
   }
 
   /**
-   * Genera un slug legible a partir del título del enlace.
+   * Generate a readable slug from the link title.
    */
   protected function getLinkSlug(EntityInterface $entity): string {
     $title = $entity->getTitle() ?? 'link-' . $entity->id();
