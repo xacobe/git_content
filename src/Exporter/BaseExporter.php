@@ -25,7 +25,7 @@ abstract class BaseExporter {
   protected array $managedFields = [
     'nid', 'vid', 'uuid', 'langcode', 'status', 'created', 'changed',
     'uid', 'title', 'body', 'path', 'type',
-    'revision_timestamp', 'revision_uid', 'revision_log', 'revision_default',
+    'revision_timestamp', 'revision_uid', 'revision_log', 'revision_log_message', 'revision_default',
     'revision_translation_affected', 'default_langcode',
     'content_translation_source', 'content_translation_outdated',
     // Usuarios (no exportar campos sensibles o irrelevantes)

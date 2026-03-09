@@ -66,6 +66,10 @@ class TaxonomyExporter extends BaseExporter {
       $frontmatter[$key] = $val;
     }
 
+    // Si la descripción está en el grupo 'extra', no la duplicamos como campo
+    // en el frontmatter: la representamos únicamente como cuerpo Markdown.
+    unset($frontmatter['description']);
+
     $frontmatter['translation_of'] = $this->getTranslationOf($entity);
 
     // Descripción como cuerpo
