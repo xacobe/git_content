@@ -225,7 +225,7 @@ class MarkdownImporter {
     }
 
     $op = match ($type) {
-      'file'             => $this->importFile_($frontmatter),
+      'file'             => $this->importFileEntity($frontmatter),
       'user'             => $this->importUser($frontmatter),
       'taxonomy_term'    => $this->importTerm($frontmatter, $body),
       'media'            => $this->importMedia($frontmatter, $body),
@@ -316,7 +316,7 @@ class MarkdownImporter {
    * This method registers or updates the entity in the managed_file table.
    * Method named importFile_ to avoid collision with importFile().
    */
-  protected function importFile_(array $frontmatter): string {
+  protected function importFileEntity(array $frontmatter): string {
     $short_uuid = $frontmatter['uuid'] ?? NULL;
     $uri        = $frontmatter['uri'] ?? NULL;
     $langcode   = $frontmatter['lang'] ?? 'und';
