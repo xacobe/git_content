@@ -129,19 +129,23 @@ class MenuLinkExporter extends BaseExporter {
   protected function loadMenuLinkByUuid(string $uuid): ?\Drupal\Core\Entity\EntityInterface {
     $storage = $this->entityTypeManager->getStorage('menu_link_content');
 
-    // Try to load by full UUID first.
+    // Try exact match first (full UUID).
     $links = $storage->loadByProperties(['uuid' => $uuid]);
     if (!empty($links)) {
       return reset($links);
     }
 
-    // Fall back to short UUID (8 chars without dashes).
+    // Short UUID: the first 8 hex chars equal the start of the full UUID
+    // string, so a LIKE prefix query is sufficient — no full scan needed.
     $clean = str_replace('-', '', $uuid);
     if (strlen($clean) === 8) {
-      foreach ($storage->loadMultiple() as $link) {
-        if (substr(str_replace('-', '', $link->uuid()), 0, 8) === $clean) {
-          return $link;
-        }
+      $ids = $storage->getQuery()
+        ->accessCheck(FALSE)
+        ->condition('uuid', $clean . '%', 'LIKE')
+        ->range(0, 1)
+        ->execute();
+      if (!empty($ids)) {
+        return $storage->load(reset($ids));
       }
     }
 

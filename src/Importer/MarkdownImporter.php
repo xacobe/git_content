@@ -899,18 +899,21 @@ class MarkdownImporter {
       default            => 'type',
     };
 
+    // The short UUID is the first 8 chars of the full UUID (before the first
+    // dash), so a LIKE prefix query lets the DB use its UUID index instead of
+    // loading every entity into PHP.
     $storage = $this->entityTypeManager->getStorage($entity_type);
     $ids = $storage->getQuery()
       ->accessCheck(FALSE)
       ->condition($bundle_key, $bundle)
+      ->condition('uuid', $short_uuid . '%', 'LIKE')
+      ->range(0, 1)
       ->execute();
 
-    foreach ($storage->loadMultiple($ids) as $entity) {
-      if (substr(str_replace('-', '', $entity->uuid()), 0, 8) === $short_uuid) {
-        return $entity;
-      }
+    if (empty($ids)) {
+      return NULL;
     }
-    return NULL;
+    return $storage->load(reset($ids));
   }
 
   /**
@@ -919,14 +922,16 @@ class MarkdownImporter {
    */
   protected function findByShortUuidGlobal(string $short_uuid, string $entity_type): mixed {
     $storage = $this->entityTypeManager->getStorage($entity_type);
-    $ids = $storage->getQuery()->accessCheck(FALSE)->execute();
+    $ids = $storage->getQuery()
+      ->accessCheck(FALSE)
+      ->condition('uuid', $short_uuid . '%', 'LIKE')
+      ->range(0, 1)
+      ->execute();
 
-    foreach ($storage->loadMultiple($ids) as $entity) {
-      if (substr(str_replace('-', '', $entity->uuid()), 0, 8) === $short_uuid) {
-        return $entity;
-      }
+    if (empty($ids)) {
+      return NULL;
     }
-    return NULL;
+    return $storage->load(reset($ids));
   }
 
   protected function findFileByName(string $filename): ?int {
