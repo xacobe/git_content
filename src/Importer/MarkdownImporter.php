@@ -108,7 +108,6 @@ class MarkdownImporter {
    * @return array{op: string, type: string}
    *   'op' es uno de 'imported', 'updated', 'skipped'.
    *   'type' es el valor de frontmatter.type usado para importar.
-   *
    * @throws \Exception
    */
   public function importFile(string $filepath): array {
