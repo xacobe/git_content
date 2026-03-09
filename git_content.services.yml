@@ -39,6 +39,21 @@ services:
     class: Drupal\git_content\Exporter\MediaExporter
     arguments: ['@git_content.field_discovery', '@git_content.serializer', '@entity_type.manager', '@logger.factory']
 
+  # --- Exporter orchestrator ---
+
+  git_content.exporter:
+    class: Drupal\git_content\Exporter\MarkdownExporter
+    arguments:
+      - '@entity_type.manager'
+      - '@logger.factory'
+      - '@git_content.node_exporter'
+      - '@git_content.taxonomy_exporter'
+      - '@git_content.media_exporter'
+      - '@git_content.file_exporter'
+      - '@git_content.user_exporter'
+      - '@git_content.block_content_exporter'
+      - '@git_content.menu_link_exporter'
+
   # --- Importers ---
 
   git_content.node_importer:
