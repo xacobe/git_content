@@ -11,8 +11,10 @@ use Drupal\git_content\Exporter\FileExporter;
 use Drupal\git_content\Exporter\UserExporter;
 use Drupal\git_content\Exporter\MenuLinkExporter;
 use Drupal\git_content\Importer\MarkdownImporter;
+use Drupal\Component\Utility\Html;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Logger\LoggerChannelFactoryInterface;
+use Drupal\Core\Render\Markup;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
@@ -147,13 +149,13 @@ class GitContentController extends ControllerBase {
       }
 
       $total = array_sum(array_map('count', $grouped[$op]));
-      $output .= '<strong>' . $this->t('@label (@count):', ['@label' => $info['label'], '@count' => $total]) . '</strong><br>';
+      $output .= '<strong>' . $this->t('@label (@count):', ['@label' => $info['label'], '@count' => (string) $total]) . '</strong><br>';
 
       foreach ($grouped[$op] as $type => $files) {
         $label = $this->labelForImportType($type);
-        $output .= "<details><summary>$label (" . count($files) . "):</summary>";
+        $output .= '<details><summary>' . Html::escape((string) $label) . ' (' . count($files) . '):</summary>';
         foreach ($files as $file) {
-          $output .= $info['icon'] . ' ' . $file . '<br>';
+          $output .= Html::escape($info['icon']) . ' ' . Html::escape($file) . '<br>';
         }
         $output .= '</details>';
       }
@@ -182,7 +184,7 @@ class GitContentController extends ControllerBase {
       ]
     );
 
-    return ['#markup' => $output];
+    return ['#markup' => Markup::create($output)];
   }
 
   private function countEntities(string $entity_type): int {
@@ -228,13 +230,13 @@ class GitContentController extends ControllerBase {
       }
 
       $total = array_sum(array_map('count', $grouped[$op]));
-      $output .= '<strong>' . $this->t('@label (@count):', ['@label' => $info['label'], '@count' => $total]) . '</strong><br>';
+      $output .= '<strong>' . $this->t('@label (@count):', ['@label' => $info['label'], '@count' => (string) $total]) . '</strong><br>';
 
       foreach ($grouped[$op] as $type => $files) {
         $label = $this->labelForImportType($type);
-        $output .= "<details><summary>$label (" . count($files) . "):</summary>";
+        $output .= '<details><summary>' . Html::escape((string) $label) . ' (' . count($files) . '):</summary>';
         foreach ($files as $file) {
-          $output .= $info['icon'] . ' ' . $file . '<br>';
+          $output .= Html::escape($info['icon']) . ' ' . Html::escape($file) . '<br>';
         }
         $output .= '</details>';
       }
@@ -247,9 +249,9 @@ class GitContentController extends ControllerBase {
     }
 
     if (!empty($result['errors'])) {
-      $output .= '<strong>' . $this->t('Errors (@count):', ['@count' => count($result['errors'])]) . '</strong><br>';
+      $output .= '<strong>' . $this->t('Errors (@count):', ['@count' => (string) count($result['errors'])]) . '</strong><br>';
       foreach ($result['errors'] as $error) {
-        $output .= '✘ ' . $error . '<br>';
+        $output .= '✘ ' . Html::escape($error) . '<br>';
       }
     }
 
@@ -257,7 +259,7 @@ class GitContentController extends ControllerBase {
       $output .= $this->t('No files found to import in content_export/.');
     }
 
-    return ['#markup' => $output];
+    return ['#markup' => Markup::create($output)];
   }
 
   private function detectImportTypeFromPath(string $relativePath): string {
@@ -378,21 +380,21 @@ class GitContentController extends ControllerBase {
         if ($skippedFile) {
           $skipped++;
           $skippedFiles[] = $relpath;
-          $lines .= '→ ' . $entity->id() . ' (' . $entity->bundle() . '): ' . $filepath . '<br>';
+          $lines .= '→ ' . $entity->id() . ' (' . Html::escape($entity->bundle()) . '): ' . Html::escape($filepath) . '<br>';
         }
         else {
           $exported++;
           $exportedFiles[] = $relpath;
-          $lines .= '✔ ' . $entity->id() . ' (' . $entity->bundle() . '): ' . $filepath . '<br>';
+          $lines .= '✔ ' . $entity->id() . ' (' . Html::escape($entity->bundle()) . '): ' . Html::escape($filepath) . '<br>';
         }
       }
       catch (\Exception $e) {
-        $lines .= '✘ ' . $entity->id() . ': ' . $e->getMessage() . '<br>';
+        $lines .= '✘ ' . $entity->id() . ': ' . Html::escape($e->getMessage()) . '<br>';
       }
     }
 
     if ($skipped > 0) {
-      $lines .= '<em>' . $this->t('Skipped (@count unchanged)', ['@count' => $skipped]) . '</em><br>';
+      $lines .= '<em>' . $this->t('Skipped (@count unchanged)', ['@count' => (string) $skipped]) . '</em><br>';
     }
 
     return [
