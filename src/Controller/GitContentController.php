@@ -82,13 +82,71 @@ class GitContentController extends ControllerBase {
     $users = $this->exportEntities('user', $this->userExporter, 'Usuarios');
     $menus = $this->exportEntities('menu_link_content', $this->menuLinkExporter, 'Enlaces de menú');
 
-    $output .= $nodes['html'];
-    $output .= $taxonomy['html'];
-    $output .= $media['html'];
-    $output .= $blocks['html'];
-    $output .= $files['html'];
-    $output .= $users['html'];
-    $output .= $menus['html'];
+    // Primarily use grouped output for the UI, but keep the log format.
+    $grouped = [
+      'exported' => [],
+      'skipped'  => [],
+    ];
+
+    $entityResults = [
+      'nodes' => $nodes,
+      'taxonomy' => $taxonomy,
+      'media' => $media,
+      'blocks' => $blocks,
+      'files' => $files,
+      'users' => $users,
+      'menus' => $menus,
+    ];
+
+    $exportedFiles = [];
+    $skippedFiles = [];
+
+    foreach ($entityResults as $type => $result) {
+      foreach ($result['exported_files'] as $file) {
+        $rel = str_replace(DRUPAL_ROOT . '/content_export/', '', $file);
+        $exportedFiles[] = $rel;
+        $grouped['exported'][$type][] = $rel;
+      }
+      foreach ($result['skipped_files'] as $file) {
+        $rel = str_replace(DRUPAL_ROOT . '/content_export/', '', $file);
+        $skippedFiles[] = $rel;
+        $grouped['skipped'][$type][] = $rel;
+      }
+    }
+
+    // Asegurarnos de que el reporte incluye también los archivos que ya estaban
+    // en disco y que el export no tocó (por ejemplo, restos de runs anteriores).
+    $allFiles = $this->scanContentExportFiles();
+    $untouched = array_diff($allFiles, array_merge($exportedFiles, $skippedFiles));
+    foreach ($untouched as $file) {
+      $type = $this->detectImportTypeFromPath($file);
+      $grouped['skipped'][$type][] = $file;
+    }
+
+    $opInfo = [
+      'exported' => ['label' => 'Exportados', 'icon' => '✔'],
+      'skipped'  => ['label' => 'Sin cambios', 'icon' => '→'],
+    ];
+
+    foreach ($opInfo as $op => $info) {
+      if (empty($grouped[$op])) {
+        continue;
+      }
+
+      $total = array_sum(array_map('count', $grouped[$op]));
+      $output .= '<strong>' . $info['label'] . ' (' . $total . '):</strong><br>';
+
+      foreach ($grouped[$op] as $type => $files) {
+        $label = $this->labelForImportType($type);
+        $output .= "<details><summary>$label (" . count($files) . "):</summary>";
+        foreach ($files as $file) {
+          $output .= $info['icon'] . ' ' . $file . '<br>';
+        }
+        $output .= '</details>';
+      }
+
+      $output .= '<br>';
+    }
 
     // Registrar en watchlog la cantidad de entidades exportadas y saltadas.
     \Drupal::logger('git_content')->notice(
@@ -128,27 +186,46 @@ class GitContentController extends ControllerBase {
 
     $output = '<strong>Git Content Import</strong><br><br>';
 
-    if (!empty($result['imported'])) {
-      $output .= '<strong>Creados (' . count($result['imported']) . '):</strong><br>';
-      foreach ($result['imported'] as $file) {
-        $output .= '✔ ' . $file . '<br>';
+    // Agrupar resultados por tipo de operación y por tipo de entidad.
+    $grouped = [
+      'imported' => [],
+      'updated'  => [],
+      'skipped'  => [],
+      'deleted'  => [],
+    ];
+
+    foreach (['imported', 'updated', 'skipped', 'deleted'] as $op) {
+      foreach ($result[$op] as $file) {
+        $rel = str_replace(DRUPAL_ROOT . '/content_export/', '', $file);
+        $type = $this->detectImportTypeFromPath($rel);
+        $grouped[$op][$type][] = $rel;
       }
-      $output .= '<br>';
     }
 
-    if (!empty($result['updated'])) {
-      $output .= '<strong>Actualizados (' . count($result['updated']) . '):</strong><br>';
-      foreach ($result['updated'] as $file) {
-        $output .= '↻ ' . $file . '<br>';
-      }
-      $output .= '<br>';
-    }
+    $opInfo = [
+      'imported' => ['label' => 'Creados', 'icon' => '✔'],
+      'updated'  => ['label' => 'Actualizados', 'icon' => '↻'],
+      'skipped'  => ['label' => 'Sin cambios', 'icon' => '→'],
+      'deleted'  => ['label' => 'Borrados', 'icon' => '✖'],
+    ];
 
-    if (!empty($result['skipped'])) {
-      $output .= '<strong>Sin cambios (' . count($result['skipped']) . '):</strong><br>';
-      foreach ($result['skipped'] as $file) {
-        $output .= '→ ' . $file . '<br>';
+    foreach ($opInfo as $op => $info) {
+      if (empty($grouped[$op])) {
+        continue;
       }
+
+      $total = array_sum(array_map('count', $grouped[$op]));
+      $output .= '<strong>' . $info['label'] . ' (' . $total . '):</strong><br>';
+
+      foreach ($grouped[$op] as $type => $files) {
+        $label = $this->labelForImportType($type);
+        $output .= "<details><summary>$label (" . count($files) . "):</summary>";
+        foreach ($files as $file) {
+          $output .= $info['icon'] . ' ' . $file . '<br>';
+        }
+        $output .= '</details>';
+      }
+
       $output .= '<br>';
     }
 
@@ -159,11 +236,67 @@ class GitContentController extends ControllerBase {
       }
     }
 
-    if (empty($result['imported']) && empty($result['updated']) && empty($result['skipped']) && empty($result['errors'])) {
+    if (empty($result['imported']) && empty($result['updated']) && empty($result['skipped']) && empty($result['deleted']) && empty($result['errors'])) {
       $output .= 'No se encontraron archivos para importar en content_export/.';
     }
 
     return ['#markup' => $output];
+  }
+
+  private function detectImportTypeFromPath(string $relativePath): string {
+    $parts = explode('/', $relativePath);
+    $first = $parts[0] ?? '';
+
+    return match ($first) {
+      'content_types' => 'nodes',
+      'taxonomy' => 'taxonomy',
+      'media' => 'media',
+      'blocks' => 'blocks',
+      'files' => 'files',
+      'users' => 'users',
+      'menus' => 'menus',
+      default => 'other',
+    };
+  }
+
+  private function scanContentExportFiles(): array {
+    $dir = DRUPAL_ROOT . '/content_export';
+    if (!is_dir($dir)) {
+      return [];
+    }
+
+    $files = [];
+    $it = new \RecursiveIteratorIterator(
+      new \RecursiveDirectoryIterator($dir, \RecursiveDirectoryIterator::SKIP_DOTS)
+    );
+
+    foreach ($it as $file) {
+      if (!$file->isFile()) {
+        continue;
+      }
+      if ($file->getExtension() !== 'md') {
+        continue;
+      }
+      $path = $file->getPathname();
+      $rel = str_replace(DRUPAL_ROOT . '/content_export/', '', $path);
+      $files[] = $rel;
+    }
+
+    sort($files);
+    return $files;
+  }
+
+  private function labelForImportType(string $type): string {
+    return match ($type) {
+      'nodes' => 'Nodos',
+      'taxonomy' => 'Taxonomía',
+      'media' => 'Media',
+      'blocks' => 'Bloques de contenido',
+      'files' => 'Archivos',
+      'users' => 'Usuarios',
+      'menus' => 'Enlaces de menú',
+      default => 'Otros',
+    };
   }
 
   // ---------------------------------------------------------------------------
@@ -171,14 +304,15 @@ class GitContentController extends ControllerBase {
   // ---------------------------------------------------------------------------
 
   /**
-   * Exporta todas las entidades de un tipo y devuelve el HTML de resultado
-   * junto con un resumen de exportadas/saltadas.
+   * Exporta todas las entidades de un tipo y devuelve un resumen de resultados.
    *
    * @return array{
    *   html: string,
    *   exported: int,
    *   skipped: int,
    *   total: int,
+   *   exported_files: string[],
+   *   skipped_files: string[],
    * }
    */
   private function exportEntities(string $entity_type, $exporter, string $label): array {
@@ -194,6 +328,8 @@ class GitContentController extends ControllerBase {
         'exported' => 0,
         'skipped' => 0,
         'total' => 0,
+        'exported_files' => [],
+        'skipped_files' => [],
       ];
     }
 
@@ -203,6 +339,8 @@ class GitContentController extends ControllerBase {
         'exported' => 0,
         'skipped' => 0,
         'total' => 0,
+        'exported_files' => [],
+        'skipped_files' => [],
       ];
     }
 
@@ -210,19 +348,24 @@ class GitContentController extends ControllerBase {
     $lines = "<strong>$label (" . count($entities) . "):</strong><br>";
     $skipped = 0;
     $exported = 0;
+    $exportedFiles = [];
+    $skippedFiles = [];
 
     foreach ($entities as $entity) {
       try {
         $result = $exporter->exportToFile($entity);
         $filepath = is_array($result) ? $result['path'] : $result;
+        $relpath = str_replace(DRUPAL_ROOT . '/content_export/', '', $filepath);
         $skippedFile = is_array($result) ? ($result['skipped'] ?? FALSE) : FALSE;
 
         if ($skippedFile) {
           $skipped++;
+          $skippedFiles[] = $relpath;
           $lines .= '→ ' . $entity->id() . ' (' . $entity->bundle() . '): ' . $filepath . '<br>';
         }
         else {
           $exported++;
+          $exportedFiles[] = $relpath;
           $lines .= '✔ ' . $entity->id() . ' (' . $entity->bundle() . '): ' . $filepath . '<br>';
         }
       }
@@ -240,6 +383,8 @@ class GitContentController extends ControllerBase {
       'exported' => $exported,
       'skipped' => $skipped,
       'total' => count($entities),
+      'exported_files' => $exportedFiles,
+      'skipped_files' => $skippedFiles,
     ];
   }
 
