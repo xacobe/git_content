@@ -1,7 +1,7 @@
 name: 'Git Content'
 type: module
 description: 'Export and import Drupal content to Markdown versionable in Git'
-package: Custom
+package: Content
 core_version_requirement: ^10 || ^11
 
 # Required: these entity types must be present for the core export/import to work.
