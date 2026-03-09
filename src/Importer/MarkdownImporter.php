@@ -60,12 +60,24 @@ class MarkdownImporter {
     usort($files, fn($a, $b) => $this->compareImportFiles($a, $b));
 
     $typeCounts = [];
+    $seenUuids = [
+      'node' => [],
+      'taxonomy_term' => [],
+      'media' => [],
+      'block_content' => [],
+      'file' => [],
+      'user' => [],
+      'menu_link_content' => [],
+    ];
 
     foreach ($files as $filepath) {
       try {
         $import = $this->importFile($filepath);
         $op = $import['op'];
         $type = $import['type'];
+        $entity_type = $import['entity_type'] ?? NULL;
+        $uuid = $import['uuid'] ?? NULL;
+        $bundle = $import['bundle'] ?? '__all';
 
         $result[$op][] = str_replace(DRUPAL_ROOT . '/content_export/', '', $filepath);
 
@@ -75,9 +87,28 @@ class MarkdownImporter {
         if (isset($typeCounts[$type][$op])) {
           $typeCounts[$type][$op]++;
         }
+
+        if ($entity_type && $uuid) {
+          $seenUuids[$entity_type][$bundle][$uuid] = TRUE;
+        }
       }
       catch (\Exception $e) {
         $result['errors'][] = basename($filepath) . ': ' . $e->getMessage();
+      }
+    }
+
+    // Eliminar entidades en Drupal que ya no tienen un .md correspondiente.
+    $deleted = $this->cleanupDeletedEntities($seenUuids);
+    foreach ($deleted as $deletedItem) {
+      $result['deleted'][] = $deletedItem;
+      // Contamos borrados en el resumen por tipo si aplica.
+      $parts = explode(':', $deletedItem, 2);
+      if (count($parts) === 2) {
+        $deletedType = trim($parts[0]);
+        if (!isset($typeCounts[$deletedType])) {
+          $typeCounts[$deletedType] = ['imported' => 0, 'updated' => 0, 'skipped' => 0, 'deleted' => 0];
+        }
+        $typeCounts[$deletedType]['deleted']++;
       }
     }
 
@@ -105,9 +136,12 @@ class MarkdownImporter {
   /**
    * Importa un único archivo Markdown.
    *
-   * @return array{op: string, type: string}
+   * @return array{op: string, entity_type: string, type: string, uuid?: string|null, bundle?: string|null}
    *   'op' es uno de 'imported', 'updated', 'skipped'.
+   *   'entity_type' es el tipo de entidad de Drupal (node, taxonomy_term, ...).
    *   'type' es el valor de frontmatter.type usado para importar.
+   *   'uuid' es el UUID corto extraído del frontmatter (si está presente).
+   *   'bundle' es el bundle/vocab/menu correspondiente para este tipo.
    * @throws \Exception
    */
   public function importFile(string $filepath): array {
@@ -126,13 +160,43 @@ class MarkdownImporter {
       throw new \Exception("El frontmatter no contiene el campo 'type'.");
     }
 
+    $short_uuid = $frontmatter['uuid'] ?? NULL;
+    $entity_type = match ($type) {
+      'taxonomy_term'    => 'taxonomy_term',
+      'file'             => 'file',
+      'user'             => 'user',
+      'media'            => 'media',
+      'block_content'    => 'block_content',
+      'menu_link_content'=> 'menu_link_content',
+      default            => 'node',
+    };
+
+    $bundle = NULL;
+    switch ($entity_type) {
+      case 'taxonomy_term':
+        $bundle = $frontmatter['vocabulary'] ?? NULL;
+        break;
+      case 'node':
+        $bundle = $type; // en nodos, type == bundle
+        break;
+      case 'media':
+      case 'block_content':
+        $bundle = $frontmatter['bundle'] ?? NULL;
+        break;
+      case 'menu_link_content':
+        $bundle = $frontmatter['menu_name'] ?? NULL;
+        break;
+      default:
+        $bundle = NULL;
+    }
+
     // Si el archivo contiene un checksum, compararlo para evitar reimportar
     // si no ha cambiado.
     $checksum = $frontmatter['checksum'] ?? NULL;
     if ($checksum) {
       $computed = $this->computeChecksum($frontmatter, $body);
       if ($computed === $checksum) {
-        return ['op' => 'skipped', 'type' => $type];
+        return ['op' => 'skipped', 'entity_type' => $entity_type, 'type' => $type, 'uuid' => $short_uuid, 'bundle' => $bundle];
       }
     }
 
@@ -146,7 +210,7 @@ class MarkdownImporter {
       default            => $this->importNode($frontmatter, $body),
     };
 
-    return ['op' => $op, 'type' => $type];
+    return ['op' => $op, 'entity_type' => $entity_type, 'type' => $type, 'uuid' => $short_uuid, 'bundle' => $bundle];
   }
 
   // ---------------------------------------------------------------------------
@@ -919,6 +983,80 @@ class MarkdownImporter {
       return $ts !== FALSE ? $ts : \Drupal::time()->getCurrentTime();
     }
     return \Drupal::time()->getCurrentTime();
+  }
+
+  /**
+   * Elimina en Drupal las entidades que ya no tienen un archivo .md correspondiente.
+   *
+   * @param array $seenUuids
+   *   Mapa por entity_type -> bundle -> short_uuid => TRUE que representa los
+   *   UUIDs de las entidades que fueron importadas/actualizadas durante esta ejecución.
+   *
+   * @return string[] Lista de elementos eliminados (para mostrar en UI).
+   */
+  protected function cleanupDeletedEntities(array $seenUuids): array {
+    $deleted = [];
+
+    foreach ($seenUuids as $entity_type => $bundles) {
+      // Sincronizamos entidades que podemos eliminar de forma segura.
+      // - nodes/taxonomy/media/block_content/menu_link_content: sí.
+      // - file: sí (los referenciados en el export).
+      // - user: solo si no es el usuario administrador ni el actual.
+      if (!in_array($entity_type, ['node', 'taxonomy_term', 'media', 'block_content', 'menu_link_content', 'file', 'user'], TRUE)) {
+        continue;
+      }
+
+      // Si no hay archivos para este tipo, no eliminamos nada.
+      if (empty($bundles)) {
+        continue;
+      }
+
+      $storage = $this->entityTypeManager->getStorage($entity_type);
+
+      foreach ($bundles as $bundle => $uuids) {
+        $query = $storage->getQuery()->accessCheck(FALSE);
+
+        switch ($entity_type) {
+          case 'node':
+            $query->condition('type', $bundle);
+            break;
+          case 'taxonomy_term':
+            $query->condition('vid', $bundle);
+            break;
+          case 'media':
+            $query->condition('bundle', $bundle);
+            break;
+          case 'block_content':
+            $query->condition('type', $bundle);
+            break;
+          case 'menu_link_content':
+            $query->condition('menu_name', $bundle);
+            break;
+        }
+
+        $ids = $query->execute();
+        foreach ($storage->loadMultiple($ids) as $entity) {
+          $uuid = substr(str_replace('-', '', $entity->uuid()), 0, 8);
+          if (isset($uuids[$uuid])) {
+            continue;
+          }
+
+          // Evitar eliminar el usuario administrador o el usuario actual.
+          if ($entity_type === 'user') {
+            $current = \Drupal::currentUser();
+            if ($entity->id() === 1 || $entity->id() === $current->id()) {
+              continue;
+            }
+          }
+
+          $label = method_exists($entity, 'label') ? $entity->label() : $entity->id();
+          $deleted[] = "$entity_type:$bundle: $label ($uuid)";
+          $entity->delete();
+        }
+      }
+    }
+
+    return $deleted;
   }
 
 

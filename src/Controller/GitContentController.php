@@ -86,6 +86,7 @@ class GitContentController extends ControllerBase {
     $grouped = [
       'exported' => [],
       'skipped'  => [],
+      'deleted'  => [],
     ];
 
     $entityResults = [
@@ -120,12 +121,18 @@ class GitContentController extends ControllerBase {
     $untouched = array_diff($allFiles, array_merge($exportedFiles, $skippedFiles));
     foreach ($untouched as $file) {
       $type = $this->detectImportTypeFromPath($file);
-      $grouped['skipped'][$type][] = $file;
+      $grouped['deleted'][$type][] = $file;
+
+      $path = DRUPAL_ROOT . '/content_export/' . $file;
+      if (is_file($path)) {
+        @unlink($path);
+      }
     }
 
     $opInfo = [
       'exported' => ['label' => 'Exportados', 'icon' => '✔'],
       'skipped'  => ['label' => 'Sin cambios', 'icon' => '→'],
+      'deleted'  => ['label' => 'Borrados', 'icon' => '✖'],
     ];
 
     foreach ($opInfo as $op => $info) {
@@ -227,6 +234,10 @@ class GitContentController extends ControllerBase {
       }
 
       $output .= '<br>';
+    }
+
+    if (!empty($result['deleted'])) {
+      $output .= '<em>Se han eliminado entidades en Drupal porque no existían archivos .md correspondientes.</em><br><br>';
     }
 
     if (!empty($result['errors'])) {
