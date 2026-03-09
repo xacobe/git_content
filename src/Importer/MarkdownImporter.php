@@ -1122,21 +1122,32 @@ class MarkdownImporter {
   }
 
   protected function getImportFileMeta(string $filepath): array {
+    // Cache results so each file is read and parsed at most once.
+    // usort calls the comparator O(N log N) times; without this cache every
+    // file would be deserialized on each comparison.
+    static $cache = [];
+
+    if (array_key_exists($filepath, $cache)) {
+      return $cache[$filepath];
+    }
+
+    $empty = ['type' => '', 'menu' => '', 'weight' => 0];
+
     $raw = @file_get_contents($filepath);
     if ($raw === FALSE) {
-      return ['type' => '', 'menu' => '', 'weight' => 0];
+      return $cache[$filepath] = $empty;
     }
 
     try {
       $parsed = $this->serializer->deserialize($raw);
     }
     catch (\Exception $e) {
-      return ['type' => '', 'menu' => '', 'weight' => 0];
+      return $cache[$filepath] = $empty;
     }
 
     $frontmatter = $this->serializer->flattenGroups($parsed['frontmatter']);
 
-    return [
+    return $cache[$filepath] = [
       'type'   => $frontmatter['type'] ?? '',
       'menu'   => $frontmatter['menu'] ?? '',
       'weight' => (int) ($frontmatter['weight'] ?? 0),
