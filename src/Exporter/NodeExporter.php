@@ -16,9 +16,6 @@ class NodeExporter extends BaseExporter {
 
   /**
    * {@inheritdoc}
-   */
-  /**
-   * {@inheritdoc}
    *
    * @return array{path: string, skipped: bool}
    */
