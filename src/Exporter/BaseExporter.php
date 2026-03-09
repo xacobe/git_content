@@ -4,6 +4,7 @@ namespace Drupal\git_content\Exporter;
 
 use Drupal\git_content\Discovery\FieldDiscovery;
 use Drupal\git_content\Serializer\MarkdownSerializer;
+use Drupal\git_content\Utility\ChecksumTrait;
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Field\FieldDefinitionInterface;
@@ -18,6 +19,8 @@ use Psr\Log\LoggerInterface;
  * this class and implements entity-specific behavior.
  */
 abstract class BaseExporter {
+
+  use ChecksumTrait;
 
   protected FieldDiscovery $fieldDiscovery;
   protected MarkdownSerializer $serializer;
@@ -270,43 +273,6 @@ abstract class BaseExporter {
    */
   protected function shortenUuid(string $uuid): string {
     return substr(str_replace('-', '', $uuid), 0, 8);
-  }
-
-  /**
-   * Canonicalize a data structure for hashing.
-   *
-   * Ensures a stable key order and applies the same transformation to nested
-   * arrays (recursive sorting) so the hash is deterministic regardless of
-   * JSON encoding details.
-   */
-  protected function canonicalizeForHash(mixed $data): mixed {
-    if (is_array($data)) {
-      $keys = array_keys($data);
-      $is_sequential = $keys === range(0, count($data) - 1);
-
-      if ($is_sequential) {
-        $data = array_map(fn($item) => $this->canonicalizeForHash($item), $data);
-
-        // For scalar values, sort so order changes don’t affect the checksum.
-        $all_scalars = array_reduce($data, fn($carry, $item) => $carry && (is_null($item) || is_scalar($item)), TRUE);
-        if ($all_scalars) {
-          sort($data);
-        }
-        else {
-          // For arrays of objects/arrays, sort by their JSON representation.
-          usort($data, fn($a, $b) => strcmp(json_encode($a), json_encode($b)));
-        }
-
-        return $data;
-      }
-
-      // Associative: sort keys and canonicalize recursively.
-      ksort($data);
-      foreach ($data as $key => $value) {
-        $data[$key] = $this->canonicalizeForHash($value);
-      }
-    }
-    return $data;
   }
 
   /**

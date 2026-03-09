@@ -4,6 +4,7 @@ namespace Drupal\git_content\Importer;
 
 use Drupal\git_content\Discovery\FieldDiscovery;
 use Drupal\git_content\Serializer\MarkdownSerializer;
+use Drupal\git_content\Utility\ChecksumTrait;
 use Drupal\Component\Datetime\TimeInterface;
 use Drupal\Component\Uuid\UuidInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
@@ -26,6 +27,8 @@ use Psr\Log\LoggerInterface;
  *   - Media:             type: media
  */
 class MarkdownImporter {
+
+  use ChecksumTrait;
 
   protected FieldDiscovery $fieldDiscovery;
   protected MarkdownSerializer $serializer;
@@ -252,39 +255,6 @@ class MarkdownImporter {
     $data = $this->canonicalizeForHash(['frontmatter' => $fm, 'body' => $body]);
 
     return sha1(json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION));
-  }
-
-  /**
-   * Canonicalize a data structure for hashing.
-   *
-   * Like the exporter, sorts keys recursively so the hash is deterministic
-   * regardless of YAML/JSON key order.
-   */
-  protected function canonicalizeForHash(mixed $data): mixed {
-    if (is_array($data)) {
-      $keys = array_keys($data);
-      $is_sequential = $keys === range(0, count($data) - 1);
-
-      if ($is_sequential) {
-        $data = array_map(fn($item) => $this->canonicalizeForHash($item), $data);
-
-        $all_scalars = array_reduce($data, fn($carry, $item) => $carry && (is_null($item) || is_scalar($item)), TRUE);
-        if ($all_scalars) {
-          sort($data);
-        }
-        else {
-          usort($data, fn($a, $b) => strcmp(json_encode($a), json_encode($b)));
-        }
-
-        return $data;
-      }
-
-      ksort($data);
-      foreach ($data as $key => $value) {
-        $data[$key] = $this->canonicalizeForHash($value);
-      }
-    }
-    return $data;
   }
 
   protected function importNode(array $frontmatter, string $body): string {
