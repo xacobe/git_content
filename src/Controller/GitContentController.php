@@ -12,6 +12,8 @@ use Drupal\git_content\Exporter\UserExporter;
 use Drupal\git_content\Exporter\MenuLinkExporter;
 use Drupal\git_content\Importer\MarkdownImporter;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\Core\Logger\LoggerChannelFactoryInterface;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -31,6 +33,7 @@ class GitContentController extends ControllerBase {
   protected FileExporter $fileExporter;
   protected UserExporter $userExporter;
   protected MenuLinkExporter $menuLinkExporter;
+  protected LoggerInterface $logger;
 
   public function __construct(
     NodeExporter $nodeExporter,
@@ -41,7 +44,8 @@ class GitContentController extends ControllerBase {
     FileExporter $fileExporter,
     UserExporter $userExporter,
     MenuLinkExporter $menuLinkExporter,
-    EntityTypeManagerInterface $entityTypeManager
+    EntityTypeManagerInterface $entityTypeManager,
+    LoggerChannelFactoryInterface $loggerFactory,
   ) {
     $this->nodeExporter         = $nodeExporter;
     $this->taxonomyExporter     = $taxonomyExporter;
@@ -52,6 +56,7 @@ class GitContentController extends ControllerBase {
     $this->userExporter         = $userExporter;
     $this->menuLinkExporter     = $menuLinkExporter;
     $this->entityTypeManager    = $entityTypeManager;
+    $this->logger               = $loggerFactory->get('git_content');
   }
 
   public static function create(ContainerInterface $container): static {
@@ -65,6 +70,7 @@ class GitContentController extends ControllerBase {
       $container->get('git_content.user_exporter'),
       $container->get('git_content.menu_link_exporter'),
       $container->get('entity_type.manager'),
+      $container->get('logger.factory'),
     );
   }
 
@@ -156,7 +162,7 @@ class GitContentController extends ControllerBase {
     }
 
     // Log the number of entities exported and skipped.
-    \Drupal::logger('git_content')->notice(
+    $this->logger->notice(
       $this->t('Export finished: nodes: @nodes exported (@nodes_skipped skipped), taxonomy: @taxonomy exported (@taxonomy_skipped skipped), media: @media exported (@media_skipped skipped), blocks: @blocks exported (@blocks_skipped skipped), files: @files exported (@files_skipped skipped), users: @users exported (@users_skipped skipped), menus: @menus exported (@menus_skipped skipped).', [
         '@nodes' => $nodes['exported'] ?? 0,
         '@nodes_skipped' => $nodes['skipped'] ?? 0,

@@ -4,9 +4,15 @@ namespace Drupal\git_content\Importer;
 
 use Drupal\git_content\Discovery\FieldDiscovery;
 use Drupal\git_content\Serializer\MarkdownSerializer;
+use Drupal\Component\Datetime\TimeInterface;
+use Drupal\Component\Uuid\UuidInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Field\FieldDefinitionInterface;
+use Drupal\Core\Logger\LoggerChannelFactoryInterface;
+use Drupal\Core\Password\PasswordGeneratorInterface;
+use Drupal\Core\Session\AccountProxyInterface;
 use Drupal\node\Entity\Node;
+use Psr\Log\LoggerInterface;
 
 /**
  * Import Markdown files with YAML frontmatter into Drupal entities.
@@ -24,15 +30,30 @@ class MarkdownImporter {
   protected FieldDiscovery $fieldDiscovery;
   protected MarkdownSerializer $serializer;
   protected EntityTypeManagerInterface $entityTypeManager;
+  protected UuidInterface $uuid;
+  protected PasswordGeneratorInterface $passwordGenerator;
+  protected TimeInterface $time;
+  protected LoggerInterface $logger;
+  protected AccountProxyInterface $currentUser;
 
   public function __construct(
     FieldDiscovery $fieldDiscovery,
     MarkdownSerializer $serializer,
-    EntityTypeManagerInterface $entityTypeManager
+    EntityTypeManagerInterface $entityTypeManager,
+    UuidInterface $uuid,
+    PasswordGeneratorInterface $passwordGenerator,
+    TimeInterface $time,
+    LoggerChannelFactoryInterface $loggerFactory,
+    AccountProxyInterface $currentUser,
   ) {
     $this->fieldDiscovery    = $fieldDiscovery;
     $this->serializer        = $serializer;
     $this->entityTypeManager = $entityTypeManager;
+    $this->uuid              = $uuid;
+    $this->passwordGenerator = $passwordGenerator;
+    $this->time              = $time;
+    $this->logger            = $loggerFactory->get('git_content');
+    $this->currentUser       = $currentUser;
   }
 
   // ---------------------------------------------------------------------------
@@ -125,7 +146,7 @@ class MarkdownImporter {
     }
     $summary = implode('; ', $parts);
 
-    \Drupal::logger('git_content')->notice(
+    $this->logger->notice(
       'Import finished: @summary. Total: @created created, @updated updated, @skipped skipped, @deleted deleted, @errors errors.',
       ['@summary' => $summary, '@created' => $created, '@updated' => $updated, '@skipped' => $skipped, '@deleted' => $deleted, '@errors' => $errors]
     );
@@ -283,7 +304,7 @@ class MarkdownImporter {
       $node = Node::create([
         'type'     => $bundle,
         'langcode' => $langcode,
-        'uuid'     => $short_uuid ? $this->expandShortUuid($short_uuid) : \Drupal::service('uuid')->generate(),
+        'uuid'     => $short_uuid ? $this->expandShortUuid($short_uuid) : $this->uuid->generate(),
       ]);
       $operation = 'imported';
     }
@@ -350,7 +371,7 @@ class MarkdownImporter {
     else {
       $file = $this->entityTypeManager->getStorage('file')->create([
         'langcode' => $langcode,
-        'uuid'     => $short_uuid ? $this->expandShortUuid($short_uuid) : \Drupal::service('uuid')->generate(),
+        'uuid'     => $short_uuid ? $this->expandShortUuid($short_uuid) : $this->uuid->generate(),
       ]);
       $operation = 'imported';
     }
@@ -425,9 +446,9 @@ class MarkdownImporter {
     else {
       $user = $this->entityTypeManager->getStorage('user')->create([
         'langcode' => $langcode,
-        'uuid'     => $short_uuid ? $this->expandShortUuid($short_uuid) : \Drupal::service('uuid')->generate(),
+        'uuid'     => $short_uuid ? $this->expandShortUuid($short_uuid) : $this->uuid->generate(),
         // Secure random password; must be reset manually.
-        'pass'     => \Drupal::service('password_generator')->generate(20),
+        'pass'     => $this->passwordGenerator->generate(20),
       ]);
       $operation = 'imported';
     }
@@ -488,7 +509,7 @@ class MarkdownImporter {
         'vid'              => $vid,
         'langcode'         => $langcode,
         'default_langcode' => 1,
-        'uuid'             => $short_uuid ? $this->expandShortUuid($short_uuid) : \Drupal::service('uuid')->generate(),
+        'uuid'             => $short_uuid ? $this->expandShortUuid($short_uuid) : $this->uuid->generate(),
       ]);
       $operation = 'imported';
     }
@@ -547,7 +568,7 @@ class MarkdownImporter {
       $media = $this->entityTypeManager->getStorage('media')->create([
         'bundle'   => $bundle,
         'langcode' => $langcode,
-        'uuid'     => $short_uuid ? $this->expandShortUuid($short_uuid) : \Drupal::service('uuid')->generate(),
+        'uuid'     => $short_uuid ? $this->expandShortUuid($short_uuid) : $this->uuid->generate(),
       ]);
       $operation = 'imported';
     }
@@ -588,7 +609,7 @@ class MarkdownImporter {
         'type'             => $bundle,
         'langcode'         => $langcode,
         'default_langcode' => 1,
-        'uuid'             => $short_uuid ? $this->expandShortUuid($short_uuid) : \Drupal::service('uuid')->generate(),
+        'uuid'             => $short_uuid ? $this->expandShortUuid($short_uuid) : $this->uuid->generate(),
       ]);
       $operation = 'imported';
     }
@@ -638,7 +659,7 @@ class MarkdownImporter {
       $link = $this->entityTypeManager->getStorage('menu_link_content')->create([
         'langcode'  => $langcode,
         'menu_name' => $menu_name,
-        'uuid'      => $short_uuid ? $this->expandShortUuid($short_uuid) : \Drupal::service('uuid')->generate(),
+        'uuid'      => $short_uuid ? $this->expandShortUuid($short_uuid) : $this->uuid->generate(),
       ]);
       $operation = 'imported';
     }
@@ -975,9 +996,9 @@ class MarkdownImporter {
     }
     if (is_string($date)) {
       $ts = strtotime($date);
-      return $ts !== FALSE ? $ts : \Drupal::time()->getCurrentTime();
+      return $ts !== FALSE ? $ts : $this->time->getCurrentTime();
     }
-    return \Drupal::time()->getCurrentTime();
+    return $this->time->getCurrentTime();
   }
 
   /**
@@ -1038,8 +1059,7 @@ class MarkdownImporter {
 
           // Do not delete the admin user or the currently logged-in user.
           if ($entity_type === 'user') {
-            $current = \Drupal::currentUser();
-            if ($entity->id() === 1 || $entity->id() === $current->id()) {
+            if ($entity->id() === 1 || $entity->id() === $this->currentUser->id()) {
               continue;
             }
           }

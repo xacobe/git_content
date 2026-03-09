@@ -93,7 +93,7 @@ class MediaExporter extends BaseExporter {
       if ($entity->hasField($field_name) && !$entity->get($field_name)->isEmpty()) {
         $target_id = $entity->get($field_name)->target_id;
         if ($target_id) {
-          $file = \Drupal::service('entity_type.manager')
+          $file = $this->entityTypeManager
             ->getStorage('file')
             ->load($target_id);
           if ($file) {

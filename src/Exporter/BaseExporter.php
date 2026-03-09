@@ -5,7 +5,10 @@ namespace Drupal\git_content\Exporter;
 use Drupal\git_content\Discovery\FieldDiscovery;
 use Drupal\git_content\Serializer\MarkdownSerializer;
 use Drupal\Core\Entity\EntityInterface;
+use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Field\FieldDefinitionInterface;
+use Drupal\Core\Logger\LoggerChannelFactoryInterface;
+use Psr\Log\LoggerInterface;
 
 /**
  * Base class for all entity exporters.
@@ -18,6 +21,8 @@ abstract class BaseExporter {
 
   protected FieldDiscovery $fieldDiscovery;
   protected MarkdownSerializer $serializer;
+  protected EntityTypeManagerInterface $entityTypeManager;
+  protected LoggerInterface $logger;
 
   /**
    * Base fields handled manually; excluded from the dynamic field loop.
@@ -37,9 +42,16 @@ abstract class BaseExporter {
     'id', 'revision_id', 'revision_created', 'revision_user', 'info', 'reusable',
   ];
 
-  public function __construct(FieldDiscovery $fieldDiscovery, MarkdownSerializer $serializer) {
+  public function __construct(
+    FieldDiscovery $fieldDiscovery,
+    MarkdownSerializer $serializer,
+    EntityTypeManagerInterface $entityTypeManager,
+    LoggerChannelFactoryInterface $loggerFactory,
+  ) {
     $this->fieldDiscovery = $fieldDiscovery;
     $this->serializer = $serializer;
+    $this->entityTypeManager = $entityTypeManager;
+    $this->logger = $loggerFactory->get('git_content');
   }
 
   /**
@@ -163,7 +175,7 @@ abstract class BaseExporter {
 
         case 'image':
         case 'file':
-          $file = \Drupal::service('entity_type.manager')
+          $file = $this->entityTypeManager
             ->getStorage('file')
             ->load($item['target_id'] ?? 0);
           $normalized[] = $file ? basename($file->getFileUri()) : NULL;
@@ -173,12 +185,12 @@ abstract class BaseExporter {
           $target_type = $definition->getSetting('target_type');
           $target_id   = $item['target_id'] ?? NULL;
           if ($target_id && $target_type === 'taxonomy_term') {
-            $term = \Drupal::service('entity_type.manager')
+            $term = $this->entityTypeManager
               ->getStorage('taxonomy_term')->load($target_id);
             $normalized[] = $term ? $term->label() : $target_id;
           }
           elseif ($target_id && $target_type === 'node') {
-            $node = \Drupal::service('entity_type.manager')
+            $node = $this->entityTypeManager
               ->getStorage('node')->load($target_id);
             $normalized[] = $node ? $this->getSlug($node) : $target_id;
           }

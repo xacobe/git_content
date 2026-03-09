@@ -4,6 +4,7 @@ namespace Drupal\git_content\Exporter;
 
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\Core\Logger\LoggerChannelFactoryInterface;
 use Drupal\git_content\Discovery\FieldDiscovery;
 use Drupal\git_content\Serializer\MarkdownSerializer;
 
@@ -42,15 +43,13 @@ use Drupal\git_content\Serializer\MarkdownSerializer;
  */
 class MenuLinkExporter extends BaseExporter {
 
-  protected EntityTypeManagerInterface $entityTypeManager;
-
   public function __construct(
     FieldDiscovery $fieldDiscovery,
     MarkdownSerializer $serializer,
-    EntityTypeManagerInterface $entityTypeManager
+    EntityTypeManagerInterface $entityTypeManager,
+    LoggerChannelFactoryInterface $loggerFactory,
   ) {
-    parent::__construct($fieldDiscovery, $serializer);
-    $this->entityTypeManager = $entityTypeManager;
+    parent::__construct($fieldDiscovery, $serializer, $entityTypeManager, $loggerFactory);
   }
 
   /**
@@ -69,9 +68,7 @@ class MenuLinkExporter extends BaseExporter {
         $files[] = is_array($result) ? $result['path'] : $result;
       }
       catch (\Exception $e) {
-        \Drupal::logger('git_content')->error(
-          'MenuLinkExporter: @msg', ['@msg' => $e->getMessage()]
-        );
+        $this->logger->error('MenuLinkExporter: @msg', ['@msg' => $e->getMessage()]);
       }
     }
 
