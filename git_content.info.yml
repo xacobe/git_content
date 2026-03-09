@@ -3,3 +3,13 @@ type: module
 description: 'Export and import Drupal content to Markdown versionable in Git'
 package: Custom
 core_version_requirement: ^10 || ^11
+
+# Required: these entity types must be present for the core export/import to work.
+dependencies:
+  - drupal:node
+  - drupal:taxonomy
+  - drupal:user
+  - drupal:file
+
+# Optional: media, block_content, and menu_link_content are supported when
+# those modules are enabled, but the module works without them.

@@ -230,6 +230,10 @@ class GitContentCommands extends DrushCommands {
   }
 
   private function exportMenuLinks(): void {
+    if (!$this->entityTypeManager->hasDefinition('menu_link_content')) {
+      $this->logger()->notice('menu_link_content module not enabled, skipping menu links.');
+      return;
+    }
     $this->logger()->notice('Exporting menu links...');
     $storage = $this->entityTypeManager->getStorage('menu_link_content');
     $ids = $storage->getQuery()->accessCheck(FALSE)->execute();
@@ -262,6 +266,10 @@ class GitContentCommands extends DrushCommands {
   }
 
   private function exportBlocks(): void {
+    if (!$this->entityTypeManager->hasDefinition('block_content')) {
+      $this->logger()->notice('block_content module not enabled, skipping block content.');
+      return;
+    }
     $this->logger()->notice('Exporting block content...');
     $storage = $this->entityTypeManager->getStorage('block_content');
     $ids = $storage->getQuery()->accessCheck(FALSE)->execute();
@@ -293,6 +301,10 @@ class GitContentCommands extends DrushCommands {
   }
 
   private function exportMedia(): void {
+    if (!$this->entityTypeManager->hasDefinition('media')) {
+      $this->logger()->notice('Media module not enabled, skipping media.');
+      return;
+    }
     $this->logger()->notice('Exporting media...');
     $storage = $this->entityTypeManager->getStorage('media');
     $mids = $storage->getQuery()->accessCheck(FALSE)->execute();
