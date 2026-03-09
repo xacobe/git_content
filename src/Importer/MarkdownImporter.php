@@ -151,7 +151,14 @@ class MarkdownImporter {
 
     $this->logger->notice(
       'Import finished: @summary. Total: @created created, @updated updated, @skipped skipped, @deleted deleted, @errors errors.',
-      ['@summary' => $summary, '@created' => $created, '@updated' => $updated, '@skipped' => $skipped, '@deleted' => $deleted, '@errors' => $errors]
+      [
+        '@summary' => $summary,
+        '@created' => (string) $created,
+        '@updated' => (string) $updated,
+        '@skipped' => (string) $skipped,
+        '@deleted' => (string) $deleted,
+        '@errors'  => (string) $errors,
+      ]
     );
 
     return $result;

@@ -163,22 +163,23 @@ class GitContentController extends ControllerBase {
 
     // Log the number of entities exported and skipped.
     $this->logger->notice(
-      $this->t('Export finished: nodes: @nodes exported (@nodes_skipped skipped), taxonomy: @taxonomy exported (@taxonomy_skipped skipped), media: @media exported (@media_skipped skipped), blocks: @blocks exported (@blocks_skipped skipped), files: @files exported (@files_skipped skipped), users: @users exported (@users_skipped skipped), menus: @menus exported (@menus_skipped skipped).', [
-        '@nodes' => $nodes['exported'] ?? 0,
-        '@nodes_skipped' => $nodes['skipped'] ?? 0,
-        '@taxonomy' => $taxonomy['exported'] ?? 0,
-        '@taxonomy_skipped' => $taxonomy['skipped'] ?? 0,
-        '@media' => $media['exported'] ?? 0,
-        '@media_skipped' => $media['skipped'] ?? 0,
-        '@blocks' => $blocks['exported'] ?? 0,
-        '@blocks_skipped' => $blocks['skipped'] ?? 0,
-        '@files' => $files['exported'] ?? 0,
-        '@files_skipped' => $files['skipped'] ?? 0,
-        '@users' => $users['exported'] ?? 0,
-        '@users_skipped' => $users['skipped'] ?? 0,
-        '@menus' => $menus['exported'] ?? 0,
-        '@menus_skipped' => $menus['skipped'] ?? 0,
-      ])
+      'Export finished: nodes: @nodes exported (@nodes_skipped skipped), taxonomy: @taxonomy exported (@taxonomy_skipped skipped), media: @media exported (@media_skipped skipped), blocks: @blocks exported (@blocks_skipped skipped), files: @files exported (@files_skipped skipped), users: @users exported (@users_skipped skipped), menus: @menus exported (@menus_skipped skipped).',
+      [
+        '@nodes'          => (string) ($nodes['exported'] ?? 0),
+        '@nodes_skipped'  => (string) ($nodes['skipped'] ?? 0),
+        '@taxonomy'       => (string) ($taxonomy['exported'] ?? 0),
+        '@taxonomy_skipped' => (string) ($taxonomy['skipped'] ?? 0),
+        '@media'          => (string) ($media['exported'] ?? 0),
+        '@media_skipped'  => (string) ($media['skipped'] ?? 0),
+        '@blocks'         => (string) ($blocks['exported'] ?? 0),
+        '@blocks_skipped' => (string) ($blocks['skipped'] ?? 0),
+        '@files'          => (string) ($files['exported'] ?? 0),
+        '@files_skipped'  => (string) ($files['skipped'] ?? 0),
+        '@users'          => (string) ($users['exported'] ?? 0),
+        '@users_skipped'  => (string) ($users['skipped'] ?? 0),
+        '@menus'          => (string) ($menus['exported'] ?? 0),
+        '@menus_skipped'  => (string) ($menus['skipped'] ?? 0),
+      ]
     );
 
     return ['#markup' => $output];
