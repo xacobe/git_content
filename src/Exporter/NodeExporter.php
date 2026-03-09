@@ -49,7 +49,7 @@ class NodeExporter extends BaseExporter {
     $frontmatter['type']   = $entity->bundle();
     $frontmatter['lang']   = $langcode;
     $frontmatter['status'] = $entity->isPublished() ? 'published' : 'draft';
-    $frontmatter['_']      = NULL; // línea en blanco
+    $frontmatter['_']      = NULL; // blank line
 
     $frontmatter['title']  = $entity->label();
     $frontmatter['slug']   = $this->getSlug($entity);

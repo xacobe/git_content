@@ -102,7 +102,7 @@ class BlockContentExporter extends BaseExporter {
     $slug  = preg_replace('/[^a-z0-9]+/', '-', mb_strtolower($label));
     $slug  = trim($slug, '-');
 
-    // Añadimos el ID al final para evitar colisiones entre bloques con mismo título.
+    // Append the ID to avoid collisions between blocks with the same title.
     return $slug ? $slug . '-' . $entity->id() : 'block-' . $entity->id();
   }
 

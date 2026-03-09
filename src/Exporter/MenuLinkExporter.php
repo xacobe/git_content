@@ -113,7 +113,7 @@ class MenuLinkExporter extends BaseExporter {
       return $slug;
     }
 
-    // Extraemos UUID del plugin_id.
+    // Extract the UUID from the plugin ID.
     $parent_uuid = substr($parent_id, strlen('menu_link_content:'));
 
     // Try to load the parent entity by UUID.
@@ -132,13 +132,13 @@ class MenuLinkExporter extends BaseExporter {
   protected function loadMenuLinkByUuid(string $uuid): ?\Drupal\Core\Entity\EntityInterface {
     $storage = $this->entityTypeManager->getStorage('menu_link_content');
 
-    // Intentar cargar por UUID completo.
+    // Try to load by full UUID first.
     $links = $storage->loadByProperties(['uuid' => $uuid]);
     if (!empty($links)) {
       return reset($links);
     }
 
-    // Si no existe, intentar con uuid corto (8 chars sin guiones).
+    // Fall back to short UUID (8 chars without dashes).
     $clean = str_replace('-', '', $uuid);
     if (strlen($clean) === 8) {
       foreach ($storage->loadMultiple() as $link) {
@@ -199,7 +199,7 @@ class MenuLinkExporter extends BaseExporter {
       return NULL;
     }
 
-    // Formato: "menu_link_content:{full-uuid}"
+    // Format: "menu_link_content:{full-uuid}"
     if (str_starts_with($parent_plugin_id, 'menu_link_content:')) {
       $uuid = explode(':', $parent_plugin_id, 2)[1];
       return $this->shortenUuid($uuid);

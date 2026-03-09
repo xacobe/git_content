@@ -15,11 +15,11 @@ use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
- * Controlador web para exportar e importar contenido desde la UI de Drupal.
+ * Web controller for exporting and importing content via the Drupal UI.
  *
- * Rutas disponibles:
- *   /git-content/export  → exporta nodos, taxonomía y media
- *   /git-content/import  → importa desde content_export/
+ * Available routes:
+ *   /git-content/export  → exports nodes, taxonomy and media
+ *   /git-content/import  → imports from content_export/
  */
 class GitContentController extends ControllerBase {
 
@@ -69,7 +69,7 @@ class GitContentController extends ControllerBase {
   }
 
   /**
-   * Exporta nodos, términos de taxonomía y media a content_export/.
+   * Export nodes, taxonomy terms and media to content_export/.
    */
   public function exportGit(): array {
     $output = '<strong>' . $this->t('Git Content Export') . '</strong><br><br>';
@@ -115,8 +115,8 @@ class GitContentController extends ControllerBase {
       }
     }
 
-    // Asegurarnos de que el reporte incluye también los archivos que ya estaban
-    // en disco y que el export no tocó (por ejemplo, restos de runs anteriores).
+    // Include files that were already on disk but not touched by this export
+    // run (e.g. leftovers from previous runs).
     $allFiles = $this->scanContentExportFiles();
     $untouched = array_diff($allFiles, array_merge($exportedFiles, $skippedFiles));
     foreach ($untouched as $file) {
@@ -185,14 +185,14 @@ class GitContentController extends ControllerBase {
   }
 
   /**
-   * Importa todos los archivos .md de content_export/ a Drupal.
+   * Import all .md files from content_export/ into Drupal.
    */
   public function importGit(): array {
     $result = $this->importer->importAll();
 
     $output = '<strong>' . $this->t('Git Content Import') . '</strong><br><br>';
 
-    // Agrupar resultados por tipo de operación y por tipo de entidad.
+    // Group results by operation type and entity type.
     $grouped = [
       'imported' => [],
       'updated'  => [],
@@ -314,7 +314,7 @@ class GitContentController extends ControllerBase {
   // ---------------------------------------------------------------------------
 
   /**
-   * Exporta todas las entidades de un tipo y devuelve un resumen de resultados.
+   * Export all entities of a given type and return a result summary.
    *
    * @return array{
    *   html: string,
@@ -328,13 +328,13 @@ class GitContentController extends ControllerBase {
   private function exportEntities(string $entity_type, $exporter, string $label): array {
     $storage = $this->entityTypeManager->getStorage($entity_type);
 
-    // Algunos entity types pueden no estar instalados (ej. media)
+    // Some entity types may not be installed (e.g. media).
     try {
       $ids = $storage->getQuery()->accessCheck(TRUE)->execute();
     }
     catch (\Exception $e) {
       return [
-        'html' => "<em>$label: no disponible ({$e->getMessage()})</em><br><br>",
+        'html' => "<em>$label: not available ({$e->getMessage()})</em><br><br>",
         'exported' => 0,
         'skipped' => 0,
         'total' => 0,
@@ -345,7 +345,7 @@ class GitContentController extends ControllerBase {
 
     if (empty($ids)) {
       return [
-        'html' => "<em>$label: ninguna entidad encontrada.</em><br><br>",
+        'html' => "<em>$label: no entities found.</em><br><br>",
         'exported' => 0,
         'skipped' => 0,
         'total' => 0,

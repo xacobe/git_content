@@ -146,7 +146,7 @@ class MarkdownSerializer {
       return (string) $converter->convert($markdown);
     }
 
-    // Fallback básico
+    // Basic fallback
     $html = htmlspecialchars($markdown, ENT_NOQUOTES, 'UTF-8');
     for ($i = 6; $i >= 1; $i--) {
       $html = preg_replace('/^' . str_repeat('#', $i) . ' (.+)$/m', '<h' . $i . '>$1</h' . $i . '>', $html);
@@ -163,7 +163,7 @@ class MarkdownSerializer {
   }
 
   // ---------------------------------------------------------------------------
-  // Privado
+  // Private
   // ---------------------------------------------------------------------------
 
   /**
@@ -173,7 +173,7 @@ class MarkdownSerializer {
     $lines = [];
 
     foreach ($frontmatter as $key => $value) {
-      // Claves ficticias → línea en blanco
+      // Placeholder keys → blank line
       if ($key === '' || preg_match('/^_+$/', (string) $key)) {
         $lines[] = '';
         continue;

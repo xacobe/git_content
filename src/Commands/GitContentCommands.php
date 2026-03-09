@@ -277,19 +277,19 @@ class GitContentCommands extends DrushCommands {
 
         if ($skippedFile) {
           $skipped++;
-          $this->logger()->info("  → Bloque {$block->id()} ({$block->bundle()}): $filepath");
+          $this->logger()->info("  → Block {$block->id()} ({$block->bundle()}): $filepath");
         }
         else {
-          $this->logger()->info("  ✔ Bloque {$block->id()} ({$block->bundle()}): $filepath");
+          $this->logger()->info("  ✔ Block {$block->id()} ({$block->bundle()}): $filepath");
           $count++;
         }
       }
       catch (\Exception $e) {
-        $this->logger()->error("  ✘ Bloque {$block->id()}: " . $e->getMessage());
+        $this->logger()->error("  ✘ Block {$block->id()}: " . $e->getMessage());
       }
     }
 
-    $this->logger()->notice("  $count bloques exportados, $skipped sin cambios.");
+    $this->logger()->notice("  $count blocks exported, $skipped unchanged.");
   }
 
   private function exportMedia(): void {
@@ -321,7 +321,7 @@ class GitContentCommands extends DrushCommands {
       }
     }
 
-    $this->logger()->notice("  $count media exportados, $skipped sin cambios.");
+    $this->logger()->notice("  $count media exported, $skipped unchanged.");
   }
 
 }

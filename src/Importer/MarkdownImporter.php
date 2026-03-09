@@ -40,7 +40,7 @@ class MarkdownImporter {
   // ---------------------------------------------------------------------------
 
   /**
-   * Importa todos los archivos .md de content_export/.
+   * Import all .md files from content_export/.
    *
    * @return array{imported: string[], updated: string[], errors: string[]}
    */
@@ -137,11 +137,11 @@ class MarkdownImporter {
    * Import a single Markdown file.
    *
    * @return array{op: string, entity_type: string, type: string, uuid?: string|null, bundle?: string|null}
-   *   'op' es uno de 'imported', 'updated', 'skipped'.
-   *   'entity_type' es el tipo de entidad de Drupal (node, taxonomy_term, ...).
+   *   'op' is one of 'imported', 'updated', 'skipped'.
+   *   'entity_type' is the Drupal entity type (node, taxonomy_term, ...).
    *   'type' is the frontmatter.type value used for importing.
-   *   'uuid' es el UUID corto extraído del frontmatter (si está presente).
-   *   'bundle' es el bundle/vocab/menu correspondiente para este tipo.
+   *   'uuid' is the short UUID extracted from the frontmatter (if present).
+   *   'bundle' is the bundle/vocab/menu for this type.
    * @throws \Exception
    */
   public function importFile(string $filepath): array {
@@ -214,18 +214,15 @@ class MarkdownImporter {
   }
 
   // ---------------------------------------------------------------------------
-  // Importadores por tipo de entidad
+  // Per-entity-type importers
   // ---------------------------------------------------------------------------
 
   /**
-   * Importa o actualiza un nodo.
-   */
-  /**
-   * Calcula el checksum canónico usado para detectar cambios.
+   * Compute the canonical checksum used to detect changes.
    *
-   * Se basa en la estructura de datos lógica (frontmatter + body) y no en la
-   * representación YAML específica. Esto permite detectar de forma estable si
-   * el contenido ha cambiado incluso si el formato YAML cambia.
+   * Based on the logical data structure (frontmatter + body), not on the
+   * specific YAML representation. This allows stable change detection even
+   * when YAML formatting changes.
    */
   protected function computeChecksum(array $frontmatter, string $body): string {
     $fm = $frontmatter;
@@ -237,10 +234,10 @@ class MarkdownImporter {
   }
 
   /**
-   * Canonicaliza una estructura de datos para hashing.
+   * Canonicalize a data structure for hashing.
    *
-   * Igual que el exportador, ordena claves recursivamente para que el hash sea
-   * determinista sin depender del orden YAML/JSON.
+   * Like the exporter, sorts keys recursively so the hash is deterministic
+   * regardless of YAML/JSON key order.
    */
   protected function canonicalizeForHash(mixed $data): mixed {
     if (is_array($data)) {
@@ -291,7 +288,7 @@ class MarkdownImporter {
       $operation = 'imported';
     }
 
-    $node->set('title', $frontmatter['title'] ?? 'Sin título');
+    $node->set('title', $frontmatter['title'] ?? 'Untitled');
     $node->set('status', ($frontmatter['status'] ?? 'draft') === 'published' ? 1 : 0);
 
     if (!empty($frontmatter['created'])) {
@@ -322,11 +319,11 @@ class MarkdownImporter {
 
 
   /**
-   * Importa o actualiza una entidad file (solo metadatos).
+   * Import or update a file entity (metadata only).
    *
-   * El archivo físico debe existir ya en sites/default/files/.
-   * Este método registra o actualiza la entidad en la tabla managed_file.
-   * Nombre del método: importFile_ para evitar colisión con importFile().
+   * The physical file must already exist in sites/default/files/.
+   * This method registers or updates the entity in the managed_file table.
+   * Method named importFile_ to avoid collision with importFile().
    */
   protected function importFile_(array $frontmatter): string {
     $short_uuid = $frontmatter['uuid'] ?? NULL;
@@ -337,7 +334,7 @@ class MarkdownImporter {
       throw new \Exception(t("The file frontmatter is missing 'uri'."));
     }
 
-    // Buscar por UUID corto primero, luego por URI como fallback
+    // Look up by short UUID first, then fall back to URI.
     $existing = $short_uuid ? $this->findByShortUuidGlobal($short_uuid, 'file') : NULL;
 
     if (!$existing) {
@@ -368,7 +365,7 @@ class MarkdownImporter {
       $file->set('created', $this->parseDate($frontmatter['created']));
     }
 
-    // Resolver propietario por nombre de usuario
+    // Resolve owner by username.
     if (!empty($frontmatter['owner'])) {
       $uid = $this->findUserByName($frontmatter['owner']);
       if ($uid) {
@@ -382,12 +379,12 @@ class MarkdownImporter {
   }
 
   /**
-   * Importa o actualiza un usuario.
+   * Import or update a user account.
    *
-   * Si el usuario ya existe (por UUID o por nombre/email) se actualiza.
-   * El usuario 1 se omite al importar si ya existe para no sobreescribir
-   * credenciales. Las contraseñas nunca se importan; si es un usuario nuevo
-   * se genera una contraseña aleatoria que deberá resetearse.
+   * If the user already exists (by UUID, name, or email) it is updated.
+   * User 1 is skipped on import if it already exists to avoid overwriting
+   * production credentials. Passwords are never imported; new users receive
+   * a random password that must be reset manually.
    */
   protected function importUser(array $frontmatter): string {
     $short_uuid = $frontmatter['uuid'] ?? NULL;
@@ -399,7 +396,7 @@ class MarkdownImporter {
       throw new \Exception(t("The user frontmatter is missing 'name'."));
     }
 
-    // Buscar existente por UUID, luego por nombre, luego por email
+    // Look up by UUID first, then by name, then by email.
     $existing = $short_uuid ? $this->findByShortUuidGlobal($short_uuid, 'user') : NULL;
 
     if (!$existing && $name) {
@@ -414,7 +411,7 @@ class MarkdownImporter {
       $existing = !empty($users) ? reset($users) : NULL;
     }
 
-    // Si el usuario 1 ya existe, actualizar solo datos no críticos
+    // If user 1 already exists, only update non-critical data.
     if ($existing && (int) $existing->id() === 1) {
       $existing->set('timezone', $frontmatter['timezone'] ?? 'UTC');
       $existing->save();
@@ -429,7 +426,7 @@ class MarkdownImporter {
       $user = $this->entityTypeManager->getStorage('user')->create([
         'langcode' => $langcode,
         'uuid'     => $short_uuid ? $this->expandShortUuid($short_uuid) : \Drupal::service('uuid')->generate(),
-        // Contraseña aleatoria segura; debe resetearse manualmente
+        // Secure random password; must be reset manually.
         'pass'     => \Drupal::service('password_generator')->generate(20),
       ]);
       $operation = 'imported';
@@ -450,14 +447,14 @@ class MarkdownImporter {
       $user->set('created', $this->parseDate($frontmatter['created']));
     }
 
-    // Asignar roles (deben existir ya en config)
+    // Assign roles (they must already exist in config).
     if (!empty($frontmatter['roles']) && is_array($frontmatter['roles'])) {
       foreach ($frontmatter['roles'] as $role) {
         $user->addRole($role);
       }
     }
 
-    // Campos extra del perfil
+    // Extra profile fields.
     $definitions = $this->fieldDiscovery->getFields('user', 'user');
     $this->populateDynamicFields($user, $frontmatter, $definitions);
 
@@ -467,7 +464,7 @@ class MarkdownImporter {
   }
 
   /**
-   * Importa o actualiza un término de taxonomía.
+   * Import or update a taxonomy term.
    */
   protected function importTerm(array $frontmatter, string $body): string {
     $vid       = $frontmatter['vocabulary'] ?? NULL;
@@ -496,11 +493,11 @@ class MarkdownImporter {
       $operation = 'imported';
     }
 
-    // 'name' es obligatorio; usar el slug como fallback si está vacío.
+    // 'name' is required; fall back to slug if empty.
     $name = !empty($frontmatter['name']) ? $frontmatter['name'] : ucfirst(str_replace('-', ' ', $frontmatter['slug'] ?? 'term'));
     $term->set('name', $name);
     $term->set('status', ($frontmatter['status'] ?? 'published') === 'published' ? 1 : 0);
-    // default_langcode debe ser explícito; Drupal no lo inicializa en taxonomy_term.
+    // default_langcode must be set explicitly; Drupal does not initialise it for taxonomy_term.
     $term->set('default_langcode', 1);
 
     if (isset($frontmatter['weight'])) {
@@ -527,7 +524,7 @@ class MarkdownImporter {
   }
 
   /**
-   * Importa o actualiza una entidad media (solo metadatos).
+   * Import or update a media entity (metadata only).
    */
   protected function importMedia(array $frontmatter, string $body): string {
     $bundle     = $frontmatter['bundle'] ?? NULL;
@@ -555,7 +552,7 @@ class MarkdownImporter {
       $operation = 'imported';
     }
 
-    $media->set('name', $frontmatter['name'] ?? 'Sin nombre');
+    $media->set('name', $frontmatter['name'] ?? 'Unnamed');
     $media->set('status', ($frontmatter['status'] ?? 'draft') === 'published' ? 1 : 0);
 
     $definitions = $this->fieldDiscovery->getFields('media', $bundle);
@@ -567,7 +564,7 @@ class MarkdownImporter {
   }
 
   /**
-   * Importa o actualiza un block_content (bloque de contenido personalizado).
+   * Import or update a custom block (block_content).
    */
   protected function importBlockContent(array $frontmatter, string $body): string {
     $bundle     = $frontmatter['bundle'] ?? NULL;
@@ -596,7 +593,7 @@ class MarkdownImporter {
       $operation = 'imported';
     }
 
-    $block->set('info', $frontmatter['title'] ?? 'Sin título');
+    $block->set('info', $frontmatter['title'] ?? 'Untitled');
     $block->set('status', ($frontmatter['status'] ?? 'draft') === 'published' ? 1 : 0);
     $block->set('default_langcode', 1);
 
@@ -616,12 +613,11 @@ class MarkdownImporter {
   }
 
   /**
-   * Importa o actualiza un menu_link_content.
+   * Import or update a menu_link_content entity.
    *
-   * Los enlaces se importan respetando la jerarquía: los padres antes que los
-   * hijos. El método importAllMenuLinks() de importAll() ya ordena los archivos
-   * por nombre (que lleva el peso como prefijo), pero la jerarquía se resuelve
-   * aquí mediante un mapa uuid_corto → plugin_id real.
+   * Links are imported respecting the hierarchy: parents before children.
+   * importAll() already sorts files by weight, but the hierarchy is resolved
+   * here using a short-uuid → real plugin_id map.
    */
   protected function importMenuLink(array $frontmatter, string $body): string {
     $langcode   = $frontmatter['lang'] ?? 'und';
@@ -653,8 +649,8 @@ class MarkdownImporter {
     $link->set('expanded', (bool) ($frontmatter['expanded'] ?? FALSE));
     $link->set('enabled', (bool) ($frontmatter['enabled'] ?? TRUE));
 
-    // Resolver el padre: el frontmatter guarda el UUID corto del padre.
-    // Lo resolvemos contra el mapa que construye importAll().
+    // Resolve the parent: the frontmatter stores the short UUID of the parent.
+    // We resolve it against the map built by importAll().
     $parent_ref = $frontmatter['parent'] ?? NULL;
     if ($parent_ref) {
       $parent_plugin_id = $this->resolveMenuLinkParent($parent_ref, $menu_name);
@@ -669,7 +665,7 @@ class MarkdownImporter {
 
     $link->save();
 
-    // Registrar el plugin_id real en el mapa para que los hijos puedan usarlo
+    // Register the real plugin_id in the map so children can resolve it.
     if ($short_uuid) {
       $this->menuLinkUuidMap[$short_uuid] = 'menu_link_content:' . $link->uuid();
     }
@@ -678,27 +674,26 @@ class MarkdownImporter {
   }
 
   /**
-   * Mapa temporal uuid_corto → plugin_id real, usado durante la importación.
-   * Se rellena conforme se van importando los enlaces.
+   * Temporary short-uuid → real plugin_id map, populated during import.
    */
   protected array $menuLinkUuidMap = [];
 
   /**
-   * Resuelve el plugin_id del padre a partir de su UUID corto.
-   * Si el padre es un plugin de otro módulo, lo devuelve tal cual.
+   * Resolve the parent plugin_id from its short UUID.
+   * If the parent is a plugin from another module, return it as-is.
    */
   protected function resolveMenuLinkParent(string $parent_ref, string $menu_name): ?string {
-    // Si ya está en el mapa (importado en esta sesión)
+    // Already in the map (imported in this session).
     if (isset($this->menuLinkUuidMap[$parent_ref])) {
       return $this->menuLinkUuidMap[$parent_ref];
     }
 
-    // Si es un plugin externo (no menu_link_content), devolverlo tal cual
+    // External plugin (not menu_link_content): return as-is.
     if (!preg_match('/^[a-f0-9]{8}$/', $parent_ref)) {
       return $parent_ref;
     }
 
-    // Buscar en base de datos por UUID corto
+    // Look up in the database by short UUID.
     $existing = $this->findByShortUuid($parent_ref, 'menu_link_content', $menu_name);
     if ($existing) {
       return 'menu_link_content:' . $existing->uuid();
@@ -709,7 +704,7 @@ class MarkdownImporter {
 
 
   // ---------------------------------------------------------------------------
-  // Población de campos dinámicos
+  // Dynamic field population
   // ---------------------------------------------------------------------------
 
   protected function populateDynamicFields($entity, array $frontmatter, array $definitions): void {
@@ -720,9 +715,9 @@ class MarkdownImporter {
       'nid', 'vid', 'tid', 'mid', 'revision_log', 'revision_default',
       'revision_translation_affected', 'default_langcode',
       'content_translation_source', 'content_translation_outdated',
-      // Usuarios (no los importamos): contraseñas / campos de sesión
+      // User fields not imported: passwords / session fields.
       'pass', 'access', 'login', 'init',
-      // Comentarios - no los importamos para contenido estático
+      // Comments - not imported for static content workflows.
       'comment', 'comment_count', 'comment_status', 'last_comment_timestamp',
       'last_comment_name', 'last_comment_uid',
       // block_content system fields
@@ -739,7 +734,7 @@ class MarkdownImporter {
 
       $value = $frontmatter[$field_name] ?? NULL;
 
-      // Para taxonomía, el exportador usa el nombre del vocabulario como clave
+      // For taxonomy, the exporter uses the vocabulary name as the key.
       if ($value === NULL && $definition->getType() === 'entity_reference') {
         $target_type = $definition->getSetting('target_type');
         if ($target_type === 'taxonomy_term') {
@@ -763,13 +758,13 @@ class MarkdownImporter {
   }
 
   /**
-   * Desnormaliza un valor del frontmatter al formato que espera Drupal.
+   * Denormalize a frontmatter value into the format Drupal expects.
    */
   protected function denormalizeField(mixed $value, FieldDefinitionInterface $definition): mixed {
     $field_type  = $definition->getType();
     $cardinality = $definition->getFieldStorageDefinition()->getCardinality();
 
-    // Normalizar siempre a lista para procesar de forma uniforme
+    // Always normalise to a list for uniform processing.
     $values = is_array($value) && !$this->isAssoc($value) ? $value : [$value];
     $result = [];
 
@@ -852,7 +847,7 @@ class MarkdownImporter {
   }
 
   // ---------------------------------------------------------------------------
-  // Resolución de referencias
+  // Reference resolution
   // ---------------------------------------------------------------------------
 
   protected function resolveEntityReference(mixed $value, string $target_type, FieldDefinitionInterface $definition): ?int {
@@ -882,7 +877,7 @@ class MarkdownImporter {
       return (int) reset($tids);
     }
 
-    // Crear el término si no existe
+    // Create the term if it does not exist.
     if (!empty($vocab_bundles)) {
       $term = $storage->create(['vid' => array_key_first($vocab_bundles), 'name' => $label]);
       $term->save();
@@ -929,8 +924,8 @@ class MarkdownImporter {
   }
 
   /**
-   * Busca una entidad por UUID corto sin filtrar por bundle.
-   * Más seguro cuando el bundle puede haber cambiado o no es fiable.
+   * Find an entity by short UUID without filtering by bundle.
+   * Safer when the bundle may have changed or is not reliable.
    */
   protected function findByShortUuidGlobal(string $short_uuid, string $entity_type): mixed {
     $storage = $this->entityTypeManager->getStorage($entity_type);
@@ -971,7 +966,7 @@ class MarkdownImporter {
   }
 
   // ---------------------------------------------------------------------------
-  // Utilidades
+  // Utilities
   // ---------------------------------------------------------------------------
 
   protected function parseDate(mixed $date): int {
@@ -986,27 +981,27 @@ class MarkdownImporter {
   }
 
   /**
-   * Elimina en Drupal las entidades que ya no tienen un archivo .md correspondiente.
+   * Delete Drupal entities that no longer have a corresponding .md file.
    *
    * @param array $seenUuids
-   *   Mapa por entity_type -> bundle -> short_uuid => TRUE que representa los
-   *   UUIDs de las entidades que fueron importadas/actualizadas durante esta ejecución.
+   *   Map of entity_type -> bundle -> short_uuid => TRUE representing the
+   *   UUIDs of entities imported/updated in this run.
    *
-   * @return string[] Lista de elementos eliminados (para mostrar en UI).
+   * @return string[] List of deleted items (for display in the UI).
    */
   protected function cleanupDeletedEntities(array $seenUuids): array {
     $deleted = [];
 
     foreach ($seenUuids as $entity_type => $bundles) {
-      // Sincronizamos entidades que podemos eliminar de forma segura.
-      // - nodes/taxonomy/media/block_content/menu_link_content: sí.
-      // - file: sí (los referenciados en el export).
-      // - user: solo si no es el usuario administrador ni el actual.
+      // We safely sync the following entity types:
+      // - nodes/taxonomy/media/block_content/menu_link_content: yes.
+      // - file: yes (those referenced by the export).
+      // - user: only if not the admin or the current user.
       if (!in_array($entity_type, ['node', 'taxonomy_term', 'media', 'block_content', 'menu_link_content', 'file', 'user'], TRUE)) {
         continue;
       }
 
-      // Si no hay archivos para este tipo, no eliminamos nada.
+      // If there are no files for this type, do not delete anything.
       if (empty($bundles)) {
         continue;
       }
@@ -1041,7 +1036,7 @@ class MarkdownImporter {
             continue;
           }
 
-          // Evitar eliminar el usuario administrador o el usuario actual.
+          // Do not delete the admin user or the currently logged-in user.
           if ($entity_type === 'user') {
             $current = \Drupal::currentUser();
             if ($entity->id() === 1 || $entity->id() === $current->id()) {
@@ -1061,29 +1056,30 @@ class MarkdownImporter {
 
 
   /**
-   * Intenta reconstruir un UUID completo a partir de un UUID corto (8 chars).
+   * Attempt to reconstruct a full UUID from a short UUID (8 chars).
    *
-   * El UUID corto es los primeros 8 caracteres del UUID sin guiones.
-   * No es posible recuperar el UUID original exacto, así que generamos uno
-   * nuevo que empieza con esos 8 caracteres para mantener trazabilidad.
-   * Si el frontmatter tiene el UUID completo (32 chars sin guiones) lo usamos tal cual.
+   * The short UUID is the first 8 characters of the UUID without dashes.
+   * The original UUID cannot be recovered exactly, so we generate a new one
+   * that starts with those 8 characters to maintain traceability.
+   * If the frontmatter contains a full UUID (32 chars without dashes) it is
+   * used as-is.
    */
   protected function expandShortUuid(string $short): string {
     $clean = str_replace('-', '', $short);
 
-    // Si ya es un UUID completo sin guiones (32 chars), formatear con guiones
+    // Already a full UUID without dashes (32 chars): format with dashes.
     if (strlen($clean) === 32) {
       return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split($clean, 4));
     }
 
-    // UUID corto: completar con ceros y generar formato UUID válido
+    // Short UUID: pad with zeros and format as a valid UUID.
     $padded = str_pad($clean, 32, '0');
     return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split($padded, 4));
   }
 
 
   /**
-   * Busca un usuario por nombre de cuenta.
+   * Find a user by account name.
    */
   protected function findUserByName(string $name): ?int {
     $users = $this->entityTypeManager->getStorage('user')
@@ -1096,7 +1092,7 @@ class MarkdownImporter {
   }
 
   /**
-   * Encuentra todos los archivos .md de forma recursiva en un directorio.
+   * Recursively find all .md files in a directory.
    *
    * @return string[]
    */
@@ -1112,10 +1108,10 @@ class MarkdownImporter {
   }
 
   /**
-   * Compara dos archivos de importación para garantizar un orden estable.
+   * Compare two import files to guarantee a stable sort order.
    *
-   * Para los menu_link_content ordena por menú y peso (padres antes que hijos).
-   * Para el resto usa el nombre de archivo.
+   * For menu_link_content sorts by menu and weight (parents before children).
+   * For all other types sorts by filename.
    */
   protected function compareImportFiles(string $a, string $b): int {
     $metaA = $this->getImportFileMeta($a);

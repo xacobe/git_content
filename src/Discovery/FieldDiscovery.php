@@ -18,9 +18,9 @@ class FieldDiscovery {
    * Constructor.
    *
    * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entityTypeManager
-   *   Servicio entity_type.manager.
+   *   The entity_type.manager service.
    * @param \Drupal\Core\Entity\EntityFieldManagerInterface $entityFieldManager
-   *   Servicio entity_field.manager.
+   *   The entity_field.manager service.
    */
   public function __construct(EntityTypeManagerInterface $entityTypeManager, EntityFieldManagerInterface $entityFieldManager) {
     $this->entityTypeManager = $entityTypeManager;
