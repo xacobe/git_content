@@ -3,7 +3,7 @@
 namespace Drupal\git_content\Importer;
 
 use Drupal\git_content\Discovery\FieldDiscovery;
-use Drupal\git_content\Handler\FieldHandlerRegistry;
+use Drupal\git_content\Normalizer\FieldNormalizer;
 use Drupal\git_content\Serializer\MarkdownSerializer;
 use Drupal\git_content\Utility\ManagedFields;
 use Drupal\Component\Datetime\TimeInterface;
@@ -33,7 +33,7 @@ abstract class BaseImporter {
   protected LoggerInterface $logger;
   protected AccountProxyInterface $currentUser;
 
-  protected FieldHandlerRegistry $fieldHandlerRegistry;
+  protected FieldNormalizer $fieldNormalizer;
 
   public function __construct(
     FieldDiscovery $fieldDiscovery,
@@ -44,17 +44,17 @@ abstract class BaseImporter {
     TimeInterface $time,
     LoggerChannelFactoryInterface $loggerFactory,
     AccountProxyInterface $currentUser,
-    FieldHandlerRegistry $fieldHandlerRegistry,
+    FieldNormalizer $fieldNormalizer,
   ) {
-    $this->fieldDiscovery       = $fieldDiscovery;
-    $this->serializer           = $serializer;
-    $this->entityTypeManager    = $entityTypeManager;
-    $this->uuid                 = $uuid;
-    $this->passwordGenerator    = $passwordGenerator;
-    $this->time                 = $time;
-    $this->logger               = $loggerFactory->get('git_content');
-    $this->currentUser          = $currentUser;
-    $this->fieldHandlerRegistry = $fieldHandlerRegistry;
+    $this->fieldDiscovery    = $fieldDiscovery;
+    $this->serializer        = $serializer;
+    $this->entityTypeManager = $entityTypeManager;
+    $this->uuid              = $uuid;
+    $this->passwordGenerator = $passwordGenerator;
+    $this->time              = $time;
+    $this->logger            = $loggerFactory->get('git_content');
+    $this->currentUser       = $currentUser;
+    $this->fieldNormalizer   = $fieldNormalizer;
   }
 
   /**
@@ -121,150 +121,12 @@ abstract class BaseImporter {
    * Denormalize a frontmatter value into the format Drupal expects.
    */
   protected function denormalizeField(mixed $value, FieldDefinitionInterface $definition): mixed {
-    $field_type  = $definition->getType();
-
-    // Delegate to a registered handler first (e.g. from git_content_layout).
-    $handler = $this->fieldHandlerRegistry->find($field_type, $definition);
-    if ($handler !== NULL) {
-      return $handler->denormalize($value, $definition);
-    }
-
-    $cardinality = $definition->getFieldStorageDefinition()->getCardinality();
-
-    // Always normalise to a list for uniform processing.
-    $values = is_array($value) && !$this->isAssoc($value) ? $value : [$value];
-    $result = [];
-
-    foreach ($values as $item) {
-      switch ($field_type) {
-        case 'string':
-        case 'string_long':
-        case 'list_string':
-          $result[] = ['value' => (string) $item];
-          break;
-
-        case 'boolean':
-          $result[] = ['value' => (int) (bool) $item];
-          break;
-
-        case 'integer':
-        case 'list_integer':
-          $result[] = ['value' => (int) $item];
-          break;
-
-        case 'decimal':
-        case 'float':
-        case 'list_float':
-          $result[] = ['value' => (float) $item];
-          break;
-
-        case 'datetime':
-          $date = is_string($item) ? $item : NULL;
-          if ($date && strlen($date) === 10) {
-            $date .= 'T00:00:00';
-          }
-          $result[] = ['value' => $date];
-          break;
-
-        case 'timestamp':
-          $result[] = ['value' => $this->parseDate($item)];
-          break;
-
-        case 'link':
-          $result[] = is_array($item)
-            ? ['uri' => $item['url'] ?? '', 'title' => $item['title'] ?? '']
-            : ['uri' => (string) $item, 'title' => ''];
-          break;
-
-        case 'image':
-        case 'file':
-          $fid = $this->findFileByName((string) $item);
-          if ($fid) {
-            $result[] = ['target_id' => $fid];
-          }
-          break;
-
-        case 'entity_reference':
-          $target_type = $definition->getSetting('target_type');
-          $tid = $this->resolveEntityReference($item, $target_type, $definition);
-          if ($tid !== NULL) {
-            $result[] = ['target_id' => $tid];
-          }
-          break;
-
-        case 'text':
-        case 'text_long':
-        case 'text_with_summary':
-          $result[] = [
-            'value'  => is_string($item) ? $this->serializer->markdownToHtml($item) : (string) $item,
-            'format' => 'basic_html',
-          ];
-          break;
-
-        default:
-          $result[] = is_scalar($item) ? ['value' => $item] : $item;
-      }
-    }
-
-    if (empty($result)) {
-      return NULL;
-    }
-
-    return $cardinality === 1 ? $result[0] : $result;
+    return $this->fieldNormalizer->denormalize($value, $definition);
   }
 
   // ---------------------------------------------------------------------------
   // Reference resolution
   // ---------------------------------------------------------------------------
-
-  protected function resolveEntityReference(mixed $value, string $target_type, FieldDefinitionInterface $definition): ?int {
-    if ($value === NULL) {
-      return NULL;
-    }
-    if ($target_type === 'taxonomy_term') {
-      return $this->findTermByLabel((string) $value, $definition);
-    }
-    if ($target_type === 'node') {
-      return is_numeric($value) ? (int) $value : $this->findNodeBySlug((string) $value);
-    }
-    return is_numeric($value) ? (int) $value : NULL;
-  }
-
-  protected function findTermByLabel(string $label, FieldDefinitionInterface $definition): ?int {
-    $vocab_bundles = $definition->getSetting('handler_settings')['target_bundles'] ?? [];
-    $storage = $this->entityTypeManager->getStorage('taxonomy_term');
-
-    $query = $storage->getQuery()->accessCheck(FALSE)->condition('name', $label);
-    if (!empty($vocab_bundles)) {
-      $query->condition('vid', array_keys($vocab_bundles), 'IN');
-    }
-    $tids = $query->execute();
-
-    if (!empty($tids)) {
-      return (int) reset($tids);
-    }
-
-    // Create the term if it does not exist.
-    if (!empty($vocab_bundles)) {
-      $term = $storage->create(['vid' => array_key_first($vocab_bundles), 'name' => $label]);
-      $term->save();
-      return (int) $term->id();
-    }
-
-    return NULL;
-  }
-
-  protected function findNodeBySlug(string $slug): ?int {
-    $aliases = $this->entityTypeManager->getStorage('path_alias')
-      ->loadByProperties(['alias' => '/' . ltrim($slug, '/')]);
-
-    foreach ($aliases as $alias) {
-      if (preg_match('/^\/node\/(\d+)$/', $alias->getPath(), $m)) {
-        return (int) $m[1];
-      }
-    }
-    return NULL;
-  }
 
   protected function findByShortUuid(string $short_uuid, string $entity_type, string $bundle): mixed {
     $bundle_key = match($entity_type) {
@@ -309,12 +171,6 @@ abstract class BaseImporter {
       return NULL;
     }
     return $storage->load(reset($ids));
-  }
-
-  protected function findFileByName(string $filename): ?int {
-    $files = $this->entityTypeManager->getStorage('file')
-      ->getQuery()->accessCheck(FALSE)->condition('filename', $filename)->execute();
-    return !empty($files) ? (int) reset($files) : NULL;
   }
 
   protected function findUserByName(string $name): ?int {
@@ -379,8 +235,5 @@ abstract class BaseImporter {
     return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split($padded, 4));
   }
 
-  protected function isAssoc(array $arr): bool {
-    return !empty($arr) && array_keys($arr) !== range(0, count($arr) - 1);
-  }
-
 }
+

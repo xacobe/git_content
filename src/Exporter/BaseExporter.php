@@ -3,7 +3,7 @@
 namespace Drupal\git_content\Exporter;
 
 use Drupal\git_content\Discovery\FieldDiscovery;
-use Drupal\git_content\Handler\FieldHandlerRegistry;
+use Drupal\git_content\Normalizer\FieldNormalizer;
 use Drupal\git_content\Serializer\MarkdownSerializer;
 use Drupal\git_content\Utility\ChecksumTrait;
 use Drupal\git_content\Utility\ContentExportTrait;
@@ -45,20 +45,20 @@ abstract class BaseExporter {
     'revision_uid',
   ];
 
-  protected FieldHandlerRegistry $fieldHandlerRegistry;
+  protected FieldNormalizer $fieldNormalizer;
 
   public function __construct(
     FieldDiscovery $fieldDiscovery,
     MarkdownSerializer $serializer,
     EntityTypeManagerInterface $entityTypeManager,
     LoggerChannelFactoryInterface $loggerFactory,
-    FieldHandlerRegistry $fieldHandlerRegistry,
+    FieldNormalizer $fieldNormalizer,
   ) {
-    $this->fieldDiscovery      = $fieldDiscovery;
-    $this->serializer          = $serializer;
-    $this->entityTypeManager   = $entityTypeManager;
-    $this->logger              = $loggerFactory->get('git_content');
-    $this->fieldHandlerRegistry = $fieldHandlerRegistry;
+    $this->fieldDiscovery    = $fieldDiscovery;
+    $this->serializer        = $serializer;
+    $this->entityTypeManager = $entityTypeManager;
+    $this->logger            = $loggerFactory->get('git_content');
+    $this->fieldNormalizer   = $fieldNormalizer;
   }
 
   /**
@@ -149,97 +149,7 @@ abstract class BaseExporter {
    * Normalize a field value into a clean format for frontmatter.
    */
   protected function normalizeField($field, FieldDefinitionInterface $definition): mixed {
-    $field_type  = $definition->getType();
-
-    // Delegate to a registered handler first (e.g. from git_content_layout).
-    $handler = $this->fieldHandlerRegistry->find($field_type, $definition);
-    if ($handler !== NULL) {
-      return $handler->normalize($field, $definition);
-    }
-
-    $items       = $field->getValue();
-    $cardinality = $definition->getFieldStorageDefinition()->getCardinality();
-    $is_multiple = $cardinality !== 1;
-
-    $normalized = [];
-
-    foreach ($items as $item) {
-      switch ($field_type) {
-        case 'string':
-        case 'string_long':
-        case 'list_string':
-          $normalized[] = $item['value'] ?? NULL;
-          break;
-
-        case 'boolean':
-          $normalized[] = (bool) ($item['value'] ?? FALSE);
-          break;
-
-        case 'integer':
-        case 'list_integer':
-        case 'list_float':
-        case 'decimal':
-        case 'float':
-          $normalized[] = $item['value'] ?? NULL;
-          break;
-
-        case 'datetime':
-          $normalized[] = isset($item['value']) ? substr($item['value'], 0, 10) : NULL;
-          break;
-
-        case 'timestamp':
-          $normalized[] = isset($item['value']) ? date('Y-m-d', $item['value']) : NULL;
-          break;
-
-        case 'link':
-          $normalized[] = [
-            'url'   => $item['uri'] ?? NULL,
-            'title' => $item['title'] ?? NULL,
-          ];
-          break;
-
-        case 'image':
-        case 'file':
-          $file = $this->entityTypeManager
-            ->getStorage('file')
-            ->load($item['target_id'] ?? 0);
-          $normalized[] = $file ? basename($file->getFileUri()) : NULL;
-          break;
-
-        case 'entity_reference':
-          $target_type = $definition->getSetting('target_type');
-          $target_id   = $item['target_id'] ?? NULL;
-          if ($target_id && $target_type === 'taxonomy_term') {
-            $term = $this->entityTypeManager
-              ->getStorage('taxonomy_term')->load($target_id);
-            $normalized[] = $term ? $term->label() : $target_id;
-          }
-          elseif ($target_id && $target_type === 'node') {
-            $node = $this->entityTypeManager
-              ->getStorage('node')->load($target_id);
-            $normalized[] = $node ? $this->getSlug($node) : $target_id;
-          }
-          else {
-            $normalized[] = $target_id;
-          }
-          break;
-
-        case 'text':
-        case 'text_long':
-        case 'text_with_summary':
-          $normalized[] = $item['value'] ?? NULL;
-          break;
-
-        default:
-          $normalized[] = $item['value'] ?? (count($item) === 1 ? reset($item) : $item);
-      }
-    }
-
-    if (!$is_multiple && count($normalized) === 1) {
-      return $normalized[0];
-    }
-
-    return $normalized ?: NULL;
+    return $this->fieldNormalizer->normalize($field, $definition);
   }
 
   /**
