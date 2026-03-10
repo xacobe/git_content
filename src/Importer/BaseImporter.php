@@ -3,6 +3,7 @@
 namespace Drupal\git_content\Importer;
 
 use Drupal\git_content\Discovery\FieldDiscovery;
+use Drupal\git_content\Handler\FieldHandlerRegistry;
 use Drupal\git_content\Serializer\MarkdownSerializer;
 use Drupal\git_content\Utility\ManagedFields;
 use Drupal\Component\Datetime\TimeInterface;
@@ -32,6 +33,8 @@ abstract class BaseImporter {
   protected LoggerInterface $logger;
   protected AccountProxyInterface $currentUser;
 
+  protected FieldHandlerRegistry $fieldHandlerRegistry;
+
   public function __construct(
     FieldDiscovery $fieldDiscovery,
     MarkdownSerializer $serializer,
@@ -41,15 +44,17 @@ abstract class BaseImporter {
     TimeInterface $time,
     LoggerChannelFactoryInterface $loggerFactory,
     AccountProxyInterface $currentUser,
+    FieldHandlerRegistry $fieldHandlerRegistry,
   ) {
-    $this->fieldDiscovery    = $fieldDiscovery;
-    $this->serializer        = $serializer;
-    $this->entityTypeManager = $entityTypeManager;
-    $this->uuid              = $uuid;
-    $this->passwordGenerator = $passwordGenerator;
-    $this->time              = $time;
-    $this->logger            = $loggerFactory->get('git_content');
-    $this->currentUser       = $currentUser;
+    $this->fieldDiscovery       = $fieldDiscovery;
+    $this->serializer           = $serializer;
+    $this->entityTypeManager    = $entityTypeManager;
+    $this->uuid                 = $uuid;
+    $this->passwordGenerator    = $passwordGenerator;
+    $this->time                 = $time;
+    $this->logger               = $loggerFactory->get('git_content');
+    $this->currentUser          = $currentUser;
+    $this->fieldHandlerRegistry = $fieldHandlerRegistry;
   }
 
   /**
@@ -117,6 +122,13 @@ abstract class BaseImporter {
    */
   protected function denormalizeField(mixed $value, FieldDefinitionInterface $definition): mixed {
     $field_type  = $definition->getType();
+
+    // Delegate to a registered handler first (e.g. from git_content_layout).
+    $handler = $this->fieldHandlerRegistry->find($field_type, $definition);
+    if ($handler !== NULL) {
+      return $handler->denormalize($value, $definition);
+    }
+
     $cardinality = $definition->getFieldStorageDefinition()->getCardinality();
 
     // Always normalise to a list for uniform processing.

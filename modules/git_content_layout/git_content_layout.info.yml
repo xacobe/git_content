@@ -1,0 +1,8 @@
+name: 'Git Content: Layout Builder'
+type: module
+description: 'Extends git_content to export and import Layout Builder per-entity overrides (inline blocks and library blocks).'
+package: 'Git Content'
+core_version_requirement: ^10 || ^11
+dependencies:
+  - drupal:layout_builder
+  - git_content:git_content

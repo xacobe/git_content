@@ -3,10 +3,6 @@
 namespace Drupal\git_content\Exporter;
 
 use Drupal\Core\Entity\EntityInterface;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
-use Drupal\Core\Logger\LoggerChannelFactoryInterface;
-use Drupal\git_content\Discovery\FieldDiscovery;
-use Drupal\git_content\Serializer\MarkdownSerializer;
 
 /**
  * Export user accounts to Markdown files.
@@ -46,15 +42,6 @@ class UserExporter extends BaseExporter {
 
   protected function typeDir(): string {
     return 'users';
-  }
-
-  public function __construct(
-    FieldDiscovery $fieldDiscovery,
-    MarkdownSerializer $serializer,
-    EntityTypeManagerInterface $entityTypeManager,
-    LoggerChannelFactoryInterface $loggerFactory,
-  ) {
-    parent::__construct($fieldDiscovery, $serializer, $entityTypeManager, $loggerFactory);
   }
 
   /**

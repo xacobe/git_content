@@ -313,16 +313,44 @@ class MarkdownImporter {
   // ---------------------------------------------------------------------------
 
   /**
-   * Compare two import files to guarantee a stable sort order.
+   * Dependency order for import: earlier = imported first.
    *
-   * For menu_link_content sorts by menu and weight (parents before children).
-   * For all other types sorts by filename.
+   * Dependencies:
+   *   media        → file
+   *   node         → taxonomy_term, block_content, media, file
+   *   menu_link_content → node (links point to node paths)
+   */
+  private const IMPORT_ORDER = [
+    'file'              => 1,
+    'user'              => 2,
+    'taxonomy_term'     => 3,
+    'block_content'     => 4,
+    'media'             => 5,
+    'node'              => 6,
+    'menu_link_content' => 7,
+  ];
+
+  /**
+   * Compare two import files to guarantee a stable, dependency-aware order.
+   *
+   * Entity types are sorted by IMPORT_ORDER so dependencies are always present
+   * before the entities that reference them. Within menu_link_content, items
+   * are further sorted by menu name and weight (parents before children).
+   * Within the same entity type, files are sorted alphabetically.
    */
   protected function compareImportFiles(string $a, string $b): int {
     $metaA = $this->getImportFileMeta($a);
     $metaB = $this->getImportFileMeta($b);
 
-    if ($metaA['type'] === 'menu_link_content' && $metaB['type'] === 'menu_link_content') {
+    $orderA = self::IMPORT_ORDER[$metaA['entity_type']] ?? 6;
+    $orderB = self::IMPORT_ORDER[$metaB['entity_type']] ?? 6;
+
+    if ($orderA !== $orderB) {
+      return $orderA <=> $orderB;
+    }
+
+    // Within menu_link_content: sort by menu, then by weight (parents first).
+    if ($metaA['entity_type'] === 'menu_link_content') {
       if ($metaA['menu'] !== $metaB['menu']) {
         return $metaA['menu'] <=> $metaB['menu'];
       }
@@ -342,7 +370,7 @@ class MarkdownImporter {
       return $cache[$filepath];
     }
 
-    $empty = ['type' => '', 'menu' => '', 'weight' => 0];
+    $empty = ['type' => '', 'entity_type' => 'node', 'menu' => '', 'weight' => 0];
 
     $raw = @file_get_contents($filepath);
     if ($raw === FALSE) {
@@ -357,11 +385,17 @@ class MarkdownImporter {
     }
 
     $frontmatter = $this->serializer->flattenGroups($parsed['frontmatter']);
+    $type        = $frontmatter['type'] ?? '';
+    $entity_type = match ($type) {
+      'taxonomy_term', 'file', 'user', 'media', 'block_content', 'menu_link_content' => $type,
+      default => 'node',
+    };
 
     return $cache[$filepath] = [
-      'type'   => $frontmatter['type'] ?? '',
-      'menu'   => $frontmatter['menu'] ?? '',
-      'weight' => (int) ($frontmatter['weight'] ?? 0),
+      'type'        => $type,
+      'entity_type' => $entity_type,
+      'menu'        => $frontmatter['menu'] ?? '',
+      'weight'      => (int) ($frontmatter['weight'] ?? 0),
     ];
   }
 

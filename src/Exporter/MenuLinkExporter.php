@@ -3,10 +3,6 @@
 namespace Drupal\git_content\Exporter;
 
 use Drupal\Core\Entity\EntityInterface;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
-use Drupal\Core\Logger\LoggerChannelFactoryInterface;
-use Drupal\git_content\Discovery\FieldDiscovery;
-use Drupal\git_content\Serializer\MarkdownSerializer;
 
 /**
  * Export custom menu links (menu_link_content) to Markdown.
@@ -45,15 +41,6 @@ class MenuLinkExporter extends BaseExporter {
 
   protected function typeDir(): string {
     return 'menus';
-  }
-
-  public function __construct(
-    FieldDiscovery $fieldDiscovery,
-    MarkdownSerializer $serializer,
-    EntityTypeManagerInterface $entityTypeManager,
-    LoggerChannelFactoryInterface $loggerFactory,
-  ) {
-    parent::__construct($fieldDiscovery, $serializer, $entityTypeManager, $loggerFactory);
   }
 
   /**

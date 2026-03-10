@@ -1,0 +1,7 @@
+services:
+  git_content_layout.layout_field_handler:
+    class: Drupal\git_content_layout\Handler\LayoutFieldHandler
+    arguments:
+      - '@entity_type.manager'
+    tags:
+      - { name: git_content.field_handler }

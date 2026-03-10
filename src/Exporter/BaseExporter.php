@@ -3,6 +3,7 @@
 namespace Drupal\git_content\Exporter;
 
 use Drupal\git_content\Discovery\FieldDiscovery;
+use Drupal\git_content\Handler\FieldHandlerRegistry;
 use Drupal\git_content\Serializer\MarkdownSerializer;
 use Drupal\git_content\Utility\ChecksumTrait;
 use Drupal\git_content\Utility\ContentExportTrait;
@@ -44,16 +45,20 @@ abstract class BaseExporter {
     'revision_uid',
   ];
 
+  protected FieldHandlerRegistry $fieldHandlerRegistry;
+
   public function __construct(
     FieldDiscovery $fieldDiscovery,
     MarkdownSerializer $serializer,
     EntityTypeManagerInterface $entityTypeManager,
     LoggerChannelFactoryInterface $loggerFactory,
+    FieldHandlerRegistry $fieldHandlerRegistry,
   ) {
-    $this->fieldDiscovery = $fieldDiscovery;
-    $this->serializer = $serializer;
-    $this->entityTypeManager = $entityTypeManager;
-    $this->logger = $loggerFactory->get('git_content');
+    $this->fieldDiscovery      = $fieldDiscovery;
+    $this->serializer          = $serializer;
+    $this->entityTypeManager   = $entityTypeManager;
+    $this->logger              = $loggerFactory->get('git_content');
+    $this->fieldHandlerRegistry = $fieldHandlerRegistry;
   }
 
   /**
@@ -145,6 +150,13 @@ abstract class BaseExporter {
    */
   protected function normalizeField($field, FieldDefinitionInterface $definition): mixed {
     $field_type  = $definition->getType();
+
+    // Delegate to a registered handler first (e.g. from git_content_layout).
+    $handler = $this->fieldHandlerRegistry->find($field_type, $definition);
+    if ($handler !== NULL) {
+      return $handler->normalize($field, $definition);
+    }
+
     $items       = $field->getValue();
     $cardinality = $definition->getFieldStorageDefinition()->getCardinality();
     $is_multiple = $cardinality !== 1;
