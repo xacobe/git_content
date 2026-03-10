@@ -251,17 +251,9 @@ abstract class BaseExporter {
    * YAML key order or serialization formatting changes.
    */
   protected function addChecksum(array $frontmatter, string $body): array {
-    // Ensure the checksum is calculated over the same structure the
-    // importer uses for comparison (flattened groups).
+    // Flatten groups so the hash matches what MarkdownImporter computes.
     $fm = $this->serializer->flattenGroups($frontmatter);
-    unset($fm['checksum']);
-    $fm = array_filter($fm, fn($key) => !preg_match('/^_+$/', (string) $key), ARRAY_FILTER_USE_KEY);
-
-    $canonical = $this->canonicalizeForHash(['frontmatter' => $fm, 'body' => $body]);
-    $hash = sha1(json_encode($canonical, \JSON_UNESCAPED_UNICODE | \JSON_UNESCAPED_SLASHES | \JSON_PRESERVE_ZERO_FRACTION));
-
-    $frontmatter['checksum'] = $hash;
-
+    $frontmatter['checksum'] = $this->computeChecksum($fm, $body);
     return $frontmatter;
   }
 

@@ -11,6 +11,22 @@ namespace Drupal\git_content\Utility;
 trait ChecksumTrait {
 
   /**
+   * Compute the canonical SHA1 checksum for a flattened frontmatter + body.
+   *
+   * The frontmatter must already be flattened (groups expanded) and must NOT
+   * contain the 'checksum' key itself. Keys matching /^_+$/ (separator lines)
+   * are stripped before hashing.
+   */
+  protected function computeChecksum(array $frontmatter, string $body): string {
+    $fm = $frontmatter;
+    unset($fm['checksum']);
+    $fm   = array_filter($fm, fn($key) => !preg_match('/^_+$/', (string) $key), ARRAY_FILTER_USE_KEY);
+    $data = $this->canonicalizeForHash(['frontmatter' => $fm, 'body' => $body]);
+
+    return sha1(json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION));
+  }
+
+  /**
    * Canonicalize a data structure for hashing.
    *
    * Recursively sorts array keys (associative) or values (sequential scalars)
