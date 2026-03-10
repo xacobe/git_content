@@ -1,0 +1,8 @@
+name: 'Git Content: Paragraphs'
+type: module
+description: 'Extends git_content to export and import Paragraphs field values inline within their parent entity.'
+package: 'Git Content'
+core_version_requirement: ^10 || ^11
+dependencies:
+  - drupal:paragraphs
+  - git_content:git_content

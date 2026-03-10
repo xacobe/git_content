@@ -1,0 +1,10 @@
+services:
+
+  git_content_paragraphs.paragraphs_field_handler:
+    class: Drupal\git_content_paragraphs\Handler\ParagraphsFieldHandler
+    arguments:
+      - '@entity_type.manager'
+      - '@git_content.field_discovery'
+      - '@uuid'
+    tags:
+      - { name: git_content.field_handler }
