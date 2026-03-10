@@ -49,7 +49,7 @@ class MarkdownImporter {
   }
 
   // ---------------------------------------------------------------------------
-  // Bulk import
+  // Public API
   // ---------------------------------------------------------------------------
 
   /**
@@ -58,157 +58,8 @@ class MarkdownImporter {
    * @return array{imported: string[], updated: string[], skipped: string[], deleted: string[], errors: string[]}
    */
   public function importAll(): array {
-    $import_dir = DRUPAL_ROOT . '/content_export';
-    $result = ['imported' => [], 'updated' => [], 'deleted' => [], 'skipped' => [], 'errors' => []];
-
-    if (!is_dir($import_dir)) {
-      $result['errors'][] = t('The content_export directory does not exist.');
-      return $result;
-    }
-
-    // Collect all .md files recursively.
-    $files = $this->findMarkdownFiles($import_dir);
-
-    // Ensure menu links are processed in weight order (parents before children).
-    usort($files, fn($a, $b) => $this->compareImportFiles($a, $b));
-
-    $typeCounts = [];
-    $seenUuids = [
-      'node'              => [],
-      'taxonomy_term'     => [],
-      'media'             => [],
-      'block_content'     => [],
-      'file'              => [],
-      'user'              => [],
-      'menu_link_content' => [],
-    ];
-
-    foreach ($files as $filepath) {
-      try {
-        $import = $this->importFile($filepath);
-        $op          = $import['op'];
-        $type        = $import['type'];
-        $entity_type = $import['entity_type'] ?? NULL;
-        $uuid        = $import['uuid'] ?? NULL;
-        $bundle      = $import['bundle'] ?? '__all';
-
-        $result[$op][] = str_replace(DRUPAL_ROOT . '/content_export/', '', $filepath);
-
-        if (!isset($typeCounts[$type])) {
-          $typeCounts[$type] = ['created' => 0, 'updated' => 0, 'skipped' => 0, 'deleted' => 0];
-        }
-        // Map op 'imported' → 'created' to match the display label.
-        $countKey = $op === 'imported' ? 'created' : $op;
-        if (isset($typeCounts[$type][$countKey])) {
-          $typeCounts[$type][$countKey]++;
-        }
-
-        if ($entity_type && $uuid) {
-          $seenUuids[$entity_type][$bundle][$uuid] = TRUE;
-        }
-      }
-      catch (\Exception $e) {
-        $result['errors'][] = basename($filepath) . ': ' . $e->getMessage();
-      }
-    }
-
-    // Remove Drupal entities that no longer have a corresponding .md file.
-    $deleted = $this->cleanupDeletedEntities($seenUuids);
-    foreach ($deleted as $deletedItem) {
-      $result['deleted'][] = $deletedItem;
-      $parts = explode(':', $deletedItem, 2);
-      if (count($parts) === 2) {
-        $deletedType = trim($parts[0]);
-        if (!isset($typeCounts[$deletedType])) {
-          $typeCounts[$deletedType] = ['created' => 0, 'updated' => 0, 'skipped' => 0, 'deleted' => 0];
-        }
-        $typeCounts[$deletedType]['deleted']++;
-      }
-    }
-
-    $this->logger->notice(
-      'Import finished: @summary. Total: @created created, @updated updated, @skipped skipped, @deleted deleted, @errors errors.',
-      [
-        '@summary' => $this->buildTypeSummary($typeCounts),
-        '@created' => (string) count($result['imported']),
-        '@updated' => (string) count($result['updated']),
-        '@skipped' => (string) count($result['skipped']),
-        '@deleted' => (string) count($result['deleted']),
-        '@errors'  => (string) count($result['errors']),
-      ]
-    );
-
-    return $result;
+    return $this->runAll(FALSE);
   }
-
-  /**
-   * Import a single Markdown file.
-   *
-   * @return array{op: string, entity_type: string, type: string, uuid?: string|null, bundle?: string|null}
-   *   'op' is one of 'imported', 'updated', 'skipped'.
-   *
-   * @throws \Exception
-   */
-  public function importFile(string $filepath): array {
-    if (!file_exists($filepath)) {
-      throw new \Exception(t('File not found: @file', ['@file' => $filepath]));
-    }
-
-    $raw         = file_get_contents($filepath);
-    $parsed      = $this->serializer->deserialize($raw);
-    $frontmatter = $this->serializer->flattenGroups($parsed['frontmatter']);
-    $body        = $parsed['body'];
-
-    $type = $frontmatter['type'] ?? NULL;
-    if (!$type) {
-      throw new \Exception(t("The frontmatter is missing the 'type' field."));
-    }
-
-    $short_uuid  = $frontmatter['uuid'] ?? NULL;
-    $entity_type = match ($type) {
-      'taxonomy_term'     => 'taxonomy_term',
-      'file'              => 'file',
-      'user'              => 'user',
-      'media'             => 'media',
-      'block_content'     => 'block_content',
-      'menu_link_content' => 'menu_link_content',
-      default             => 'node',
-    };
-
-    $bundle = match ($entity_type) {
-      'taxonomy_term'     => $frontmatter['vocabulary'] ?? NULL,
-      'node'              => $type,
-      'media',
-      'block_content'     => $frontmatter['bundle'] ?? NULL,
-      'menu_link_content' => $frontmatter['menu_name'] ?? NULL,
-      default             => NULL,
-    };
-
-    // If the file contains a checksum, compare it to skip unchanged files.
-    $checksum = $frontmatter['checksum'] ?? NULL;
-    if ($checksum) {
-      $computed = $this->computeChecksum($frontmatter, $body);
-      if ($computed === $checksum) {
-        return ['op' => 'skipped', 'entity_type' => $entity_type, 'type' => $type, 'uuid' => $short_uuid, 'bundle' => $bundle];
-      }
-    }
-
-    $op = match ($type) {
-      'file'              => $this->fileEntityImporter->import($frontmatter, $body),
-      'user'              => $this->userImporter->import($frontmatter, $body),
-      'taxonomy_term'     => $this->taxonomyImporter->import($frontmatter, $body),
-      'media'             => $this->mediaImporter->import($frontmatter, $body),
-      'block_content'     => $this->blockContentImporter->import($frontmatter, $body),
-      'menu_link_content' => $this->menuLinkImporter->import($frontmatter, $body),
-      default             => $this->nodeImporter->import($frontmatter, $body),
-    };
-
-    return ['op' => $op, 'entity_type' => $entity_type, 'type' => $type, 'uuid' => $short_uuid, 'bundle' => $bundle];
-  }
-
-  // ---------------------------------------------------------------------------
-  // Dry-run preview
-  // ---------------------------------------------------------------------------
 
   /**
    * Preview what importAll() would do without modifying any data.
@@ -219,61 +70,21 @@ class MarkdownImporter {
    * @return array{imported: string[], updated: string[], skipped: string[], deleted: string[], errors: string[]}
    */
   public function previewAll(): array {
-    $import_dir = DRUPAL_ROOT . '/content_export';
-    $result = ['imported' => [], 'updated' => [], 'deleted' => [], 'skipped' => [], 'errors' => []];
-
-    if (!is_dir($import_dir)) {
-      $result['errors'][] = t('The content_export directory does not exist.');
-      return $result;
-    }
-
-    $files = $this->findMarkdownFiles($import_dir);
-    usort($files, fn($a, $b) => $this->compareImportFiles($a, $b));
-
-    $seenUuids = [
-      'node'              => [],
-      'taxonomy_term'     => [],
-      'media'             => [],
-      'block_content'     => [],
-      'file'              => [],
-      'user'              => [],
-      'menu_link_content' => [],
-    ];
-
-    foreach ($files as $filepath) {
-      try {
-        $import      = $this->previewFile($filepath);
-        $op          = $import['op'];
-        $entity_type = $import['entity_type'] ?? NULL;
-        $uuid        = $import['uuid'] ?? NULL;
-        $bundle      = $import['bundle'] ?? '__all';
-
-        $result[$op][] = str_replace(DRUPAL_ROOT . '/content_export/', '', $filepath);
-
-        if ($entity_type && $uuid) {
-          $seenUuids[$entity_type][$bundle][$uuid] = TRUE;
-        }
-      }
-      catch (\Exception $e) {
-        $result['errors'][] = basename($filepath) . ': ' . $e->getMessage();
-      }
-    }
-
-    foreach ($this->previewDeletedEntities($seenUuids) as $item) {
-      $result['deleted'][] = $item;
-    }
-
-    return $result;
+    return $this->runAll(TRUE);
   }
 
   /**
-   * Determine what operation would be applied to a single file without saving.
+   * Import (or preview) a single Markdown file.
+   *
+   * @param bool $dryRun
+   *   When TRUE, determines the operation without saving anything.
    *
    * @return array{op: string, entity_type: string, type: string, uuid?: string|null, bundle?: string|null}
+   *   'op' is one of 'imported', 'updated', 'skipped'.
    *
    * @throws \Exception
    */
-  protected function previewFile(string $filepath): array {
+  public function importFile(string $filepath, bool $dryRun = FALSE): array {
     if (!file_exists($filepath)) {
       throw new \Exception(t('File not found: @file', ['@file' => $filepath]));
     }
@@ -308,43 +119,154 @@ class MarkdownImporter {
       default             => NULL,
     };
 
-    // Checksum match → no changes needed regardless of DB state.
+    // Checksum match → unchanged regardless of DB state.
     $checksum = $frontmatter['checksum'] ?? NULL;
-    if ($checksum) {
-      $computed = $this->computeChecksum($frontmatter, $body);
-      if ($computed === $checksum) {
-        return ['op' => 'skipped', 'entity_type' => $entity_type, 'type' => $type, 'uuid' => $short_uuid, 'bundle' => $bundle];
-      }
+    if ($checksum && $this->computeChecksum($frontmatter, $body) === $checksum) {
+      return ['op' => 'skipped', 'entity_type' => $entity_type, 'type' => $type, 'uuid' => $short_uuid, 'bundle' => $bundle];
     }
 
-    // UUID lookup to decide create vs update.
-    $exists = FALSE;
-    if ($short_uuid) {
-      $ids = $this->entityTypeManager->getStorage($entity_type)
-        ->getQuery()
-        ->accessCheck(FALSE)
-        ->condition('uuid', $short_uuid . '%', 'LIKE')
-        ->range(0, 1)
-        ->execute();
-      $exists = !empty($ids);
+    if ($dryRun) {
+      $exists = $short_uuid && !empty(
+        $this->entityTypeManager->getStorage($entity_type)
+          ->getQuery()
+          ->accessCheck(FALSE)
+          ->condition('uuid', $short_uuid . '%', 'LIKE')
+          ->range(0, 1)
+          ->execute()
+      );
+      $op = $exists ? 'updated' : 'imported';
+    }
+    else {
+      $op = match ($type) {
+        'file'              => $this->fileEntityImporter->import($frontmatter, $body),
+        'user'              => $this->userImporter->import($frontmatter, $body),
+        'taxonomy_term'     => $this->taxonomyImporter->import($frontmatter, $body),
+        'media'             => $this->mediaImporter->import($frontmatter, $body),
+        'block_content'     => $this->blockContentImporter->import($frontmatter, $body),
+        'menu_link_content' => $this->menuLinkImporter->import($frontmatter, $body),
+        default             => $this->nodeImporter->import($frontmatter, $body),
+      };
     }
 
-    $op = $exists ? 'updated' : 'imported';
     return ['op' => $op, 'entity_type' => $entity_type, 'type' => $type, 'uuid' => $short_uuid, 'bundle' => $bundle];
   }
 
+  // ---------------------------------------------------------------------------
+  // Internals
+  // ---------------------------------------------------------------------------
+
   /**
-   * Return entities that would be deleted without actually deleting them.
+   * Core loop shared by importAll() and previewAll().
    *
-   * @return string[]
+   * @param bool $dryRun
+   *   When TRUE, no entities are saved or deleted, and no log entry is written.
+   *
+   * @return array{imported: string[], updated: string[], skipped: string[], deleted: string[], errors: string[]}
    */
-  protected function previewDeletedEntities(array $seenUuids): array {
-    $deleted = [];
+  private function runAll(bool $dryRun): array {
+    $import_dir = DRUPAL_ROOT . '/content_export';
+    $result = ['imported' => [], 'updated' => [], 'deleted' => [], 'skipped' => [], 'errors' => []];
+
+    if (!is_dir($import_dir)) {
+      $result['errors'][] = t('The content_export directory does not exist.');
+      return $result;
+    }
+
+    $files = $this->findMarkdownFiles($import_dir);
+    usort($files, fn($a, $b) => $this->compareImportFiles($a, $b));
+
+    $typeCounts = [];
+    $seenUuids  = [
+      'node'              => [],
+      'taxonomy_term'     => [],
+      'media'             => [],
+      'block_content'     => [],
+      'file'              => [],
+      'user'              => [],
+      'menu_link_content' => [],
+    ];
+
+    foreach ($files as $filepath) {
+      try {
+        $import      = $this->importFile($filepath, $dryRun);
+        $op          = $import['op'];
+        $type        = $import['type'];
+        $entity_type = $import['entity_type'] ?? NULL;
+        $uuid        = $import['uuid'] ?? NULL;
+        $bundle      = $import['bundle'] ?? '__all';
+
+        $result[$op][] = str_replace(DRUPAL_ROOT . '/content_export/', '', $filepath);
+
+        if (!$dryRun) {
+          if (!isset($typeCounts[$type])) {
+            $typeCounts[$type] = ['created' => 0, 'updated' => 0, 'skipped' => 0, 'deleted' => 0];
+          }
+          // Map op 'imported' → 'created' to match the display label.
+          $countKey = $op === 'imported' ? 'created' : $op;
+          if (isset($typeCounts[$type][$countKey])) {
+            $typeCounts[$type][$countKey]++;
+          }
+        }
+
+        if ($entity_type && $uuid) {
+          $seenUuids[$entity_type][$bundle][$uuid] = TRUE;
+        }
+      }
+      catch (\Exception $e) {
+        $result['errors'][] = basename($filepath) . ': ' . $e->getMessage();
+      }
+    }
+
+    foreach ($this->syncDeletedEntities($seenUuids, !$dryRun) as $item) {
+      $result['deleted'][] = $item;
+
+      if (!$dryRun) {
+        $parts = explode(':', $item, 2);
+        if (count($parts) === 2) {
+          $deletedType = trim($parts[0]);
+          if (!isset($typeCounts[$deletedType])) {
+            $typeCounts[$deletedType] = ['created' => 0, 'updated' => 0, 'skipped' => 0, 'deleted' => 0];
+          }
+          $typeCounts[$deletedType]['deleted']++;
+        }
+      }
+    }
+
+    if (!$dryRun) {
+      $this->logger->notice(
+        'Import finished: @summary. Total: @created created, @updated updated, @skipped skipped, @deleted deleted, @errors errors.',
+        [
+          '@summary' => $this->buildTypeSummary($typeCounts),
+          '@created' => (string) count($result['imported']),
+          '@updated' => (string) count($result['updated']),
+          '@skipped' => (string) count($result['skipped']),
+          '@deleted' => (string) count($result['deleted']),
+          '@errors'  => (string) count($result['errors']),
+        ]
+      );
+    }
+
+    return $result;
+  }
+
+  /**
+   * Find entities not present in seenUuids and optionally delete them.
+   *
+   * @param bool $delete
+   *   When FALSE (dry run) returns the list without deleting anything.
+   *
+   * @return string[] Human-readable list of affected entities.
+   */
+  private function syncDeletedEntities(array $seenUuids, bool $delete): array {
+    $affected = [];
 
     foreach ($seenUuids as $entity_type => $bundles) {
+      // Only sync entity types we deliberately manage.
       if (!in_array($entity_type, ['node', 'taxonomy_term', 'media', 'block_content', 'menu_link_content', 'file', 'user'], TRUE)) {
         continue;
       }
+      // If no files were seen for this type, skip deletion to avoid wiping
+      // everything when a type is simply not in the export.
       if (empty($bundles)) {
         continue;
       }
@@ -355,25 +277,11 @@ class MarkdownImporter {
         $query = $storage->getQuery()->accessCheck(FALSE);
 
         switch ($entity_type) {
-          case 'node':
-            $query->condition('type', $bundle);
-            break;
-
-          case 'taxonomy_term':
-            $query->condition('vid', $bundle);
-            break;
-
-          case 'media':
-            $query->condition('bundle', $bundle);
-            break;
-
-          case 'block_content':
-            $query->condition('type', $bundle);
-            break;
-
-          case 'menu_link_content':
-            $query->condition('menu_name', $bundle);
-            break;
+          case 'node':             $query->condition('type', $bundle); break;
+          case 'taxonomy_term':    $query->condition('vid', $bundle); break;
+          case 'media':            $query->condition('bundle', $bundle); break;
+          case 'block_content':    $query->condition('type', $bundle); break;
+          case 'menu_link_content': $query->condition('menu_name', $bundle); break;
         }
 
         foreach ($storage->loadMultiple($query->execute()) as $entity) {
@@ -381,93 +289,22 @@ class MarkdownImporter {
           if (isset($uuids[$uuid])) {
             continue;
           }
+          // Never touch the admin user or the currently logged-in user.
           if ($entity_type === 'user' && ($entity->id() === 1 || $entity->id() === $this->currentUser->id())) {
             continue;
           }
-          $label     = method_exists($entity, 'label') ? $entity->label() : $entity->id();
-          $deleted[] = "$entity_type:$bundle: $label ($uuid)";
+
+          $label      = method_exists($entity, 'label') ? $entity->label() : $entity->id();
+          $affected[] = "$entity_type:$bundle: $label ($uuid)";
+
+          if ($delete) {
+            $entity->delete();
+          }
         }
       }
     }
 
-    return $deleted;
-  }
-
-  // ---------------------------------------------------------------------------
-  // Cleanup
-  // ---------------------------------------------------------------------------
-
-  /**
-   * Delete Drupal entities that no longer have a corresponding .md file.
-   *
-   * @param array $seenUuids
-   *   Map of entity_type -> bundle -> short_uuid => TRUE representing the
-   *   UUIDs of entities imported/updated in this run.
-   *
-   * @return string[] List of deleted items (for display in the UI).
-   */
-  protected function cleanupDeletedEntities(array $seenUuids): array {
-    $deleted = [];
-
-    foreach ($seenUuids as $entity_type => $bundles) {
-      // We safely sync the following entity types:
-      // - nodes/taxonomy/media/block_content/menu_link_content: yes.
-      // - file: yes (those referenced by the export).
-      // - user: only if not the admin or the current user.
-      if (!in_array($entity_type, ['node', 'taxonomy_term', 'media', 'block_content', 'menu_link_content', 'file', 'user'], TRUE)) {
-        continue;
-      }
-
-      // If there are no files for this type, do not delete anything.
-      if (empty($bundles)) {
-        continue;
-      }
-
-      $storage = $this->entityTypeManager->getStorage($entity_type);
-
-      foreach ($bundles as $bundle => $uuids) {
-        $query = $storage->getQuery()->accessCheck(FALSE);
-
-        switch ($entity_type) {
-          case 'node':
-            $query->condition('type', $bundle);
-            break;
-          case 'taxonomy_term':
-            $query->condition('vid', $bundle);
-            break;
-          case 'media':
-            $query->condition('bundle', $bundle);
-            break;
-          case 'block_content':
-            $query->condition('type', $bundle);
-            break;
-          case 'menu_link_content':
-            $query->condition('menu_name', $bundle);
-            break;
-        }
-
-        $ids = $query->execute();
-        foreach ($storage->loadMultiple($ids) as $entity) {
-          $uuid = substr(str_replace('-', '', $entity->uuid()), 0, 8);
-          if (isset($uuids[$uuid])) {
-            continue;
-          }
-
-          // Do not delete the admin user or the currently logged-in user.
-          if ($entity_type === 'user') {
-            if ($entity->id() === 1 || $entity->id() === $this->currentUser->id()) {
-              continue;
-            }
-          }
-
-          $label = method_exists($entity, 'label') ? $entity->label() : $entity->id();
-          $deleted[] = "$entity_type:$bundle: $label ($uuid)";
-          $entity->delete();
-        }
-      }
-    }
-
-    return $deleted;
+    return $affected;
   }
 
   // ---------------------------------------------------------------------------
@@ -484,7 +321,7 @@ class MarkdownImporter {
   protected function computeChecksum(array $frontmatter, string $body): string {
     $fm = $frontmatter;
     unset($fm['checksum']);
-    $fm = array_filter($fm, fn($key) => !preg_match('/^_+$/', (string) $key), ARRAY_FILTER_USE_KEY);
+    $fm   = array_filter($fm, fn($key) => !preg_match('/^_+$/', (string) $key), ARRAY_FILTER_USE_KEY);
     $data = $this->canonicalizeForHash(['frontmatter' => $fm, 'body' => $body]);
 
     return sha1(json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION));
@@ -500,7 +337,7 @@ class MarkdownImporter {
    * @return string[]
    */
   protected function findMarkdownFiles(string $dir): array {
-    $files = [];
+    $files    = [];
     $iterator = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($dir));
     foreach ($iterator as $file) {
       if ($file->isFile() && $file->getExtension() === 'md') {
