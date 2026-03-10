@@ -55,6 +55,50 @@ class MarkdownExporter {
    *
    * @return array{exported: string[], skipped: string[], deleted: string[], errors: string[]}
    */
+  /**
+   * Return per-type entity counts and file counts without writing anything.
+   *
+   * @return array<string, array{entities: int, files: int}>
+   *   Keyed by entity type machine name.
+   */
+  public function previewAll(): array {
+    $dirMap = [
+      'node'              => 'content_types',
+      'taxonomy_term'     => 'taxonomy',
+      'media'             => 'media',
+      'block_content'     => 'blocks',
+      'file'              => 'files',
+      'user'              => 'users',
+      'menu_link_content' => 'menus',
+    ];
+
+    // Count existing .md files per top-level directory once.
+    $fileCounts = [];
+    foreach ($this->scanContentExportFiles() as $relpath) {
+      $dir = explode('/', $relpath)[0] ?? '';
+      $fileCounts[$dir] = ($fileCounts[$dir] ?? 0) + 1;
+    }
+
+    $preview = [];
+    foreach ($this->exporterMap() as $entity_type => $exporter) {
+      try {
+        $ids = $this->entityTypeManager->getStorage($entity_type)
+          ->getQuery()
+          ->accessCheck(TRUE)
+          ->execute();
+        $entities = count($ids);
+      }
+      catch (\Exception $e) {
+        $entities = 0;
+      }
+
+      $dir                   = $dirMap[$entity_type] ?? $entity_type;
+      $preview[$entity_type] = ['entities' => $entities, 'files' => $fileCounts[$dir] ?? 0];
+    }
+
+    return $preview;
+  }
+
   public function exportTypes(array $entityTypes): array {
     $result = ['exported' => [], 'skipped' => [], 'deleted' => [], 'errors' => []];
 

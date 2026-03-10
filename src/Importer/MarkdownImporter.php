@@ -207,6 +207,193 @@ class MarkdownImporter {
   }
 
   // ---------------------------------------------------------------------------
+  // Dry-run preview
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Preview what importAll() would do without modifying any data.
+   *
+   * Returns the same array shape as importAll() but no entities are created,
+   * updated, or deleted. Uses checksum comparison and UUID lookups only.
+   *
+   * @return array{imported: string[], updated: string[], skipped: string[], deleted: string[], errors: string[]}
+   */
+  public function previewAll(): array {
+    $import_dir = DRUPAL_ROOT . '/content_export';
+    $result = ['imported' => [], 'updated' => [], 'deleted' => [], 'skipped' => [], 'errors' => []];
+
+    if (!is_dir($import_dir)) {
+      $result['errors'][] = t('The content_export directory does not exist.');
+      return $result;
+    }
+
+    $files = $this->findMarkdownFiles($import_dir);
+    usort($files, fn($a, $b) => $this->compareImportFiles($a, $b));
+
+    $seenUuids = [
+      'node'              => [],
+      'taxonomy_term'     => [],
+      'media'             => [],
+      'block_content'     => [],
+      'file'              => [],
+      'user'              => [],
+      'menu_link_content' => [],
+    ];
+
+    foreach ($files as $filepath) {
+      try {
+        $import      = $this->previewFile($filepath);
+        $op          = $import['op'];
+        $entity_type = $import['entity_type'] ?? NULL;
+        $uuid        = $import['uuid'] ?? NULL;
+        $bundle      = $import['bundle'] ?? '__all';
+
+        $result[$op][] = str_replace(DRUPAL_ROOT . '/content_export/', '', $filepath);
+
+        if ($entity_type && $uuid) {
+          $seenUuids[$entity_type][$bundle][$uuid] = TRUE;
+        }
+      }
+      catch (\Exception $e) {
+        $result['errors'][] = basename($filepath) . ': ' . $e->getMessage();
+      }
+    }
+
+    foreach ($this->previewDeletedEntities($seenUuids) as $item) {
+      $result['deleted'][] = $item;
+    }
+
+    return $result;
+  }
+
+  /**
+   * Determine what operation would be applied to a single file without saving.
+   *
+   * @return array{op: string, entity_type: string, type: string, uuid?: string|null, bundle?: string|null}
+   *
+   * @throws \Exception
+   */
+  protected function previewFile(string $filepath): array {
+    if (!file_exists($filepath)) {
+      throw new \Exception(t('File not found: @file', ['@file' => $filepath]));
+    }
+
+    $raw         = file_get_contents($filepath);
+    $parsed      = $this->serializer->deserialize($raw);
+    $frontmatter = $this->serializer->flattenGroups($parsed['frontmatter']);
+    $body        = $parsed['body'];
+
+    $type = $frontmatter['type'] ?? NULL;
+    if (!$type) {
+      throw new \Exception(t("The frontmatter is missing the 'type' field."));
+    }
+
+    $short_uuid  = $frontmatter['uuid'] ?? NULL;
+    $entity_type = match ($type) {
+      'taxonomy_term'     => 'taxonomy_term',
+      'file'              => 'file',
+      'user'              => 'user',
+      'media'             => 'media',
+      'block_content'     => 'block_content',
+      'menu_link_content' => 'menu_link_content',
+      default             => 'node',
+    };
+
+    $bundle = match ($entity_type) {
+      'taxonomy_term'     => $frontmatter['vocabulary'] ?? NULL,
+      'node'              => $type,
+      'media',
+      'block_content'     => $frontmatter['bundle'] ?? NULL,
+      'menu_link_content' => $frontmatter['menu_name'] ?? NULL,
+      default             => NULL,
+    };
+
+    // Checksum match → no changes needed regardless of DB state.
+    $checksum = $frontmatter['checksum'] ?? NULL;
+    if ($checksum) {
+      $computed = $this->computeChecksum($frontmatter, $body);
+      if ($computed === $checksum) {
+        return ['op' => 'skipped', 'entity_type' => $entity_type, 'type' => $type, 'uuid' => $short_uuid, 'bundle' => $bundle];
+      }
+    }
+
+    // UUID lookup to decide create vs update.
+    $exists = FALSE;
+    if ($short_uuid) {
+      $ids = $this->entityTypeManager->getStorage($entity_type)
+        ->getQuery()
+        ->accessCheck(FALSE)
+        ->condition('uuid', $short_uuid . '%', 'LIKE')
+        ->range(0, 1)
+        ->execute();
+      $exists = !empty($ids);
+    }
+
+    $op = $exists ? 'updated' : 'imported';
+    return ['op' => $op, 'entity_type' => $entity_type, 'type' => $type, 'uuid' => $short_uuid, 'bundle' => $bundle];
+  }
+
+  /**
+   * Return entities that would be deleted without actually deleting them.
+   *
+   * @return string[]
+   */
+  protected function previewDeletedEntities(array $seenUuids): array {
+    $deleted = [];
+
+    foreach ($seenUuids as $entity_type => $bundles) {
+      if (!in_array($entity_type, ['node', 'taxonomy_term', 'media', 'block_content', 'menu_link_content', 'file', 'user'], TRUE)) {
+        continue;
+      }
+      if (empty($bundles)) {
+        continue;
+      }
+
+      $storage = $this->entityTypeManager->getStorage($entity_type);
+
+      foreach ($bundles as $bundle => $uuids) {
+        $query = $storage->getQuery()->accessCheck(FALSE);
+
+        switch ($entity_type) {
+          case 'node':
+            $query->condition('type', $bundle);
+            break;
+
+          case 'taxonomy_term':
+            $query->condition('vid', $bundle);
+            break;
+
+          case 'media':
+            $query->condition('bundle', $bundle);
+            break;
+
+          case 'block_content':
+            $query->condition('type', $bundle);
+            break;
+
+          case 'menu_link_content':
+            $query->condition('menu_name', $bundle);
+            break;
+        }
+
+        foreach ($storage->loadMultiple($query->execute()) as $entity) {
+          $uuid = substr(str_replace('-', '', $entity->uuid()), 0, 8);
+          if (isset($uuids[$uuid])) {
+            continue;
+          }
+          if ($entity_type === 'user' && ($entity->id() === 1 || $entity->id() === $this->currentUser->id())) {
+            continue;
+          }
+          $label     = method_exists($entity, 'label') ? $entity->label() : $entity->id();
+          $deleted[] = "$entity_type:$bundle: $label ($uuid)";
+        }
+      }
+    }
+
+    return $deleted;
+  }
+
+  // ---------------------------------------------------------------------------
   // Cleanup
   // ---------------------------------------------------------------------------
 
