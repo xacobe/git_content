@@ -15,23 +15,23 @@ use Drupal\layout_builder\Section;
  * Supports the `layout_section` field type used by `layout_builder__layout`.
  *
  * Export strategy:
- *   - Serializes each Section via Section::toArray().
- *   - Inline blocks (plugin_id starts with 'inline_block:'): replaces the
- *     environment-specific block_id / block_revision_id with the block_content
- *     UUID so the reference is portable across environments.
- *   - Library blocks (plugin_id 'block_content:{uuid}'): UUID is already in
- *     the plugin ID — no transformation needed.
+ *   - Serializes each Section via Section::toArray(), then strips noise:
+ *     · `uuid` inside each component (already the map key — restored on import).
+ *     · `additional: {}` (always empty unless a plugin adds data).
+ *     · `third_party_settings: {}` at section level and inside formatter config.
+ *     · `layout_settings` block when it contains only an empty label.
+ *   - Inline blocks: replaces environment-specific block_id / block_revision_id
+ *     with the block_content UUID for portability across environments.
+ *   - Library blocks (plugin_id 'block_content:{uuid}'): UUID is already in the
+ *     plugin ID — no transformation needed.
  *
  * Import strategy:
- *   - Reconstructs Section objects via Section::fromArray().
+ *   - Restores stripped fields to their defaults before calling Section::fromArray().
  *   - Inline blocks: resolves block_uuid back to the local block_id and
- *     block_revision_id before handing the sections to Drupal.
+ *     block_revision_id.
  *
- * Block content entities (inline blocks) must be imported before the nodes
- * that reference them so the UUIDs can be resolved on import.
- *
- * Registered via the git_content.field_handler tag so the FieldHandlerRegistry
- * picks it up automatically when this sub-module is enabled.
+ * Block content entities must be imported before nodes that reference them.
+ * The MarkdownImporter import order (IMPORT_ORDER constant) guarantees this.
  */
 class LayoutFieldHandler implements FieldHandlerInterface {
 
@@ -50,8 +50,7 @@ class LayoutFieldHandler implements FieldHandlerInterface {
   /**
    * {@inheritdoc}
    *
-   * Returns an array of section arrays suitable for YAML frontmatter.
-   * Inline block references are normalised to UUIDs.
+   * Returns a clean array of section arrays for YAML frontmatter.
    */
   public function normalize(FieldItemListInterface $field, FieldDefinitionInterface $definition): mixed {
     if (!($field instanceof LayoutSectionItemList) || $field->isEmpty()) {
@@ -61,7 +60,7 @@ class LayoutFieldHandler implements FieldHandlerInterface {
     $sections = [];
     foreach ($field->getSections() as $section) {
       $data = $section->toArray();
-      $data['components'] = $this->normalizeComponents($data['components'] ?? []);
+      $data = $this->cleanSection($data);
       $sections[] = $data;
     }
 
@@ -71,8 +70,7 @@ class LayoutFieldHandler implements FieldHandlerInterface {
   /**
    * {@inheritdoc}
    *
-   * Returns the value in the format expected by FieldItemList::setValue():
-   * [['section' => Section], ['section' => Section], ...]
+   * Returns [['section' => Section], ...] as expected by FieldItemList::setValue().
    */
   public function denormalize(mixed $value, FieldDefinitionInterface $definition): mixed {
     if (!is_array($value) || empty($value)) {
@@ -84,7 +82,7 @@ class LayoutFieldHandler implements FieldHandlerInterface {
       if (!is_array($section_data)) {
         continue;
       }
-      $section_data['components'] = $this->denormalizeComponents($section_data['components'] ?? []);
+      $section_data = $this->restoreSection($section_data);
       $items[] = ['section' => Section::fromArray($section_data)];
     }
 
@@ -92,58 +90,108 @@ class LayoutFieldHandler implements FieldHandlerInterface {
   }
 
   // ---------------------------------------------------------------------------
-  // Inline block UUID ↔ block_id normalisation
+  // Export: strip noise from section/component data
   // ---------------------------------------------------------------------------
 
-  /**
-   * Replace environment-specific IDs with portable UUIDs for inline blocks.
-   */
-  private function normalizeComponents(array $components): array {
-    foreach ($components as $uuid => &$component) {
-      if (!str_starts_with($component['configuration']['id'] ?? '', 'inline_block:')) {
-        continue;
-      }
+  private function cleanSection(array $data): array {
+    // layout_settings: always keep it — even when empty it signals to editors
+    // that label, column widths, etc. can be set here by editing the .md file.
 
-      $block_id = $component['configuration']['block_id'] ?? NULL;
-      if ($block_id) {
-        $block = $this->entityTypeManager->getStorage('block_content')->load($block_id);
-        if ($block) {
-          $component['configuration']['block_uuid'] = $block->uuid();
-        }
-      }
-
-      // Remove local IDs — they are meaningless across environments.
-      unset(
-        $component['configuration']['block_id'],
-        $component['configuration']['block_revision_id'],
-        $component['configuration']['block_serialized'],
-      );
+    // third_party_settings at section level: always empty in practice.
+    if (isset($data['third_party_settings']) && empty($data['third_party_settings'])) {
+      unset($data['third_party_settings']);
     }
 
-    return $components;
+    $data['components'] = $this->normalizeComponents($data['components'] ?? []);
+
+    return $data;
   }
 
   /**
-   * Resolve portable UUIDs back to local block_id / block_revision_id.
+   * Strip redundant/empty component fields and normalise inline block refs.
+   */
+  private function normalizeComponents(array $components): array {
+    $result = [];
+
+    foreach ($components as $uuid => $component) {
+      // UUID is the map key — no need to repeat it inside the object.
+      unset($component['uuid']);
+
+      // additional is always {} unless an exotic plugin stores something here.
+      if (isset($component['additional']) && empty($component['additional'])) {
+        unset($component['additional']);
+      }
+
+      // Strip empty third_party_settings from the formatter sub-config.
+      if (isset($component['configuration']['formatter']['third_party_settings'])
+          && empty($component['configuration']['formatter']['third_party_settings'])
+      ) {
+        unset($component['configuration']['formatter']['third_party_settings']);
+      }
+
+      // Inline block: replace local block_id with portable UUID.
+      if (str_starts_with($component['configuration']['id'] ?? '', 'inline_block:')) {
+        $block_id = $component['configuration']['block_id'] ?? NULL;
+        if ($block_id) {
+          $block = $this->entityTypeManager->getStorage('block_content')->load($block_id);
+          if ($block) {
+            $component['configuration']['block_uuid'] = $block->uuid();
+          }
+        }
+        unset(
+          $component['configuration']['block_id'],
+          $component['configuration']['block_revision_id'],
+          $component['configuration']['block_serialized'],
+        );
+      }
+
+      $result[$uuid] = $component;
+    }
+
+    return $result;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Import: restore stripped fields and resolve inline block UUIDs
+  // ---------------------------------------------------------------------------
+
+  private function restoreSection(array $data): array {
+    // Section::fromArray() already defaults third_party_settings to [],
+    // but be explicit in case the implementation changes.
+    $data += ['layout_settings' => [], 'third_party_settings' => []];
+
+    $data['components'] = $this->denormalizeComponents($data['components'] ?? []);
+
+    return $data;
+  }
+
+  /**
+   * Re-add stripped fields and resolve inline block UUID → block_id.
    */
   private function denormalizeComponents(array $components): array {
     foreach ($components as $uuid => &$component) {
-      if (!str_starts_with($component['configuration']['id'] ?? '', 'inline_block:')) {
-        continue;
-      }
+      // Restore uuid inside the component (SectionComponent::fromArray() needs it).
+      $component['uuid'] = $uuid;
 
-      $block_uuid = $component['configuration']['block_uuid'] ?? NULL;
-      unset($component['configuration']['block_uuid']);
+      // Restore omitted defaults (SectionComponent::fromArray() also adds these,
+      // but be explicit so the array is always well-formed).
+      $component += ['additional' => []];
 
-      if ($block_uuid) {
-        $blocks = $this->entityTypeManager
-          ->getStorage('block_content')
-          ->loadByProperties(['uuid' => $block_uuid]);
+      // Inline block: resolve block_uuid → local block_id / block_revision_id.
+      if (str_starts_with($component['configuration']['id'] ?? '', 'inline_block:')) {
+        $block_uuid = $component['configuration']['block_uuid'] ?? NULL;
+        unset($component['configuration']['block_uuid']);
 
-        if (!empty($blocks)) {
-          $block = reset($blocks);
-          $component['configuration']['block_id'] = (int) $block->id();
-          $component['configuration']['block_revision_id'] = (int) $block->getRevisionId();
+        if ($block_uuid) {
+          $blocks = $this->entityTypeManager
+            ->getStorage('block_content')
+            ->loadByProperties(['uuid' => $block_uuid]);
+
+          if (!empty($blocks)) {
+            $block = reset($blocks);
+            $component['configuration']['block_id'] = (int) $block->id();
+            $component['configuration']['block_revision_id'] = (int) $block->getRevisionId();
+          }
         }
       }
     }
