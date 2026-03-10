@@ -4,6 +4,7 @@ namespace Drupal\git_content\Importer;
 
 use Drupal\git_content\Serializer\MarkdownSerializer;
 use Drupal\git_content\Utility\ChecksumTrait;
+use Drupal\git_content\Utility\ContentExportTrait;
 use Drupal\git_content\Utility\SummaryTrait;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Logger\LoggerChannelFactoryInterface;
@@ -28,6 +29,7 @@ use Psr\Log\LoggerInterface;
 class MarkdownImporter {
 
   use ChecksumTrait;
+  use ContentExportTrait;
   use SummaryTrait;
 
   protected LoggerInterface $logger;
@@ -164,15 +166,14 @@ class MarkdownImporter {
    * @return array{imported: string[], updated: string[], skipped: string[], deleted: string[], errors: string[]}
    */
   private function runAll(bool $dryRun): array {
-    $import_dir = DRUPAL_ROOT . '/content_export';
     $result = ['imported' => [], 'updated' => [], 'deleted' => [], 'skipped' => [], 'errors' => []];
 
-    if (!is_dir($import_dir)) {
+    if (!is_dir($this->contentExportDir())) {
       $result['errors'][] = t('The content_export directory does not exist.');
       return $result;
     }
 
-    $files = $this->findMarkdownFiles($import_dir);
+    $files = $this->scanMarkdownFiles();
     usort($files, fn($a, $b) => $this->compareImportFiles($a, $b));
 
     $typeCounts = [];
@@ -195,7 +196,7 @@ class MarkdownImporter {
         $uuid        = $import['uuid'] ?? NULL;
         $bundle      = $import['bundle'] ?? '__all';
 
-        $result[$op][] = str_replace(DRUPAL_ROOT . '/content_export/', '', $filepath);
+        $result[$op][] = str_replace($this->contentExportDir() . '/', '', $filepath);
 
         if (!$dryRun) {
           if (!isset($typeCounts[$type])) {
@@ -308,24 +309,8 @@ class MarkdownImporter {
   }
 
   // ---------------------------------------------------------------------------
-  // File utilities
+  // Import sort
   // ---------------------------------------------------------------------------
-
-  /**
-   * Recursively find all .md files in a directory.
-   *
-   * @return string[]
-   */
-  protected function findMarkdownFiles(string $dir): array {
-    $files    = [];
-    $iterator = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($dir));
-    foreach ($iterator as $file) {
-      if ($file->isFile() && $file->getExtension() === 'md') {
-        $files[] = $file->getRealPath();
-      }
-    }
-    return $files;
-  }
 
   /**
    * Compare two import files to guarantee a stable sort order.

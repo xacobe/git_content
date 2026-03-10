@@ -2,6 +2,7 @@
 
 namespace Drupal\git_content\Exporter;
 
+use Drupal\git_content\Utility\ContentExportTrait;
 use Drupal\git_content\Utility\SummaryTrait;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Logger\LoggerChannelFactoryInterface;
@@ -16,6 +17,7 @@ use Psr\Log\LoggerInterface;
  */
 class MarkdownExporter {
 
+  use ContentExportTrait;
   use SummaryTrait;
 
   protected LoggerInterface $logger;
@@ -145,7 +147,7 @@ class MarkdownExporter {
     $orphans  = array_diff($allFiles, $touchedFiles);
     foreach ($orphans as $file) {
       $result['deleted'][] = $file;
-      $path = DRUPAL_ROOT . '/content_export/' . $file;
+      $path = $this->contentExportDir() . '/' . $file;
       if (is_file($path)) {
         @unlink($path);
       }
@@ -214,7 +216,7 @@ class MarkdownExporter {
       try {
         $fileResult = $exporter->exportToFile($entity);
         $filepath   = is_array($fileResult) ? $fileResult['path'] : $fileResult;
-        $relpath    = str_replace(DRUPAL_ROOT . '/content_export/', '', $filepath);
+        $relpath    = str_replace($this->contentExportDir() . '/', '', $filepath);
         $skipped    = is_array($fileResult) ? ($fileResult['skipped'] ?? FALSE) : FALSE;
 
         if ($skipped) {
@@ -246,22 +248,8 @@ class MarkdownExporter {
    * @return string[]
    */
   private function scanContentExportFiles(): array {
-    $dir = DRUPAL_ROOT . '/content_export';
-    if (!is_dir($dir)) {
-      return [];
-    }
-
-    $files = [];
-    $it = new \RecursiveIteratorIterator(
-      new \RecursiveDirectoryIterator($dir, \RecursiveDirectoryIterator::SKIP_DOTS)
-    );
-
-    foreach ($it as $file) {
-      if ($file->isFile() && $file->getExtension() === 'md') {
-        $files[] = str_replace(DRUPAL_ROOT . '/content_export/', '', $file->getPathname());
-      }
-    }
-
+    $base  = $this->contentExportDir() . '/';
+    $files = array_map(fn($p) => str_replace($base, '', $p), $this->scanMarkdownFiles());
     sort($files);
     return $files;
   }
