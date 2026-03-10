@@ -38,6 +38,10 @@ use Drupal\git_content\Serializer\MarkdownSerializer;
  */
 class FileExporter extends BaseExporter {
 
+  protected function typeDir(): string {
+    return 'files';
+  }
+
   public function __construct(
     FieldDiscovery $fieldDiscovery,
     MarkdownSerializer $serializer,
@@ -78,7 +82,7 @@ class FileExporter extends BaseExporter {
   public function exportToFile(EntityInterface $entity): array {
     $markdown = $this->export($entity);
 
-    $dir = DRUPAL_ROOT . '/content_export/files';
+    $dir = $this->contentExportDir() . '/' . $this->typeDir();
     $this->ensureDir($dir);
 
     $filename = $this->sanitizeFilename($entity->getFilename());

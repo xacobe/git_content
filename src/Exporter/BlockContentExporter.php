@@ -19,6 +19,10 @@ use Drupal\Core\Entity\EntityInterface;
  */
 class BlockContentExporter extends BaseExporter {
 
+  protected function typeDir(): string {
+    return 'blocks';
+  }
+
   /**
    * {@inheritdoc}
    *
@@ -28,7 +32,7 @@ class BlockContentExporter extends BaseExporter {
     $markdown = $this->export($entity);
 
     $langcode = $entity->language()->getId();
-    $dir = DRUPAL_ROOT . '/content_export/blocks/' . $entity->bundle() . '/' . $langcode;
+    $dir = $this->contentExportDir() . '/' . $this->typeDir() . '/' . $entity->bundle() . '/' . $langcode;
     $this->ensureDir($dir);
 
     $slug     = $this->getBlockSlug($entity);

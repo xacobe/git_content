@@ -19,6 +19,10 @@ use Drupal\Core\Entity\EntityInterface;
  */
 class MediaExporter extends BaseExporter {
 
+  protected function typeDir(): string {
+    return 'media';
+  }
+
   /**
    * {@inheritdoc}
    *
@@ -27,7 +31,7 @@ class MediaExporter extends BaseExporter {
   public function exportToFile(EntityInterface $entity): array {
     $markdown = $this->export($entity);
 
-    $dir = DRUPAL_ROOT . '/content_export/media/' . $entity->bundle();
+    $dir = $this->contentExportDir() . '/' . $this->typeDir() . '/' . $entity->bundle();
     $this->ensureDir($dir);
 
     $slug     = $this->getMediaSlug($entity);

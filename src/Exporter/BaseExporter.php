@@ -5,6 +5,7 @@ namespace Drupal\git_content\Exporter;
 use Drupal\git_content\Discovery\FieldDiscovery;
 use Drupal\git_content\Serializer\MarkdownSerializer;
 use Drupal\git_content\Utility\ChecksumTrait;
+use Drupal\git_content\Utility\ContentExportTrait;
 use Drupal\git_content\Utility\ManagedFields;
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
@@ -22,6 +23,7 @@ use Psr\Log\LoggerInterface;
 abstract class BaseExporter {
 
   use ChecksumTrait;
+  use ContentExportTrait;
 
   protected FieldDiscovery $fieldDiscovery;
   protected MarkdownSerializer $serializer;
@@ -53,6 +55,17 @@ abstract class BaseExporter {
     $this->entityTypeManager = $entityTypeManager;
     $this->logger = $loggerFactory->get('git_content');
   }
+
+  /**
+   * The subdirectory within content_export/ for this entity type.
+   *
+   * e.g. 'content_types', 'taxonomy', 'media', 'blocks', 'files', 'users', 'menus'.
+   *
+   * Phase 2 migration: this will become non-abstract in BaseExporter, reading
+   * from config (git_content.settings) and falling back to defaultTypeDir()
+   * (rename of this method). No changes needed in subclasses beyond the rename.
+   */
+  abstract protected function typeDir(): string;
 
   /**
    * Export the entity to a Markdown file on disk.

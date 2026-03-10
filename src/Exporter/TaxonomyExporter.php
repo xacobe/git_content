@@ -15,6 +15,10 @@ use Drupal\Core\Entity\EntityInterface;
  */
 class TaxonomyExporter extends BaseExporter {
 
+  protected function typeDir(): string {
+    return 'taxonomy';
+  }
+
   /**
    * {@inheritdoc}
    *
@@ -24,7 +28,7 @@ class TaxonomyExporter extends BaseExporter {
     $markdown = $this->export($entity);
 
     $langcode = $entity->language()->getId();
-    $dir = DRUPAL_ROOT . '/content_export/taxonomy/' . $entity->bundle() . '/' . $langcode;
+    $dir = $this->contentExportDir() . '/' . $this->typeDir() . '/' . $entity->bundle() . '/' . $langcode;
     $this->ensureDir($dir);
 
     $slug     = $this->getTermSlug($entity);

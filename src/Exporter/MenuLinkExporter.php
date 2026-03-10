@@ -43,6 +43,10 @@ use Drupal\git_content\Serializer\MarkdownSerializer;
  */
 class MenuLinkExporter extends BaseExporter {
 
+  protected function typeDir(): string {
+    return 'menus';
+  }
+
   public function __construct(
     FieldDiscovery $fieldDiscovery,
     MarkdownSerializer $serializer,
@@ -85,7 +89,7 @@ class MenuLinkExporter extends BaseExporter {
 
     $menu_id  = $entity->getMenuName();
     $langcode = $entity->language()->getId();
-    $dir = DRUPAL_ROOT . '/content_export/menus/' . $menu_id . '/' . $langcode;
+    $dir = $this->contentExportDir() . '/' . $this->typeDir() . '/' . $menu_id . '/' . $langcode;
     $this->ensureDir($dir);
 
     // Build the file name using parent hierarchy:

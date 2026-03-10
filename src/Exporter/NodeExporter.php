@@ -14,6 +14,10 @@ use Drupal\Core\Entity\EntityInterface;
  */
 class NodeExporter extends BaseExporter {
 
+  protected function typeDir(): string {
+    return 'content_types';
+  }
+
   /**
    * {@inheritdoc}
    *
@@ -23,7 +27,7 @@ class NodeExporter extends BaseExporter {
     $markdown = $this->export($entity);
 
     $langcode = $entity->language()->getId();
-    $dir = DRUPAL_ROOT . '/content_export/content_types/' . $entity->bundle() . '/' . $langcode;
+    $dir = $this->contentExportDir() . '/' . $this->typeDir() . '/' . $entity->bundle() . '/' . $langcode;
     $this->ensureDir($dir);
 
     $slug     = $this->getSlug($entity);

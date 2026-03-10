@@ -44,6 +44,10 @@ use Drupal\git_content\Serializer\MarkdownSerializer;
  */
 class UserExporter extends BaseExporter {
 
+  protected function typeDir(): string {
+    return 'users';
+  }
+
   public function __construct(
     FieldDiscovery $fieldDiscovery,
     MarkdownSerializer $serializer,
@@ -87,7 +91,7 @@ class UserExporter extends BaseExporter {
   public function exportToFile(EntityInterface $entity): array {
     $markdown = $this->export($entity);
 
-    $dir = DRUPAL_ROOT . '/content_export/users';
+    $dir = $this->contentExportDir() . '/' . $this->typeDir();
     $this->ensureDir($dir);
 
     $username = preg_replace('/[^a-z0-9]+/', '-', mb_strtolower($entity->getAccountName()));
