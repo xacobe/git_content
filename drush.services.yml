@@ -1,0 +1,9 @@
+services:
+
+  git_content.commands:
+    class: Drupal\git_content\Commands\GitContentCommands
+    arguments:
+      - '@git_content.exporter'
+      - '@git_content.importer'
+    tags:
+      - { name: drush.command }

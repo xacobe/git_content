@@ -99,12 +99,3 @@ services:
       - '@git_content.block_content_importer'
       - '@git_content.menu_link_importer'
 
-  # --- Drush commands ---
-
-  git_content.commands:
-    class: Drupal\git_content\Commands\GitContentCommands
-    arguments:
-      - '@git_content.exporter'
-      - '@git_content.importer'
-    tags:
-      - { name: drush.command }

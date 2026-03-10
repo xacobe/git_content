@@ -25,9 +25,7 @@ class GitContentCommands extends DrushCommands {
   public function __construct(
     protected MarkdownExporter $exporter,
     protected MarkdownImporter $importer,
-  ) {
-    parent::__construct();
-  }
+  ) {}
 
   /**
    * Export Drupal content to versionable Markdown files.
