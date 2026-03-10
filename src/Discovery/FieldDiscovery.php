@@ -2,6 +2,7 @@
 
 namespace Drupal\git_content\Discovery;
 
+use Drupal\git_content\Utility\ManagedFields;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Field\FieldDefinitionInterface;
 use Drupal\Core\Entity\EntityFieldManagerInterface;
@@ -44,8 +45,7 @@ class FieldDiscovery {
 
     $relevant = [];
     foreach ($fields as $field_name => $field_definition) {
-      // Skip irrelevant fields
-      if (in_array($field_name, ['nid', 'vid', 'uuid', 'langcode', 'revision_timestamp', 'revision_uid'])) {
+      if (in_array($field_name, ManagedFields::CORE)) {
         continue;
       }
       $relevant[$field_name] = $field_definition;

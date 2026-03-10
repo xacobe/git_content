@@ -6,7 +6,6 @@ use Drupal\Core\Controller\ControllerBase;
 use Drupal\git_content\Exporter\MarkdownExporter;
 use Drupal\git_content\Importer\MarkdownImporter;
 use Drupal\Component\Utility\Html;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Logger\LoggerChannelFactoryInterface;
 use Drupal\Core\Render\Markup;
 use Psr\Log\LoggerInterface;
@@ -26,18 +25,15 @@ class GitContentController extends ControllerBase {
   public function __construct(
     protected MarkdownExporter $exporter,
     protected MarkdownImporter $importer,
-    EntityTypeManagerInterface $entityTypeManager,
     LoggerChannelFactoryInterface $loggerFactory,
   ) {
-    $this->entityTypeManager = $entityTypeManager;
-    $this->logger            = $loggerFactory->get('git_content');
+    $this->logger = $loggerFactory->get('git_content');
   }
 
   public static function create(ContainerInterface $container): static {
     return new static(
       $container->get('git_content.exporter'),
       $container->get('git_content.importer'),
-      $container->get('entity_type.manager'),
       $container->get('logger.factory'),
     );
   }

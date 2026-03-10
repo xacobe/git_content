@@ -44,23 +44,38 @@ class MarkdownExporter {
    * @return array{exported: string[], skipped: string[], deleted: string[], errors: string[]}
    *   Relative paths of files written, unchanged, removed, and any errors.
    */
-  public function exportAll(): array {
+  /**
+   * Export a subset of entity types without orphan cleanup.
+   *
+   * Useful for partial exports (e.g. "only nodes"). For a full content sync
+   * including removal of stale files, use exportAll() instead.
+   *
+   * @param string[] $entityTypes
+   *   Entity type machine names, e.g. ['node', 'taxonomy_term'].
+   *
+   * @return array{exported: string[], skipped: string[], deleted: string[], errors: string[]}
+   */
+  public function exportTypes(array $entityTypes): array {
     $result = ['exported' => [], 'skipped' => [], 'deleted' => [], 'errors' => []];
 
-    $exporters = [
-      'node'              => $this->nodeExporter,
-      'taxonomy_term'     => $this->taxonomyExporter,
-      'media'             => $this->mediaExporter,
-      'block_content'     => $this->blockContentExporter,
-      'file'              => $this->fileExporter,
-      'user'              => $this->userExporter,
-      'menu_link_content' => $this->menuLinkExporter,
-    ];
+    $map = array_intersect_key($this->exporterMap(), array_flip($entityTypes));
+    foreach ($map as $entity_type => $exporter) {
+      $typeResult = $this->exportEntityType($entity_type, $exporter);
+      array_push($result['exported'], ...$typeResult['exported_files']);
+      array_push($result['skipped'], ...$typeResult['skipped_files']);
+      array_push($result['errors'], ...$typeResult['errors']);
+    }
+
+    return $result;
+  }
+
+  public function exportAll(): array {
+    $result = ['exported' => [], 'skipped' => [], 'deleted' => [], 'errors' => []];
 
     $touchedFiles = [];
     $typeCounts   = [];
 
-    foreach ($exporters as $entity_type => $exporter) {
+    foreach ($this->exporterMap() as $entity_type => $exporter) {
       $typeResult = $this->exportEntityType($entity_type, $exporter);
 
       $exp = count($typeResult['exported_files']);
@@ -107,8 +122,25 @@ class MarkdownExporter {
   }
 
   // ---------------------------------------------------------------------------
-  // Per-type export
+  // Internals
   // ---------------------------------------------------------------------------
+
+  /**
+   * Returns the entity-type → exporter map used by exportAll() and exportTypes().
+   *
+   * @return array<string, BaseExporter>
+   */
+  private function exporterMap(): array {
+    return [
+      'node'              => $this->nodeExporter,
+      'taxonomy_term'     => $this->taxonomyExporter,
+      'media'             => $this->mediaExporter,
+      'block_content'     => $this->blockContentExporter,
+      'file'              => $this->fileExporter,
+      'user'              => $this->userExporter,
+      'menu_link_content' => $this->menuLinkExporter,
+    ];
+  }
 
   /**
    * Export all entities of a single type using the given exporter.
