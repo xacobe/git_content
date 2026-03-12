@@ -121,21 +121,23 @@ class MarkdownImporter {
       default             => NULL,
     };
 
-    // Checksum match → unchanged regardless of DB state.
+    // Check whether the entity already exists in Drupal.
+    $exists = $short_uuid && !empty(
+      $this->entityTypeManager->getStorage($entity_type)
+        ->getQuery()
+        ->accessCheck(FALSE)
+        ->condition('uuid', $short_uuid . '%', 'LIKE')
+        ->range(0, 1)
+        ->execute()
+    );
+
+    // Checksum match AND entity exists in DB → nothing to do.
     $checksum = $frontmatter['checksum'] ?? NULL;
-    if ($checksum && $this->computeChecksum($frontmatter, $body) === $checksum) {
+    if ($exists && $checksum && $this->computeChecksum($frontmatter, $body) === $checksum) {
       return ['op' => 'skipped', 'entity_type' => $entity_type, 'type' => $type, 'uuid' => $short_uuid, 'bundle' => $bundle];
     }
 
     if ($dryRun) {
-      $exists = $short_uuid && !empty(
-        $this->entityTypeManager->getStorage($entity_type)
-          ->getQuery()
-          ->accessCheck(FALSE)
-          ->condition('uuid', $short_uuid . '%', 'LIKE')
-          ->range(0, 1)
-          ->execute()
-      );
       $op = $exists ? 'updated' : 'imported';
     }
     else {
