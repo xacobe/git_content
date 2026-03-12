@@ -13,7 +13,6 @@ services:
 
   git_content.field_handler_registry:
     class: Drupal\git_content\Handler\FieldHandlerRegistry
-    lazy: true
     arguments:
       - !tagged_iterator git_content.field_handler
 

@@ -5,6 +5,7 @@ namespace Drupal\git_content\Normalizer;
 use Drupal\git_content\Handler\FieldHandlerRegistry;
 use Drupal\git_content\Serializer\MarkdownSerializer;
 use Drupal\Component\Datetime\TimeInterface;
+use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Field\FieldDefinitionInterface;
 use Drupal\Core\Field\FieldItemListInterface;
@@ -148,7 +149,7 @@ class FieldNormalizer {
     $cardinality = $definition->getFieldStorageDefinition()->getCardinality();
 
     // Always normalise to a list for uniform processing.
-    $values = is_array($value) && !$this->isAssoc($value) ? $value : [$value];
+    $values = is_array($value) && array_is_list($value) ? $value : [$value];
     $result = [];
 
     foreach ($values as $item) {
@@ -292,7 +293,7 @@ class FieldNormalizer {
   // Private helpers
   // ---------------------------------------------------------------------------
 
-  private function getSlugFromEntity($entity): string {
+  private function getSlugFromEntity(EntityInterface $entity): string {
     if ($entity->hasField('path') && !$entity->get('path')->isEmpty()) {
       $alias = $entity->get('path')->alias;
       if ($alias) {
@@ -313,8 +314,5 @@ class FieldNormalizer {
     return $this->time->getCurrentTime();
   }
 
-  private function isAssoc(array $arr): bool {
-    return !empty($arr) && array_keys($arr) !== range(0, count($arr) - 1);
-  }
-
 }
+

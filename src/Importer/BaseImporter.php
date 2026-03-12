@@ -6,6 +6,7 @@ use Drupal\git_content\Discovery\FieldDiscovery;
 use Drupal\git_content\Normalizer\FieldNormalizer;
 use Drupal\git_content\Serializer\MarkdownSerializer;
 use Drupal\git_content\Utility\ManagedFields;
+use Drupal\git_content\Utility\UuidTrait;
 use Drupal\Component\Datetime\TimeInterface;
 use Drupal\Component\Uuid\UuidInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
@@ -23,6 +24,8 @@ use Psr\Log\LoggerInterface;
  * Each subclass must implement import() for its specific entity type.
  */
 abstract class BaseImporter {
+
+  use UuidTrait;
 
   protected FieldDiscovery $fieldDiscovery;
   protected MarkdownSerializer $serializer;
@@ -214,26 +217,6 @@ abstract class BaseImporter {
     return $this->time->getCurrentTime();
   }
 
-  /**
-   * Attempt to reconstruct a full UUID from a short UUID (8 chars).
-   *
-   * The short UUID is the first 8 characters of the UUID without dashes.
-   * If the frontmatter contains a full UUID (32 chars without dashes) it is
-   * used as-is; otherwise a new UUID is generated that starts with those 8
-   * characters to maintain traceability.
-   */
-  protected function expandShortUuid(string $short): string {
-    $clean = str_replace('-', '', $short);
-
-    // Already a full UUID without dashes (32 chars): format with dashes.
-    if (strlen($clean) === 32) {
-      return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split($clean, 4));
-    }
-
-    // Short UUID: pad with zeros and format as a valid UUID.
-    $padded = str_pad($clean, 32, '0');
-    return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split($padded, 4));
-  }
-
 }
+
 
