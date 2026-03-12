@@ -4,6 +4,7 @@ namespace Drupal\git_content\Normalizer;
 
 use Drupal\git_content\Handler\FieldHandlerRegistry;
 use Drupal\git_content\Serializer\MarkdownSerializer;
+use Drupal\git_content\Utility\UuidTrait;
 use Drupal\Component\Datetime\TimeInterface;
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
@@ -23,6 +24,8 @@ use Drupal\Core\Field\FieldItemListInterface;
  * normalize/denormalize the sub-fields of complex entities (e.g. paragraphs).
  */
 class FieldNormalizer {
+
+  use UuidTrait;
 
   public function __construct(
     protected EntityTypeManagerInterface $entityTypeManager,
@@ -107,6 +110,11 @@ class FieldNormalizer {
             $node = $this->entityTypeManager
               ->getStorage('node')->load($target_id);
             $normalized[] = $node ? $this->getSlugFromEntity($node) : $target_id;
+          }
+          elseif ($target_id && $target_type === 'media') {
+            $media = $this->entityTypeManager
+              ->getStorage('media')->load($target_id);
+            $normalized[] = $media ? $this->shortenUuid($media->uuid()) : NULL;
           }
           else {
             $normalized[] = $target_id;
@@ -244,6 +252,9 @@ class FieldNormalizer {
     if ($target_type === 'node') {
       return is_numeric($value) ? (int) $value : $this->findNodeBySlug((string) $value);
     }
+    if ($target_type === 'media') {
+      return $this->findMediaByShortUuid((string) $value);
+    }
     return is_numeric($value) ? (int) $value : NULL;
   }
 
@@ -287,6 +298,16 @@ class FieldNormalizer {
     $files = $this->entityTypeManager->getStorage('file')
       ->getQuery()->accessCheck(FALSE)->condition('filename', $filename)->execute();
     return !empty($files) ? (int) reset($files) : NULL;
+  }
+
+  public function findMediaByShortUuid(string $short_uuid): ?int {
+    $ids = $this->entityTypeManager->getStorage('media')
+      ->getQuery()
+      ->accessCheck(FALSE)
+      ->condition('uuid', $short_uuid . '%', 'LIKE')
+      ->range(0, 1)
+      ->execute();
+    return !empty($ids) ? (int) reset($ids) : NULL;
   }
 
   // ---------------------------------------------------------------------------
