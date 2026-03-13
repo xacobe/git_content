@@ -134,10 +134,13 @@ class MarkdownImporter {
     }
     $exists = $short_uuid && !empty($existsQuery->range(0, 1)->execute());
 
-    // Checksum match AND entity exists in DB → nothing to do.
+    // Checksum match AND entity exists in DB → skip, unless any referenced
+    // entity has been deleted (e.g. media re-imported with a new entity ID).
     $checksum = $frontmatter['checksum'] ?? NULL;
     if ($exists && $checksum && $this->computeChecksum($frontmatter, $body) === $checksum) {
-      return ['op' => 'skipped', 'entity_type' => $entity_type, 'type' => $type, 'uuid' => $short_uuid, 'bundle' => $bundle];
+      if (!$this->hasStaleReferences($frontmatter)) {
+        return ['op' => 'skipped', 'entity_type' => $entity_type, 'type' => $type, 'uuid' => $short_uuid, 'bundle' => $bundle];
+      }
     }
 
     if ($dryRun) {
@@ -402,6 +405,49 @@ class MarkdownImporter {
       'menu'        => $frontmatter['menu'] ?? '',
       'weight'      => (int) ($frontmatter['weight'] ?? 0),
     ];
+  }
+
+  /**
+   * Check whether any entity reference in the frontmatter points to a deleted
+   * entity, making the stored checksum stale even though the file is unchanged.
+   *
+   * Only inspects the `references` group (media and node short UUIDs).
+   * A stale reference means the cached entity ID on disk no longer exists in
+   * the database, so the entity must be re-imported to update the reference.
+   */
+  private function hasStaleReferences(array $frontmatter): bool {
+    $references = $frontmatter['references'] ?? [];
+    if (empty($references)) {
+      return FALSE;
+    }
+
+    foreach ($references as $value) {
+      // References are stored as short UUIDs (8 hex chars) for media/nodes,
+      // or as arrays for multi-value fields.
+      $uuids = is_array($value) ? $value : [$value];
+      foreach ($uuids as $short_uuid) {
+        if (!is_string($short_uuid) || strlen($short_uuid) !== 8) {
+          continue;
+        }
+        // Check both media and node storages.
+        foreach (['media', 'node'] as $entity_type) {
+          $ids = $this->entityTypeManager->getStorage($entity_type)
+            ->getQuery()
+            ->accessCheck(FALSE)
+            ->condition('uuid', $short_uuid . '%', 'LIKE')
+            ->range(0, 1)
+            ->execute();
+          if (!empty($ids)) {
+            // Found in this storage — reference is not stale for this type.
+            continue 2;
+          }
+        }
+        // Not found in any storage → stale reference detected.
+        return TRUE;
+      }
+    }
+
+    return FALSE;
   }
 
 }

@@ -16,6 +16,15 @@ class TaxonomyImporter extends BaseImporter {
       throw new \Exception(t("The term frontmatter is missing 'vocabulary'."));
     }
 
+    // Ensure the vocabulary config entity exists before creating terms.
+    $vocab_storage = $this->entityTypeManager->getStorage('taxonomy_vocabulary');
+    if (!$vocab_storage->load($vid)) {
+      $vocab_storage->create([
+        'vid'  => $vid,
+        'name' => ucwords(str_replace('_', ' ', $vid)),
+      ])->save();
+    }
+
     $existing = $short_uuid ? $this->findByShortUuid($short_uuid, 'taxonomy_term', $vid) : NULL;
 
     if ($existing) {
