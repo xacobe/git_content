@@ -26,10 +26,14 @@ class MenuLinkImporter extends BaseImporter {
       : NULL;
 
     if ($existing) {
-      $link = $existing->hasTranslation($langcode)
-        ? $existing->getTranslation($langcode)
-        : $existing->addTranslation($langcode);
-      $operation = 'updated';
+      if ($existing->hasTranslation($langcode)) {
+        $link      = $existing->getTranslation($langcode);
+        $operation = 'updated';
+      }
+      else {
+        $link      = $existing->addTranslation($langcode);
+        $operation = 'imported';
+      }
     }
     else {
       $link = $this->entityTypeManager->getStorage('menu_link_content')->create([

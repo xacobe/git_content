@@ -19,10 +19,14 @@ class BlockContentImporter extends BaseImporter {
     $existing = $short_uuid ? $this->findByShortUuidGlobal($short_uuid, 'block_content') : NULL;
 
     if ($existing) {
-      $block = $existing->hasTranslation($langcode)
-        ? $existing->getTranslation($langcode)
-        : $existing->addTranslation($langcode);
-      $operation = 'updated';
+      if ($existing->hasTranslation($langcode)) {
+        $block     = $existing->getTranslation($langcode);
+        $operation = 'updated';
+      }
+      else {
+        $block     = $existing->addTranslation($langcode);
+        $operation = 'imported';
+      }
     }
     else {
       $block = $this->entityTypeManager->getStorage('block_content')->create([
@@ -36,7 +40,6 @@ class BlockContentImporter extends BaseImporter {
 
     $block->set('info', $frontmatter['title'] ?? 'Untitled');
     $block->set('status', ($frontmatter['status'] ?? 'draft') === 'published' ? 1 : 0);
-    $block->set('default_langcode', 1);
 
     if ($block->hasField('body') && !empty($body)) {
       $block->set('body', [

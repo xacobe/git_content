@@ -19,10 +19,14 @@ class MediaImporter extends BaseImporter {
     $existing = $short_uuid ? $this->findByShortUuid($short_uuid, 'media', $bundle) : NULL;
 
     if ($existing) {
-      $media = $existing->hasTranslation($langcode)
-        ? $existing->getTranslation($langcode)
-        : $existing->addTranslation($langcode);
-      $operation = 'updated';
+      if ($existing->hasTranslation($langcode)) {
+        $media     = $existing->getTranslation($langcode);
+        $operation = 'updated';
+      }
+      else {
+        $media     = $existing->addTranslation($langcode);
+        $operation = 'imported';
+      }
     }
     else {
       $media = $this->entityTypeManager->getStorage('media')->create([

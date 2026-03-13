@@ -19,10 +19,14 @@ class TaxonomyImporter extends BaseImporter {
     $existing = $short_uuid ? $this->findByShortUuid($short_uuid, 'taxonomy_term', $vid) : NULL;
 
     if ($existing) {
-      $term = $existing->hasTranslation($langcode)
-        ? $existing->getTranslation($langcode)
-        : $existing->addTranslation($langcode);
-      $operation = 'updated';
+      if ($existing->hasTranslation($langcode)) {
+        $term      = $existing->getTranslation($langcode);
+        $operation = 'updated';
+      }
+      else {
+        $term      = $existing->addTranslation($langcode);
+        $operation = 'imported';
+      }
     }
     else {
       $term = $this->entityTypeManager->getStorage('taxonomy_term')->create([
@@ -40,9 +44,6 @@ class TaxonomyImporter extends BaseImporter {
       : ucfirst(str_replace('-', ' ', $frontmatter['slug'] ?? 'term'));
     $term->set('name', $name);
     $term->set('status', ($frontmatter['status'] ?? 'published') === 'published' ? 1 : 0);
-    // default_langcode must be set explicitly; Drupal does not initialise it
-    // for taxonomy_term.
-    $term->set('default_langcode', 1);
 
     if (isset($frontmatter['weight'])) {
       $term->set('weight', (int) $frontmatter['weight']);
