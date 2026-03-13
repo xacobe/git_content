@@ -17,10 +17,14 @@ class NodeImporter extends BaseImporter {
     $existing = $short_uuid ? $this->findByShortUuid($short_uuid, 'node', $bundle) : NULL;
 
     if ($existing) {
-      $node = $existing->hasTranslation($langcode)
-        ? $existing->getTranslation($langcode)
-        : $existing->addTranslation($langcode);
-      $operation = 'updated';
+      if ($existing->hasTranslation($langcode)) {
+        $node      = $existing->getTranslation($langcode);
+        $operation = 'updated';
+      }
+      else {
+        $node      = $existing->addTranslation($langcode);
+        $operation = 'imported';
+      }
     }
     else {
       $node = Node::create([
