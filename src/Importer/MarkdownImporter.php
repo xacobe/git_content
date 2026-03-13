@@ -218,7 +218,10 @@ class MarkdownImporter {
         }
 
         if ($entity_type && $uuid) {
-          $seenUuids[$entity_type][$bundle][$uuid] = TRUE;
+          // Normalize to short UUID (8 hex chars) so syncDeletedEntities can
+          // compare regardless of whether the export stored a short or full UUID.
+          $short = substr(str_replace('-', '', $uuid), 0, 8);
+          $seenUuids[$entity_type][$bundle][$short] = TRUE;
         }
       }
       catch (\Exception $e) {

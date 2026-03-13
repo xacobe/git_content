@@ -49,7 +49,7 @@ class BlockContentExporter extends BaseExporter {
     $langcode = $entity->language()->getId();
 
     $frontmatter = [];
-    $frontmatter['uuid']   = $this->shortenUuid($entity->uuid());
+    $frontmatter['uuid']   = $entity->uuid();
     $frontmatter['type']   = 'block_content';
     $frontmatter['bundle'] = $entity->bundle();
     $frontmatter['lang']   = $langcode;
