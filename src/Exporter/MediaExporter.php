@@ -69,9 +69,18 @@ class MediaExporter extends BaseExporter {
       $frontmatter['____'] = NULL;
     }
 
-    // Dynamic fields (alt text, caption, etc.)
+    // Dynamic fields (source image, alt text, caption, taxonomy, etc.)
     $groups = $this->buildDynamicGroups($entity, 'media');
 
+    if (!empty($groups['media'])) {
+      $frontmatter['media'] = $groups['media'];
+    }
+    if (!empty($groups['taxonomy'])) {
+      $frontmatter['taxonomy'] = $groups['taxonomy'];
+    }
+    if (!empty($groups['references'])) {
+      $frontmatter['references'] = $groups['references'];
+    }
     foreach ($groups['extra'] as $key => $val) {
       $frontmatter[$key] = $val;
     }
