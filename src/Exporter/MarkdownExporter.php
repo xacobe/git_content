@@ -5,6 +5,7 @@ namespace Drupal\git_content\Exporter;
 use Drupal\git_content\Utility\ContentExportTrait;
 use Drupal\git_content\Utility\SummaryTrait;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\Core\Entity\TranslatableInterface;
 use Drupal\Core\Logger\LoggerChannelFactoryInterface;
 use Psr\Log\LoggerInterface;
 
@@ -84,11 +85,15 @@ class MarkdownExporter {
     $preview = [];
     foreach ($this->exporterMap() as $entity_type => $exporter) {
       try {
-        $ids = $this->entityTypeManager->getStorage($entity_type)
-          ->getQuery()
-          ->accessCheck(TRUE)
-          ->execute();
-        $entities = count($ids);
+        $storage = $this->entityTypeManager->getStorage($entity_type);
+        $ids     = $storage->getQuery()->accessCheck(TRUE)->execute();
+        // Count translations: each entity may produce more than one file.
+        $entities = 0;
+        foreach ($storage->loadMultiple($ids) as $entity) {
+          $entities += ($entity instanceof TranslatableInterface)
+            ? count($entity->getTranslationLanguages())
+            : 1;
+        }
       }
       catch (\Exception $e) {
         $entities = 0;
@@ -213,25 +218,35 @@ class MarkdownExporter {
     }
 
     foreach ($storage->loadMultiple($ids) as $entity) {
-      try {
-        $fileResult = $exporter->exportToFile($entity);
-        $filepath   = is_array($fileResult) ? $fileResult['path'] : $fileResult;
-        $relpath    = str_replace($this->contentExportDir() . '/', '', $filepath);
-        $skipped    = is_array($fileResult) ? ($fileResult['skipped'] ?? FALSE) : FALSE;
-
-        if ($skipped) {
-          $skippedFiles[] = $relpath;
-        }
-        else {
-          $exportedFiles[] = $relpath;
+      // Build the list of translations to export: default first, then the rest.
+      $translations = [$entity];
+      if ($entity instanceof TranslatableInterface) {
+        foreach ($entity->getTranslationLanguages(FALSE) as $langcode => $language) {
+          $translations[] = $entity->getTranslation($langcode);
         }
       }
-      catch (\Exception $e) {
-        $errors[] = $entity_type . ':' . $entity->id() . ': ' . $e->getMessage();
-        $this->logger->error(
-          'Failed to export @type @id: @message',
-          ['@type' => $entity_type, '@id' => (string) $entity->id(), '@message' => $e->getMessage()]
-        );
+
+      foreach ($translations as $translation) {
+        try {
+          $fileResult = $exporter->exportToFile($translation);
+          $filepath   = is_array($fileResult) ? $fileResult['path'] : $fileResult;
+          $relpath    = str_replace($this->contentExportDir() . '/', '', $filepath);
+          $skipped    = is_array($fileResult) ? ($fileResult['skipped'] ?? FALSE) : FALSE;
+
+          if ($skipped) {
+            $skippedFiles[] = $relpath;
+          }
+          else {
+            $exportedFiles[] = $relpath;
+          }
+        }
+        catch (\Exception $e) {
+          $errors[] = $entity_type . ':' . $translation->id() . ':' . $translation->language()->getId() . ': ' . $e->getMessage();
+          $this->logger->error(
+            'Failed to export @type @id (@lang): @message',
+            ['@type' => $entity_type, '@id' => (string) $translation->id(), '@lang' => $translation->language()->getId(), '@message' => $e->getMessage()]
+          );
+        }
       }
     }
 

@@ -121,15 +121,18 @@ class MarkdownImporter {
       default             => NULL,
     };
 
-    // Check whether the entity already exists in Drupal.
-    $exists = $short_uuid && !empty(
-      $this->entityTypeManager->getStorage($entity_type)
-        ->getQuery()
-        ->accessCheck(FALSE)
-        ->condition('uuid', $short_uuid . '%', 'LIKE')
-        ->range(0, 1)
-        ->execute()
-    );
+    // Check whether this specific language version of the entity already exists.
+    // The langcode condition prevents treating an existing English node as a
+    // match when importing its Spanish translation (same UUID, different lang).
+    $langcode   = $frontmatter['lang'] ?? NULL;
+    $existsQuery = $this->entityTypeManager->getStorage($entity_type)
+      ->getQuery()
+      ->accessCheck(FALSE)
+      ->condition('uuid', $short_uuid . '%', 'LIKE');
+    if ($langcode && $langcode !== 'und') {
+      $existsQuery->condition('langcode', $langcode);
+    }
+    $exists = $short_uuid && !empty($existsQuery->range(0, 1)->execute());
 
     // Checksum match AND entity exists in DB → nothing to do.
     $checksum = $frontmatter['checksum'] ?? NULL;
