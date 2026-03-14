@@ -38,12 +38,21 @@ class TaxonomyImporter extends BaseImporter {
       }
     }
     else {
-      $term = $this->entityTypeManager->getStorage('taxonomy_term')->create([
+      $create_values = [
         'vid'              => $vid,
         'langcode'         => $langcode,
         'default_langcode' => 1,
         'uuid'             => $short_uuid ? $this->expandShortUuid($short_uuid) : $this->uuid->generate(),
-      ]);
+      ];
+      // Preserve the original tid so Views filters referencing terms by ID
+      // keep working after a fresh import. Only applied if the slot is free.
+      if (!empty($frontmatter['tid'])) {
+        $requested_tid = (int) $frontmatter['tid'];
+        if (!$this->entityTypeManager->getStorage('taxonomy_term')->load($requested_tid)) {
+          $create_values['tid'] = $requested_tid;
+        }
+      }
+      $term = $this->entityTypeManager->getStorage('taxonomy_term')->create($create_values);
       $operation = 'imported';
     }
 
@@ -59,7 +68,18 @@ class TaxonomyImporter extends BaseImporter {
     }
 
     if (!empty($frontmatter['parent'])) {
-      $term->set('parent', [(int) $frontmatter['parent']]);
+      $parent_val = $frontmatter['parent'];
+      if (is_numeric($parent_val)) {
+        // Legacy format: direct tid stored in old .md files.
+        $term->set('parent', [(int) $parent_val]);
+      }
+      else {
+        // New format: short UUID — resolve to current tid.
+        $parent = $this->findByShortUuidGlobal((string) $parent_val, 'taxonomy_term');
+        if ($parent) {
+          $term->set('parent', [(int) $parent->id()]);
+        }
+      }
     }
 
     if ($term->hasField('description') && !empty($body)) {
