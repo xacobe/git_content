@@ -361,6 +361,12 @@ class MarkdownImporter {
       return $orderA <=> $orderB;
     }
 
+    // Default translations (no translation_of) before non-default translations,
+    // so the entity is created with the correct original language first.
+    if ($metaA['is_translation'] !== $metaB['is_translation']) {
+      return $metaA['is_translation'] <=> $metaB['is_translation'];
+    }
+
     // Within menu_link_content: sort by menu, then by weight (parents first).
     if ($metaA['entity_type'] === 'menu_link_content') {
       if ($metaA['menu'] !== $metaB['menu']) {
@@ -404,10 +410,11 @@ class MarkdownImporter {
     };
 
     return $cache[$filepath] = [
-      'type'        => $type,
-      'entity_type' => $entity_type,
-      'menu'        => $frontmatter['menu'] ?? '',
-      'weight'      => (int) ($frontmatter['weight'] ?? 0),
+      'type'           => $type,
+      'entity_type'    => $entity_type,
+      'menu'           => $frontmatter['menu'] ?? '',
+      'weight'         => (int) ($frontmatter['weight'] ?? 0),
+      'is_translation' => !empty($frontmatter['translation_of']) ? 1 : 0,
     ];
   }
 
