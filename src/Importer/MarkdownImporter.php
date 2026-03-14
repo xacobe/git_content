@@ -328,6 +328,7 @@ class MarkdownImporter {
    *
    * Dependencies:
    *   media        → file
+   *   block_content → media (blocks can reference media entities)
    *   node         → taxonomy_term, block_content, media, file
    *   menu_link_content → node (links point to node paths)
    */
@@ -335,8 +336,8 @@ class MarkdownImporter {
     'file'              => 1,
     'user'              => 2,
     'taxonomy_term'     => 3,
-    'block_content'     => 4,
-    'media'             => 5,
+    'media'             => 4,
+    'block_content'     => 5,
     'node'              => 6,
     'menu_link_content' => 7,
   ];
