@@ -158,10 +158,35 @@ class MenuLinkExporter extends BaseExporter {
     $frontmatter['_']       = NULL;
 
     $frontmatter['title']    = $entity->getTitle();
-    $frontmatter['url']      = $entity->get('link')->uri ?? '';
+    $frontmatter['url']      = $this->getPortableUri($entity);
     $frontmatter['weight']   = (int) $entity->getWeight();
     $frontmatter['expanded'] = (bool) $entity->isExpanded();
+
+    // Preserve link options (attributes, target, data-* etc. from modules like
+    // menu_link_attributes that store extra data in link.options).
+    $link_options = $entity->get('link')->options ?? [];
+    if (!empty($link_options)) {
+      $frontmatter['link_options'] = $link_options;
+    }
+
     $frontmatter['__']       = NULL;
+
+    // Extra custom fields added to menu_link_content (e.g. field_* via UI).
+    // Excludes fields already handled explicitly above and internal/computed
+    // fields that are noise (menu_name, bundle, link, external, rediscover,
+    // content_translation_*, metatag, etc.).
+    $skip_extra = [
+      'link', 'bundle', 'menu_name', 'enabled', 'title', 'weight', 'expanded',
+      'external', 'rediscover',
+      'content_translation_uid', 'content_translation_status', 'content_translation_created',
+      'metatag',
+    ];
+    $groups = $this->buildDynamicGroups($entity, 'menu_link_content');
+    foreach ($groups['extra'] as $key => $val) {
+      if (!in_array($key, $skip_extra)) {
+        $frontmatter[$key] = $val;
+      }
+    }
 
     // Reference to the parent link (short UUID of the parent menu_link_content)
     $frontmatter['parent'] = $this->getParentUuid($entity);
@@ -200,6 +225,27 @@ class MenuLinkExporter extends BaseExporter {
     // If the parent is a link from another plugin (module route, etc.),
     // keep it as-is to preserve the reference.
     return $parent_plugin_id;
+  }
+
+  /**
+   * Return a portable URI for the link.
+   *
+   * Converts environment-specific entity URIs (entity:node/{nid}) to
+   * internal path aliases (internal:/{alias}) so the link survives import
+   * into environments where entity IDs may differ.
+   */
+  protected function getPortableUri(EntityInterface $entity): string {
+    $uri = $entity->get('link')->uri ?? '';
+
+    if (preg_match('/^entity:node\/(\d+)$/', $uri, $m)) {
+      $node = $this->entityTypeManager->getStorage('node')->load((int) $m[1]);
+      if ($node) {
+        $alias = $node->hasField('path') ? ($node->get('path')->alias ?? NULL) : NULL;
+        return $alias ? 'internal:' . $alias : 'internal:/node/' . $m[1];
+      }
+    }
+
+    return $uri;
   }
 
   /**

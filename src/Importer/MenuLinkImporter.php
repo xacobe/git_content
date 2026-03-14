@@ -45,7 +45,6 @@ class MenuLinkImporter extends BaseImporter {
     }
 
     $link->set('title', $frontmatter['title'] ?? '');
-    $link->set('link', ['uri' => $frontmatter['url'] ?? 'internal:/']);
     $link->set('weight', (int) ($frontmatter['weight'] ?? 0));
     $link->set('expanded', (bool) ($frontmatter['expanded'] ?? FALSE));
     $link->set('enabled', (bool) ($frontmatter['enabled'] ?? TRUE));
@@ -64,6 +63,19 @@ class MenuLinkImporter extends BaseImporter {
       $link->set('description', trim($body));
     }
 
+    // Populate any extra custom fields (field_* added via UI).
+    // The 'link' field is excluded here and set explicitly below with options.
+    $definitions = $this->fieldDiscovery->getFields('menu_link_content', $menu_name);
+    $this->populateMenuFields($link, $frontmatter, $definitions);
+
+    // Set link AFTER populateDynamicFields so link_options are never
+    // overwritten by the dynamic field loop processing the 'link' field.
+    $link_value = ['uri' => $frontmatter['url'] ?? 'internal:/'];
+    if (!empty($frontmatter['link_options'])) {
+      $link_value['options'] = $frontmatter['link_options'];
+    }
+    $link->set('link', $link_value);
+
     $link->save();
 
     // Register the real plugin_id so children can resolve it later.
@@ -72,6 +84,22 @@ class MenuLinkImporter extends BaseImporter {
     }
 
     return $operation;
+  }
+
+  /**
+   * Like populateDynamicFields() but skips fields handled explicitly above.
+   */
+  protected function populateMenuFields($entity, array $frontmatter, array $definitions): void {
+    // These fields are either handled explicitly or are internal/computed.
+    $extra_skip = [
+      'link', 'menu_name', 'bundle', 'enabled', 'title', 'weight', 'expanded',
+      'external', 'rediscover',
+      'content_translation_uid', 'content_translation_status', 'content_translation_created',
+      'metatag',
+    ];
+    // Temporarily inject the extra skip list by pre-removing those definitions.
+    $filtered = array_diff_key($definitions, array_flip($extra_skip));
+    $this->populateDynamicFields($entity, $frontmatter, $filtered);
   }
 
   /**
