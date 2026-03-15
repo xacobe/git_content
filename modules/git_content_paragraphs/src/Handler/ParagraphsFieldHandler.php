@@ -11,6 +11,7 @@ use Drupal\Component\Uuid\UuidInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Field\FieldDefinitionInterface;
 use Drupal\Core\Field\FieldItemListInterface;
+use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
  * Field handler for Paragraphs (entity_reference_revisions → paragraph).
@@ -55,24 +56,25 @@ class ParagraphsFieldHandler implements FieldHandlerInterface {
     'content_translation_uid', 'content_translation_changed',
   ];
 
-  /** Cached FieldNormalizer instance (lazy-loaded to break circular DI). */
+  /** Cached to avoid repeated container lookups. */
   private ?FieldNormalizer $fieldNormalizerInstance = NULL;
 
   public function __construct(
     protected EntityTypeManagerInterface $entityTypeManager,
     protected FieldDiscovery $fieldDiscovery,
     protected UuidInterface $uuid,
+    protected ContainerInterface $container,
   ) {}
 
   /**
-   * Runtime lookup to break the circular DI reference:
+   * Lazy-resolves FieldNormalizer to break the circular DI chain:
    * FieldNormalizer → FieldHandlerRegistry → this handler → FieldNormalizer.
    *
-   * No compile-time dependency is declared, so Symfony never sees the cycle.
-   * The instance is cached after first access to avoid repeated lookups.
+   * Injecting @service_container defers the lookup to first use, after all
+   * services are fully constructed. The instance is cached after first access.
    */
   private function fieldNormalizer(): FieldNormalizer {
-    return $this->fieldNormalizerInstance ??= \Drupal::service('git_content.field_normalizer');
+    return $this->fieldNormalizerInstance ??= $this->container->get('git_content.field_normalizer');
   }
 
   // ---------------------------------------------------------------------------

@@ -390,10 +390,10 @@ class MarkdownImporter {
 
     $empty = ['type' => '', 'entity_type' => 'node', 'menu' => '', 'weight' => 0];
 
-    $raw = @file_get_contents($filepath);
-    if ($raw === FALSE) {
+    if (!is_file($filepath) || !is_readable($filepath)) {
       return $cache[$filepath] = $empty;
     }
+    $raw = file_get_contents($filepath);
 
     try {
       $parsed = $this->serializer->deserialize($raw);

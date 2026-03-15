@@ -6,5 +6,6 @@ services:
       - '@entity_type.manager'
       - '@git_content.field_discovery'
       - '@uuid'
+      - '@service_container'
     tags:
       - { name: git_content.field_handler }
