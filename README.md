@@ -1,77 +1,165 @@
-# Git Content module
+# Git Content
 
-Export and import Drupal content to and from Markdown files versioned in Git.
+Export and import Drupal content to Markdown files that can be versioned in Git.
 
-## What it does
-This module serializes Drupal entities (nodes, taxonomy terms, media, blocks, files, users, and menu links) into Markdown files with YAML frontmatter. The idea is to keep content in a `content_export/` directory that can be versioned in a Git repository.
+Each entity is serialized as a `.md` file with YAML frontmatter containing metadata and the body as Markdown. Files live in a `content_export/` directory at the Drupal root, making it straightforward to track content changes, sync between environments, or review diffs in any Git host.
 
-- **Export**: Reads entities from Drupal and writes `.md` files with human-readable metadata.
-- **Import**: Reads `.md` files from `content_export/` and creates/updates Drupal entities.
+## Features
 
-## Supported entity types
-- Nodes (`node`) (includes custom fields, taxonomy, media, and references)
-- Taxonomy terms (`taxonomy_term`)
-- Media (`media`) (does not copy binaries, only references the file name)
-- Block content (`block_content`)
-- Files (`file`) (exports metadata only; binaries must be managed separately)
-- Users (`user`) (does not export passwords)
-- Menu links (`menu_link_content`)
+- Export and import nodes, taxonomy terms, media, block content, files, users, and menu links
+- Multilingual: default translations are imported before non-default to preserve the original language
+- Checksum-based skip: unchanged files are not re-imported
+- Stale reference detection: forces re-import when a referenced entity has been deleted
+- Author preserved: `uid` is stored as a username and resolved on import
+- Taxonomy term IDs preserved where possible so Views filters keep working
+- Menu link attributes (icons, CSS classes) round-tripped via `link_options`
+- Menu link URLs converted from environment-specific `entity:node/{id}` to portable `internal:/{alias}`
+- Drush commands for CI/CD workflows
 
-## Export structure
-Files are generated under `content_export/` with subfolders by entity type and bundle. For **nodes**, they are grouped first by content type and then by language, so each language has its own folder.
+## Requirements
 
-Example:
+- Drupal 10 or 11
+- Required core modules: `node`, `taxonomy`, `user`, `file`
+- Optional core modules: `media`, `block_content`, `menu_link_content` (supported when enabled)
+- Composer libraries (installed automatically via `composer require drupal/git_content`):
+  - `league/html-to-markdown ^5.1`
+  - `league/commonmark ^2.4`
 
-- `content_export/content_types/article/es/mi-articulo.md`
-- `content_export/content_types/article/en/my-article.md`
-- `content_export/taxonomy/tags/es/mi-etiqueta.md`
-- `content_export/taxonomy/tags/en/my-tag.md`
-- `content_export/blocks/basic/es/mi-bloque-12.md`
-- `content_export/blocks/basic/en/my-block-12.md`
-- `content_export/menus/main/es/inicio.md`
-- `content_export/menus/main/es/inicio__segundo-nivel.md`
-- `content_export/menus/main/en/home.md`
-- `content_export/media/image/...`
-- `content_export/files/1234-my-file.md`
-- `content_export/users/2-editor.md`
+## Installation
 
-Each `.md` file includes a YAML frontmatter with key fields like `uuid`, `type`, `lang`, `status`, etc., and the content body (for example, the node `body` field) as Markdown.
+1. Place the module in `modules/custom/git_content/` (or install via Composer).
+2. Enable the module: `drush en git_content`
+3. Optionally enable submodules for Layout Builder or Paragraphs support.
+4. Create the export directory at `DRUPAL_ROOT/content_export/` (the module will create it on first export).
 
-## UI usage
-- **Export**: `/git-content/export` (requires `administer site configuration` permission)
-- **Import**: `/git-content/import` (reads `content_export/` and creates/updates content)
+## Submodules
 
-## Drush usage
-- Export everything: `drush git-content:export` (alias `gce`)
-- Export nodes only: `drush git-content:export nodes`
-- Export taxonomy only: `drush git-content:export taxonomy`
-- Export media only: `drush git-content:export media`
-- Import: `drush git-content:import` (alias `gci`)
+### git_content_layout
 
-## Markdown / YAML format
-Each `.md` file contains (among other fields) a `checksum` that is used to detect changes and avoid reimporting when nothing has changed:
+Extends git_content to export and import **Layout Builder** per-entity overrides.
 
-```md
+- Exports each layout section and its components as structured YAML
+- Inline block references are stored as UUIDs for portability across environments
+- Requires `drupal:layout_builder`
+
+### git_content_paragraphs
+
+Extends git_content to export and import **Paragraphs** field values inline within their parent entity.
+
+- Paragraph data is embedded directly in the parent `.md` file
+- Existing paragraphs are updated in place on re-import
+- Requires `drupal:paragraphs`
+
+## Usage
+
+### UI
+
+| Path | Description |
+|------|-------------|
+| `/git-content/export` | Export all content to `content_export/` |
+| `/git-content/import` | Preview and import from `content_export/` |
+
+Both pages require the `administer site configuration` permission.
+
+### Drush
+
+```bash
+# Export everything
+drush git-content:export        # alias: gce
+
+# Export a specific entity type
+drush git-content:export nodes
+drush git-content:export taxonomy
+drush git-content:export media
+drush git-content:export blocks
+drush git-content:export menus
+drush git-content:export files
+drush git-content:export users
+
+# Import everything
+drush git-content:import        # alias: gci
+```
+
+## File structure
+
+Files are organized under `content_export/` by entity type, bundle, and language:
+
+```
+content_export/
+  content_types/
+    article/
+      es/my-article.md
+      en/my-article.md
+  taxonomy/
+    tags/
+      es/my-tag.md
+  blocks/
+    basic/
+      es/my-block-12.md
+  menus/
+    main/
+      es/inicio.md
+      es/inicio--segundo-nivel.md
+  media/
+    image/
+      es/my-image.md
+  files/
+    my-file.md
+  users/
+    editor.md
+```
+
+## File format
+
+Each `.md` file has YAML frontmatter followed by a Markdown body. Example node:
+
+```markdown
 ---
-uuid: a1b2c3d4
-checksum: 0beec7b5ea3f0fdbc95d0dd47f3c5bc275da8a33
+uuid: a1b2c3d4-e5f6-7890-ab12-cdef01234567
 type: article
 lang: es
 status: published
-...
+
+title: My article
+slug: my-article
+
+created: 2024-01-15
+changed: 2024-03-10
+author: editor
+
+path: /my-article
+
+taxonomy:
+  tags:
+    - Drupal
+    - Content
+
+translation_of: ~
+checksum: 0beec7b5ea3f0fdbc95d0dd47f3c5bc275da8a33
 ---
 
-# Content in Markdown
+Body content in **Markdown**.
 ```
 
-The module serializer supports HTML ↔ Markdown conversion using `league/html-to-markdown` and `league/commonmark` when available, and falls back to basic rules otherwise.
+Key frontmatter fields:
+
+| Field | Description |
+|-------|-------------|
+| `uuid` | Full entity UUID — used to match entities on re-import |
+| `type` | Entity type or bundle |
+| `lang` | Language code |
+| `status` | `published` / `draft` / `active` / `blocked` / `permanent` |
+| `author` | Account name of the entity owner (nodes and media) |
+| `translation_of` | UUID of the default translation; present only on non-default translations |
+| `checksum` | SHA1 of the frontmatter + body; skips import when unchanged |
 
 ## Important notes
-- **Binary files** (images, PDFs, etc.) are NOT exported automatically. Only metadata (`uri`, `filename`) is exported to `content_export/files/`. You must manage the binary content separately (e.g., `git-lfs`, `rsync`, etc.).
-- **Comments** and related fields (`comment`, `comment_count`, `last_comment_*`, etc.) are **not exported or imported**, since they are typically not used in a static site workflow.
-- **User passwords** are not exported. On import, the user with UID 1 is not overwritten to avoid breaking existing credentials.
-- The `content_export/` directory must exist at the Drupal root (`DRUPAL_ROOT/content_export`).
 
----
+- **Binary files** are not exported. Only file metadata (`uri`, `filename`, `mime`) is stored. Manage binaries separately (e.g. `git-lfs`, `rsync`).
+- **Passwords** are never exported. On import, user 1 is not overwritten to protect production credentials.
+- **Comments** are not exported or imported.
+- **Import order** is handled automatically: files, users, taxonomy, and media are imported before nodes; default translations before non-default translations within the same entity.
 
-> This description is generated from the module implementation.
+## Maintainers
+
+- [xacobe](https://www.drupal.org/u/xacobe)
