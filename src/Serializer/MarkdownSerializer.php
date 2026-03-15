@@ -91,75 +91,23 @@ class MarkdownSerializer {
   }
 
   /**
-   * Convert basic HTML to Markdown.
-   * Uses league/html-to-markdown if available.
-   *
-   * @param string $html
-   *   HTML to convert.
-   *
-   * @return string
-   *   Resulting Markdown.
+   * Convert HTML to Markdown using league/html-to-markdown.
    */
   public function htmlToMarkdown(string $html): string {
-    if (class_exists('\League\HTMLToMarkdown\HtmlConverter')) {
-      $converter = new \League\HTMLToMarkdown\HtmlConverter([
-        'strip_tags'   => FALSE,
-        'bold_style'   => '**',
-        'italic_style' => '_',
-      ]);
-      return $converter->convert($html);
-    }
-
-    // Fallback with a basic regex approach
-    $md = $html;
-    for ($i = 6; $i >= 1; $i--) {
-      $md = preg_replace('/<h' . $i . '[^>]*>(.*?)<\/h' . $i . '>/is', str_repeat('#', $i) . ' $1', $md);
-    }
-    $md = preg_replace('/<strong[^>]*>(.*?)<\/strong>/is', '**$1**', $md);
-    $md = preg_replace('/<b[^>]*>(.*?)<\/b>/is', '**$1**', $md);
-    $md = preg_replace('/<em[^>]*>(.*?)<\/em>/is', '_$1_', $md);
-    $md = preg_replace('/<i[^>]*>(.*?)<\/i>/is', '_$1_', $md);
-    $md = preg_replace('/<a[^>]+href=["\']([^"\']+)["\'][^>]*>(.*?)<\/a>/is', '[$2]($1)', $md);
-    $md = preg_replace('/<li[^>]*>(.*?)<\/li>/is', '- $1', $md);
-    $md = preg_replace('/<\/?[ou]l[^>]*>/is', '', $md);
-    $md = preg_replace('/<p[^>]*>(.*?)<\/p>/is', "$1\n\n", $md);
-    $md = preg_replace('/<br\s*\/?>/i', "\n", $md);
-    $md = strip_tags($md);
-    $md = html_entity_decode($md, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-
-    return trim($md) . "\n";
+    $converter = new \League\HTMLToMarkdown\HtmlConverter([
+      'strip_tags'   => FALSE,
+      'bold_style'   => '**',
+      'italic_style' => '_',
+    ]);
+    return $converter->convert($html);
   }
 
   /**
-   * Convert Markdown to HTML.
-   * Uses league/commonmark if available.
-   *
-   * @param string $markdown
-   *   Markdown to convert.
-   *
-   * @return string
-   *   Resulting HTML.
+   * Convert Markdown to HTML using league/commonmark.
    */
   public function markdownToHtml(string $markdown): string {
-    if (class_exists('\League\CommonMark\CommonMarkConverter')) {
-      $converter = new \League\CommonMark\CommonMarkConverter();
-      return (string) $converter->convert($markdown);
-    }
-
-    // Basic fallback
-    $html = htmlspecialchars($markdown, ENT_NOQUOTES, 'UTF-8');
-    for ($i = 6; $i >= 1; $i--) {
-      $html = preg_replace('/^' . str_repeat('#', $i) . ' (.+)$/m', '<h' . $i . '>$1</h' . $i . '>', $html);
-    }
-    $html = preg_replace('/\*\*(.+?)\*\*/s', '<strong>$1</strong>', $html);
-    $html = preg_replace('/_(.+?)_/s', '<em>$1</em>', $html);
-    $html = preg_replace('/\[(.+?)\]\((.+?)\)/', '<a href="$2">$1</a>', $html);
-    $html = preg_replace('/^- (.+)$/m', '<li>$1</li>', $html);
-    $html = preg_replace('/(<li>.*<\/li>)/s', '<ul>$1</ul>', $html);
-    $paragraphs = preg_split('/\n{2,}/', trim($html));
-    $html = implode("\n", array_map(fn($p) => '<p>' . trim($p) . '</p>', $paragraphs));
-
-    return $html;
+    $converter = new \League\CommonMark\CommonMarkConverter();
+    return (string) $converter->convert($markdown);
   }
 
   // ---------------------------------------------------------------------------
