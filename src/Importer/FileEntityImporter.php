@@ -20,7 +20,7 @@ class FileEntityImporter extends BaseImporter {
     }
 
     // Look up by short UUID first, then fall back to URI.
-    $existing = $short_uuid ? $this->findByShortUuidGlobal($short_uuid, 'file') : NULL;
+    $existing = $short_uuid ? $this->findByUuidGlobal($short_uuid, 'file') : NULL;
 
     if (!$existing) {
       $existing_files = $this->entityTypeManager->getStorage('file')

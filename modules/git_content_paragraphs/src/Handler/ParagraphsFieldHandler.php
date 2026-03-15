@@ -106,7 +106,7 @@ class ParagraphsFieldHandler implements FieldHandlerInterface {
       $bundle = $paragraph->bundle();
       $data   = [
         'type' => $bundle,
-        'uuid' => $this->shortenUuid($paragraph->uuid()),
+        'uuid' => $paragraph->uuid(),
       ];
 
       $fields = $this->fieldDiscovery->getFields('paragraph', $bundle);
@@ -153,14 +153,14 @@ class ParagraphsFieldHandler implements FieldHandlerInterface {
       }
 
       $bundle     = $item['type'] ?? NULL;
-      $short_uuid = $item['uuid'] ?? NULL;
+      $uuid = $item['uuid'] ?? NULL;
 
       if (!$bundle) {
         continue;
       }
 
-      $paragraph = $short_uuid
-        ? $this->findByShortUuid($short_uuid, $bundle)
+      $paragraph = $uuid
+        ? $this->findByUuid($uuid, $bundle)
         : NULL;
 
       if ($paragraph) {
@@ -170,7 +170,7 @@ class ParagraphsFieldHandler implements FieldHandlerInterface {
       else {
         $paragraph = $this->entityTypeManager->getStorage('paragraph')->create([
           'type'     => $bundle,
-          'uuid'     => $short_uuid ? $this->expandShortUuid($short_uuid) : $this->uuid->generate(),
+          'uuid'     => $uuid ? $this->expandShortUuid($uuid) : $this->uuid->generate(),
           'langcode' => 'und',
         ]);
       }
@@ -208,12 +208,12 @@ class ParagraphsFieldHandler implements FieldHandlerInterface {
   // Private helpers
   // ---------------------------------------------------------------------------
 
-  private function findByShortUuid(string $short_uuid, string $bundle): mixed {
+  private function findByUuid(string $uuid, string $bundle): mixed {
     $storage = $this->entityTypeManager->getStorage('paragraph');
     $ids = $storage->getQuery()
       ->accessCheck(FALSE)
       ->condition('type', $bundle)
-      ->condition('uuid', $short_uuid . '%', 'LIKE')
+      ->condition('uuid', $uuid . '%', 'LIKE')
       ->range(0, 1)
       ->execute();
 

@@ -14,17 +14,10 @@ class NodeImporter extends BaseImporter {
     $langcode   = $frontmatter['lang'] ?? 'und';
     $short_uuid = $frontmatter['uuid'] ?? NULL;
 
-    $existing = $short_uuid ? $this->findByShortUuid($short_uuid, 'node', $bundle) : NULL;
+    $existing = $short_uuid ? $this->findByUuid($short_uuid, 'node', $bundle) : NULL;
 
     if ($existing) {
-      if ($existing->hasTranslation($langcode)) {
-        $node      = $existing->getTranslation($langcode);
-        $operation = 'updated';
-      }
-      else {
-        $node      = $existing->addTranslation($langcode);
-        $operation = 'imported';
-      }
+      [$node, $operation] = $this->resolveTranslation($existing, $langcode);
     }
     else {
       $node = Node::create([
@@ -36,7 +29,7 @@ class NodeImporter extends BaseImporter {
     }
 
     $node->set('title', $frontmatter['title'] ?? 'Untitled');
-    $node->set('status', ($frontmatter['status'] ?? 'draft') === 'published' ? 1 : 0);
+    $node->set('status', $this->resolveStatus($frontmatter, 'published', 'draft'));
 
     if (!empty($frontmatter['created'])) {
       $node->set('created', $this->parseDate($frontmatter['created']));
@@ -45,12 +38,7 @@ class NodeImporter extends BaseImporter {
       $node->set('changed', $this->parseDate($frontmatter['changed']));
     }
 
-    if ($node->hasField('body') && !empty($body)) {
-      $node->set('body', [
-        'value'  => $this->serializer->markdownToHtml($body),
-        'format' => 'basic_html',
-      ]);
-    }
+    $this->setBody($node, $body);
 
     $definitions = $this->fieldDiscovery->getFields('node', $bundle);
     $this->populateDynamicFields($node, $frontmatter, $definitions);

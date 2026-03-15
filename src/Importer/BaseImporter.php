@@ -79,12 +79,13 @@ abstract class BaseImporter {
   // Field population
   // ---------------------------------------------------------------------------
 
-  protected function populateDynamicFields($entity, array $frontmatter, array $definitions): void {
+  protected function populateDynamicFields($entity, array $frontmatter, array $definitions, array $extra_skip = []): void {
     $skip = [
       ...ManagedFields::CORE,
       // Frontmatter keys handled explicitly before this loop.
       'bundle', 'vocabulary', 'lang', 'name', 'slug', 'translation_of',
       'weight', 'parent', 'file', 'checksum',
+      ...$extra_skip,
     ];
 
     foreach ($definitions as $field_name => $definition) {
@@ -127,11 +128,51 @@ abstract class BaseImporter {
     return $this->fieldNormalizer->denormalize($value, $definition);
   }
 
+  /**
+   * Resolve a frontmatter status string to a Drupal integer (1 or 0).
+   *
+   * @param array  $frontmatter
+   * @param string $published_value  The string value that means "active/published".
+   * @param string $default_status   What to assume when the key is absent.
+   */
+  protected function resolveStatus(array $frontmatter, string $published_value = 'published', string $default_status = 'published'): int {
+    return ($frontmatter['status'] ?? $default_status) === $published_value ? 1 : 0;
+  }
+
+  /**
+   * Resolve the correct translation entity and operation string.
+   *
+   * Extracts the repeated translation-handling block present in every
+   * concrete importer: if the translation already exists, get it ('updated');
+   * otherwise add it ('imported').
+   *
+   * @return array{0: mixed, 1: string}
+   *   [entity_translation, 'updated'|'imported']
+   */
+  protected function resolveTranslation($existing, string $langcode): array {
+    if ($existing->hasTranslation($langcode)) {
+      return [$existing->getTranslation($langcode), 'updated'];
+    }
+    return [$existing->addTranslation($langcode), 'imported'];
+  }
+
+  /**
+   * Set the body field from Markdown, if the entity has one.
+   */
+  protected function setBody($entity, string $body): void {
+    if ($entity->hasField('body') && !empty($body)) {
+      $entity->set('body', [
+        'value'  => $this->serializer->markdownToHtml($body),
+        'format' => 'basic_html',
+      ]);
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // Reference resolution
   // ---------------------------------------------------------------------------
 
-  protected function findByShortUuid(string $short_uuid, string $entity_type, string $bundle): mixed {
+  protected function findByUuid(string $short_uuid, string $entity_type, string $bundle): mixed {
     $bundle_key = match($entity_type) {
       'node'              => 'type',
       'taxonomy_term'     => 'vid',
@@ -162,7 +203,7 @@ abstract class BaseImporter {
    * Find an entity by short UUID without filtering by bundle.
    * Safer when the bundle may have changed or is not reliable.
    */
-  protected function findByShortUuidGlobal(string $short_uuid, string $entity_type): mixed {
+  protected function findByUuidGlobal(string $short_uuid, string $entity_type): mixed {
     $storage = $this->entityTypeManager->getStorage($entity_type);
     $ids = $storage->getQuery()
       ->accessCheck(FALSE)

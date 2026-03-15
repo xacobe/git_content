@@ -114,7 +114,7 @@ class FieldNormalizer {
           elseif ($target_id && $target_type === 'media') {
             $media = $this->entityTypeManager
               ->getStorage('media')->load($target_id);
-            $normalized[] = $media ? $this->shortenUuid($media->uuid()) : NULL;
+            $normalized[] = $media ? $media->uuid() : NULL;
           }
           else {
             $normalized[] = $target_id;
@@ -253,7 +253,7 @@ class FieldNormalizer {
       return is_numeric($value) ? (int) $value : $this->findNodeBySlug((string) $value);
     }
     if ($target_type === 'media') {
-      return $this->findMediaByShortUuid((string) $value);
+      return $this->findMediaByUuid((string) $value);
     }
     return is_numeric($value) ? (int) $value : NULL;
   }
@@ -300,11 +300,11 @@ class FieldNormalizer {
     return !empty($files) ? (int) reset($files) : NULL;
   }
 
-  public function findMediaByShortUuid(string $short_uuid): ?int {
+  public function findMediaByUuid(string $uuid): ?int {
     $ids = $this->entityTypeManager->getStorage('media')
       ->getQuery()
       ->accessCheck(FALSE)
-      ->condition('uuid', $short_uuid . '%', 'LIKE')
+      ->condition('uuid', $uuid . '%', 'LIKE')
       ->range(0, 1)
       ->execute();
     return !empty($ids) ? (int) reset($ids) : NULL;

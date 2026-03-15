@@ -60,30 +60,11 @@ class BlockContentExporter extends BaseExporter {
     $frontmatter['slug']   = $this->getBlockSlug($entity);
     $frontmatter['__']     = NULL;
 
-    $frontmatter['created'] = date('Y-m-d', $entity->get('changed')->value ?? time());
+    $frontmatter['changed'] = date('Y-m-d', $entity->get('changed')->value ?? time());
     $frontmatter['___']     = NULL;
 
     // Dynamic bundle fields (same approach as NodeExporter)
-    $groups = $this->buildDynamicGroups($entity, 'block_content');
-
-    if (!empty($groups['taxonomy'])) {
-      $frontmatter['taxonomy'] = $groups['taxonomy'];
-      $frontmatter['____']     = NULL;
-    }
-
-    if (!empty($groups['media'])) {
-      $frontmatter['media']  = $groups['media'];
-      $frontmatter['_____']  = NULL;
-    }
-
-    if (!empty($groups['references'])) {
-      $frontmatter['references'] = $groups['references'];
-      $frontmatter['______']     = NULL;
-    }
-
-    foreach ($groups['extra'] as $key => $val) {
-      $frontmatter[$key] = $val;
-    }
+    $this->applyDynamicGroups($frontmatter, $entity, 'block_content');
 
     $frontmatter['translation_of'] = $this->getTranslationOf($entity);
 
@@ -102,11 +83,7 @@ class BlockContentExporter extends BaseExporter {
    * Falls back to the internal ID if no readable name is available.
    */
   protected function getBlockSlug(EntityInterface $entity): string {
-    $label = $entity->label() ?? 'block';
-    $slug  = preg_replace('/[^a-z0-9]+/', '-', mb_strtolower($label));
-    $slug  = trim($slug, '-');
-
-    // Append the ID to avoid collisions between blocks with the same title.
+    $slug = $this->slugify($entity->label() ?? '');
     return $slug ? $slug . '-' . $entity->id() : 'block-' . $entity->id();
   }
 

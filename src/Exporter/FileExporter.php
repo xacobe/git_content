@@ -93,7 +93,7 @@ class FileExporter extends BaseExporter {
     }
 
     $frontmatter = [];
-    $frontmatter['uuid']   = $this->shortenUuid($entity->uuid());
+    $frontmatter['uuid']   = $entity->uuid();
     $frontmatter['type']   = 'file';
     $frontmatter['lang']   = $entity->language()->getId();
     $frontmatter['status'] = $entity->isPermanent() ? 'permanent' : 'temporary';

@@ -99,7 +99,7 @@ class UserExporter extends BaseExporter {
     ));
 
     $frontmatter = [];
-    $frontmatter['uuid']   = $this->shortenUuid($entity->uuid());
+    $frontmatter['uuid']   = $entity->uuid();
     $frontmatter['type']   = 'user';
     $frontmatter['lang']   = $entity->language()->getId();
     $frontmatter['status'] = $entity->isActive() ? 'active' : 'blocked';
@@ -121,15 +121,7 @@ class UserExporter extends BaseExporter {
     }
 
     // Extra profile fields (bio, avatar, etc.)
-    $groups = $this->buildDynamicGroups($entity, 'user');
-
-    if (!empty($groups['media'])) {
-      $frontmatter['media'] = $groups['media'];
-    }
-
-    foreach ($groups['extra'] as $key => $val) {
-      $frontmatter[$key] = $val;
-    }
+    $this->applyDynamicGroups($frontmatter, $entity, 'user');
 
     // NEVER export the password
     // $frontmatter['pass'] is intentionally omitted

@@ -25,17 +25,10 @@ class TaxonomyImporter extends BaseImporter {
       ])->save();
     }
 
-    $existing = $short_uuid ? $this->findByShortUuid($short_uuid, 'taxonomy_term', $vid) : NULL;
+    $existing = $short_uuid ? $this->findByUuid($short_uuid, 'taxonomy_term', $vid) : NULL;
 
     if ($existing) {
-      if ($existing->hasTranslation($langcode)) {
-        $term      = $existing->getTranslation($langcode);
-        $operation = 'updated';
-      }
-      else {
-        $term      = $existing->addTranslation($langcode);
-        $operation = 'imported';
-      }
+      [$term, $operation] = $this->resolveTranslation($existing, $langcode);
     }
     else {
       $create_values = [
@@ -61,7 +54,7 @@ class TaxonomyImporter extends BaseImporter {
       ? $frontmatter['name']
       : ucfirst(str_replace('-', ' ', $frontmatter['slug'] ?? 'term'));
     $term->set('name', $name);
-    $term->set('status', ($frontmatter['status'] ?? 'published') === 'published' ? 1 : 0);
+    $term->set('status', $this->resolveStatus($frontmatter));
 
     if (isset($frontmatter['weight'])) {
       $term->set('weight', (int) $frontmatter['weight']);
@@ -75,7 +68,7 @@ class TaxonomyImporter extends BaseImporter {
       }
       else {
         // New format: short UUID — resolve to current tid.
-        $parent = $this->findByShortUuidGlobal((string) $parent_val, 'taxonomy_term');
+        $parent = $this->findByUuidGlobal((string) $parent_val, 'taxonomy_term');
         if ($parent) {
           $term->set('parent', [(int) $parent->id()]);
         }

@@ -47,7 +47,7 @@ class MediaExporter extends BaseExporter {
    */
   public function export(EntityInterface $entity): string {
     $frontmatter = [];
-    $frontmatter['uuid']   = $this->shortenUuid($entity->uuid());
+    $frontmatter['uuid']   = $entity->uuid();
     $frontmatter['type']   = 'media';
     $frontmatter['bundle'] = $entity->bundle();
     $frontmatter['lang']   = $entity->language()->getId();
@@ -70,20 +70,7 @@ class MediaExporter extends BaseExporter {
     }
 
     // Dynamic fields (source image, alt text, caption, taxonomy, etc.)
-    $groups = $this->buildDynamicGroups($entity, 'media');
-
-    if (!empty($groups['media'])) {
-      $frontmatter['media'] = $groups['media'];
-    }
-    if (!empty($groups['taxonomy'])) {
-      $frontmatter['taxonomy'] = $groups['taxonomy'];
-    }
-    if (!empty($groups['references'])) {
-      $frontmatter['references'] = $groups['references'];
-    }
-    foreach ($groups['extra'] as $key => $val) {
-      $frontmatter[$key] = $val;
-    }
+    $this->applyDynamicGroups($frontmatter, $entity, 'media');
 
     $frontmatter['translation_of'] = $this->getTranslationOf($entity);
 
@@ -121,7 +108,7 @@ class MediaExporter extends BaseExporter {
    */
   protected function getMediaSlug(EntityInterface $entity): string {
     $name = $entity->label() ?? 'media-' . $entity->id();
-    return 'media-' . $entity->id() . '-' . preg_replace('/[^a-z0-9]+/', '-', mb_strtolower($name));
+    return 'media-' . $entity->id() . '-' . $this->slugify($name);
   }
 
 }

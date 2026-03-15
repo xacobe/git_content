@@ -12,7 +12,7 @@ namespace Drupal\git_content\Importer;
 class MenuLinkImporter extends BaseImporter {
 
   /**
-   * Short-uuid → real plugin_id map, populated as links are saved.
+   * UUID → real plugin_id map, populated as links are saved.
    */
   protected array $menuLinkUuidMap = [];
 
@@ -22,18 +22,11 @@ class MenuLinkImporter extends BaseImporter {
     $menu_name  = $frontmatter['menu'] ?? 'main';
 
     $existing = $short_uuid
-      ? $this->findByShortUuid($short_uuid, 'menu_link_content', $menu_name)
+      ? $this->findByUuid($short_uuid, 'menu_link_content', $menu_name)
       : NULL;
 
     if ($existing) {
-      if ($existing->hasTranslation($langcode)) {
-        $link      = $existing->getTranslation($langcode);
-        $operation = 'updated';
-      }
-      else {
-        $link      = $existing->addTranslation($langcode);
-        $operation = 'imported';
-      }
+      [$link, $operation] = $this->resolveTranslation($existing, $langcode);
     }
     else {
       $link = $this->entityTypeManager->getStorage('menu_link_content')->create([
@@ -66,7 +59,12 @@ class MenuLinkImporter extends BaseImporter {
     // Populate any extra custom fields (field_* added via UI).
     // The 'link' field is excluded here and set explicitly below with options.
     $definitions = $this->fieldDiscovery->getFields('menu_link_content', $menu_name);
-    $this->populateMenuFields($link, $frontmatter, $definitions);
+    $this->populateDynamicFields($link, $frontmatter, $definitions, [
+      'link', 'menu_name', 'bundle', 'enabled', 'title', 'weight', 'expanded',
+      'external', 'rediscover',
+      'content_translation_uid', 'content_translation_status', 'content_translation_created',
+      'metatag',
+    ]);
 
     // Set link AFTER populateDynamicFields so link_options are never
     // overwritten by the dynamic field loop processing the 'link' field.
@@ -87,22 +85,6 @@ class MenuLinkImporter extends BaseImporter {
   }
 
   /**
-   * Like populateDynamicFields() but skips fields handled explicitly above.
-   */
-  protected function populateMenuFields($entity, array $frontmatter, array $definitions): void {
-    // These fields are either handled explicitly or are internal/computed.
-    $extra_skip = [
-      'link', 'menu_name', 'bundle', 'enabled', 'title', 'weight', 'expanded',
-      'external', 'rediscover',
-      'content_translation_uid', 'content_translation_status', 'content_translation_created',
-      'metatag',
-    ];
-    // Temporarily inject the extra skip list by pre-removing those definitions.
-    $filtered = array_diff_key($definitions, array_flip($extra_skip));
-    $this->populateDynamicFields($entity, $frontmatter, $filtered);
-  }
-
-  /**
    * Resolve the parent plugin_id from its short UUID.
    * If the parent is a plugin from another module, return it as-is.
    */
@@ -113,12 +95,13 @@ class MenuLinkImporter extends BaseImporter {
     }
 
     // External plugin (not menu_link_content): return as-is.
-    if (!preg_match('/^[a-f0-9]{8}$/', $parent_ref)) {
+    // A menu_link_content UUID is either 8 hex chars (legacy) or a full UUID.
+    if (!preg_match('/^[a-f0-9]{8}$/', $parent_ref) && !preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/', $parent_ref)) {
       return $parent_ref;
     }
 
     // Look up in the database by short UUID.
-    $existing = $this->findByShortUuid($parent_ref, 'menu_link_content', $menu_name);
+    $existing = $this->findByUuid($parent_ref, 'menu_link_content', $menu_name);
     if ($existing) {
       return 'menu_link_content:' . $existing->uuid();
     }

@@ -46,7 +46,7 @@ class NodeExporter extends BaseExporter {
 
     // --- Base fields ---
     $frontmatter = [];
-    $frontmatter['uuid']   = $this->shortenUuid($entity->uuid());
+    $frontmatter['uuid']   = $entity->uuid();
     $frontmatter['type']   = $entity->bundle();
     $frontmatter['lang']   = $langcode;
     $frontmatter['status'] = $entity->isPublished() ? 'published' : 'draft';
@@ -64,26 +64,7 @@ class NodeExporter extends BaseExporter {
     $frontmatter['____']    = NULL;
 
     // --- Grouped dynamic fields ---
-    $groups = $this->buildDynamicGroups($entity, 'node');
-
-    if (!empty($groups['taxonomy'])) {
-      $frontmatter['taxonomy'] = $groups['taxonomy'];
-      $frontmatter['_____']    = NULL;
-    }
-
-    if (!empty($groups['media'])) {
-      $frontmatter['media']  = $groups['media'];
-      $frontmatter['______'] = NULL;
-    }
-
-    if (!empty($groups['references'])) {
-      $frontmatter['references'] = $groups['references'];
-      $frontmatter['_______']    = NULL;
-    }
-
-    foreach ($groups['extra'] as $key => $val) {
-      $frontmatter[$key] = $val;
-    }
+    $this->applyDynamicGroups($frontmatter, $entity, 'node');
 
     $frontmatter['translation_of'] = $this->getTranslationOf($entity);
 

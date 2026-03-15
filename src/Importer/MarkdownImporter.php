@@ -436,8 +436,9 @@ class MarkdownImporter {
       // References are stored as short UUIDs (8 hex chars) for media/nodes,
       // or as arrays for multi-value fields.
       $uuids = is_array($value) ? $value : [$value];
-      foreach ($uuids as $short_uuid) {
-        if (!is_string($short_uuid) || strlen($short_uuid) !== 8) {
+      foreach ($uuids as $uuid) {
+        // Accept 8-char legacy short UUIDs and full 36-char UUIDs.
+        if (!is_string($uuid) || (strlen($uuid) !== 8 && strlen($uuid) !== 36)) {
           continue;
         }
         // Check both media and node storages.
@@ -445,7 +446,7 @@ class MarkdownImporter {
           $ids = $this->entityTypeManager->getStorage($entity_type)
             ->getQuery()
             ->accessCheck(FALSE)
-            ->condition('uuid', $short_uuid . '%', 'LIKE')
+            ->condition('uuid', $uuid . '%', 'LIKE')
             ->range(0, 1)
             ->execute();
           if (!empty($ids)) {

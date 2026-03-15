@@ -16,17 +16,10 @@ class BlockContentImporter extends BaseImporter {
       throw new \Exception(t("The block_content frontmatter is missing 'bundle'."));
     }
 
-    $existing = $short_uuid ? $this->findByShortUuidGlobal($short_uuid, 'block_content') : NULL;
+    $existing = $short_uuid ? $this->findByUuidGlobal($short_uuid, 'block_content') : NULL;
 
     if ($existing) {
-      if ($existing->hasTranslation($langcode)) {
-        $block     = $existing->getTranslation($langcode);
-        $operation = 'updated';
-      }
-      else {
-        $block     = $existing->addTranslation($langcode);
-        $operation = 'imported';
-      }
+      [$block, $operation] = $this->resolveTranslation($existing, $langcode);
     }
     else {
       $block = $this->entityTypeManager->getStorage('block_content')->create([
@@ -39,14 +32,9 @@ class BlockContentImporter extends BaseImporter {
     }
 
     $block->set('info', $frontmatter['title'] ?? 'Untitled');
-    $block->set('status', ($frontmatter['status'] ?? 'draft') === 'published' ? 1 : 0);
+    $block->set('status', $this->resolveStatus($frontmatter, 'published', 'draft'));
 
-    if ($block->hasField('body') && !empty($body)) {
-      $block->set('body', [
-        'value'  => $this->serializer->markdownToHtml($body),
-        'format' => 'basic_html',
-      ]);
-    }
+    $this->setBody($block, $body);
 
     $definitions = $this->fieldDiscovery->getFields('block_content', $bundle);
     $this->populateDynamicFields($block, $frontmatter, $definitions);

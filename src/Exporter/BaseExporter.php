@@ -199,7 +199,7 @@ abstract class BaseExporter {
    */
   protected function getTranslationOf(EntityInterface $entity): ?string {
     if (!$entity->isDefaultTranslation()) {
-      return $this->shortenUuid($entity->getUntranslated()->uuid());
+      return $entity->getUntranslated()->uuid();
     }
     return NULL;
   }
@@ -228,6 +228,36 @@ abstract class BaseExporter {
   protected function ensureDir(string $dir): void {
     if (!file_exists($dir)) {
       mkdir($dir, 0775, TRUE);
+    }
+  }
+
+  /**
+   * Convert a string to a URL-safe slug.
+   */
+  protected function slugify(string $text): string {
+    return trim(preg_replace('/[^a-z0-9]+/', '-', mb_strtolower($text)), '-');
+  }
+
+  /**
+   * Write all dynamic field groups (taxonomy, media, references, extra) into
+   * the frontmatter array. Handles all entity types uniformly.
+   *
+   * Replaces the repeated if/foreach group blocks in each concrete exporter.
+   */
+  protected function applyDynamicGroups(array &$frontmatter, EntityInterface $entity, string $entity_type): void {
+    $groups = $this->buildDynamicGroups($entity, $entity_type);
+
+    if (!empty($groups['taxonomy'])) {
+      $frontmatter['taxonomy'] = $groups['taxonomy'];
+    }
+    if (!empty($groups['media'])) {
+      $frontmatter['media'] = $groups['media'];
+    }
+    if (!empty($groups['references'])) {
+      $frontmatter['references'] = $groups['references'];
+    }
+    foreach ($groups['extra'] as $key => $val) {
+      $frontmatter[$key] = $val;
     }
   }
 

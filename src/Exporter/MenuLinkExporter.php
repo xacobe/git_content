@@ -150,7 +150,7 @@ class MenuLinkExporter extends BaseExporter {
     $langcode = $entity->language()->getId();
 
     $frontmatter = [];
-    $frontmatter['uuid']    = $this->shortenUuid($entity->uuid());
+    $frontmatter['uuid']    = $entity->uuid();
     $frontmatter['type']    = 'menu_link_content';
     $frontmatter['menu']    = $entity->getMenuName();
     $frontmatter['lang']    = $langcode;
@@ -219,7 +219,7 @@ class MenuLinkExporter extends BaseExporter {
     // Format: "menu_link_content:{full-uuid}"
     if (str_starts_with($parent_plugin_id, 'menu_link_content:')) {
       $uuid = explode(':', $parent_plugin_id, 2)[1];
-      return $this->shortenUuid($uuid);
+      return $uuid;
     }
 
     // If the parent is a link from another plugin (module route, etc.),
@@ -252,8 +252,7 @@ class MenuLinkExporter extends BaseExporter {
    * Generate a readable slug from the link title.
    */
   protected function getLinkSlug(EntityInterface $entity): string {
-    $title = $entity->getTitle() ?? 'link-' . $entity->id();
-    return preg_replace('/[^a-z0-9]+/', '-', mb_strtolower($title));
+    return $this->slugify($entity->getTitle() ?? 'link-' . $entity->id());
   }
 
 }

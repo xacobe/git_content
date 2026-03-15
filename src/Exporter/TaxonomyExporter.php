@@ -43,7 +43,7 @@ class TaxonomyExporter extends BaseExporter {
    */
   public function export(EntityInterface $entity): string {
     $frontmatter = [];
-    $frontmatter['uuid']       = $this->shortenUuid($entity->uuid());
+    $frontmatter['uuid']       = $entity->uuid();
     $frontmatter['tid']        = (int) $entity->id();
     $frontmatter['type']       = 'taxonomy_term';
     $frontmatter['vocabulary'] = $entity->bundle();
@@ -57,7 +57,7 @@ class TaxonomyExporter extends BaseExporter {
     $frontmatter['__']     = NULL;
 
     // Parent term (short UUID for portability across environments)
-    $frontmatter['parent'] = $this->getParentShortUuid($entity);
+    $frontmatter['parent'] = $this->getParentUuid($entity);
     $frontmatter['___']    = NULL;
 
     // Extra dynamic fields for the vocabulary
@@ -87,8 +87,7 @@ class TaxonomyExporter extends BaseExporter {
    * Generate a slug for the term: lowercase name with hyphens.
    */
   protected function getTermSlug(EntityInterface $entity): string {
-    $name = $entity->label() ?? 'term-' . $entity->id();
-    return preg_replace('/[^a-z0-9]+/', '-', mb_strtolower($name));
+    return $this->slugify($entity->label() ?? 'term-' . $entity->id());
   }
 
   /**
@@ -96,7 +95,7 @@ class TaxonomyExporter extends BaseExporter {
    *
    * Short UUIDs are portable across environments (unlike tids).
    */
-  protected function getParentShortUuid(EntityInterface $entity): ?string {
+  protected function getParentUuid(EntityInterface $entity): ?string {
     if ($entity->hasField('parent')) {
       $parents = $entity->get('parent')->getValue();
       if (!empty($parents[0]['target_id']) && (int) $parents[0]['target_id'] !== 0) {
@@ -104,7 +103,7 @@ class TaxonomyExporter extends BaseExporter {
           ->getStorage('taxonomy_term')
           ->load((int) $parents[0]['target_id']);
         if ($parent) {
-          return $this->shortenUuid($parent->uuid());
+          return $parent->uuid();
         }
       }
     }
