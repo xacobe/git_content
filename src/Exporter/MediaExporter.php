@@ -60,7 +60,9 @@ class MediaExporter extends BaseExporter {
 
     $frontmatter['created'] = date('Y-m-d', $entity->get('created')->value ?? time());
     $frontmatter['changed'] = date('Y-m-d', $entity->get('changed')->value ?? time());
-    $frontmatter['___']     = NULL;
+    $owner = $entity->get('uid')->entity;
+    $frontmatter['author'] = $owner ? $owner->getAccountName() : NULL;
+    $frontmatter['___']    = NULL;
 
     // Source file (thumbnail field or bundle source file field)
     $source_file = $this->getSourceFile($entity);

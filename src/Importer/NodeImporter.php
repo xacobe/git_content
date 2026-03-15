@@ -30,6 +30,7 @@ class NodeImporter extends BaseImporter {
 
     $node->set('title', $frontmatter['title'] ?? 'Untitled');
     $node->set('status', $this->resolveStatus($frontmatter, 'published', 'draft'));
+    $this->setAuthor($node, $frontmatter);
 
     if (!empty($frontmatter['created'])) {
       $node->set('created', $this->parseDate($frontmatter['created']));

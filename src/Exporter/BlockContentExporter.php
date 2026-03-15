@@ -61,7 +61,7 @@ class BlockContentExporter extends BaseExporter {
     $frontmatter['__']     = NULL;
 
     $frontmatter['changed'] = date('Y-m-d', $entity->get('changed')->value ?? time());
-    $frontmatter['___']     = NULL;
+    $frontmatter['___'] = NULL;
 
     // Dynamic bundle fields (same approach as NodeExporter)
     $this->applyDynamicGroups($frontmatter, $entity, 'block_content');

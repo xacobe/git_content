@@ -217,6 +217,15 @@ abstract class BaseImporter {
     return $storage->load(reset($ids));
   }
 
+  protected function setAuthor($entity, array $frontmatter): void {
+    if (!empty($frontmatter['author']) && $entity->hasField('uid')) {
+      $uid = $this->findUserByName($frontmatter['author']);
+      if ($uid) {
+        $entity->set('uid', $uid);
+      }
+    }
+  }
+
   protected function findUserByName(string $name): ?int {
     $users = $this->entityTypeManager->getStorage('user')
       ->loadByProperties(['name' => $name]);

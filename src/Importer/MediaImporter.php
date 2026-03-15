@@ -32,6 +32,7 @@ class MediaImporter extends BaseImporter {
 
     $media->set('name', $frontmatter['name'] ?? 'Unnamed');
     $media->set('status', $this->resolveStatus($frontmatter, 'published', 'draft'));
+    $this->setAuthor($media, $frontmatter);
 
     $definitions = $this->fieldDiscovery->getFields('media', $bundle);
     $this->populateDynamicFields($media, $frontmatter, $definitions);
