@@ -7,6 +7,7 @@ use Drupal\git_content\Importer\MarkdownImporter;
 use Drupal\Component\Utility\Html;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Render\Markup;
 use Drupal\Core\Url;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
@@ -126,21 +127,24 @@ class SyncForm extends FormBase {
       $del    = count($result['deleted']);
       $err    = count($result['errors']);
 
+      $sections = [
+        $this->t('Export @status: @exp written, @skp unchanged, @del deleted.', [
+          '@status' => $err ? 'finished with errors' : 'complete',
+          '@exp' => $exp, '@skp' => $skp, '@del' => $del,
+        ]),
+      ];
+      if ($exp) {
+        $sections[] = $this->fileSection($this->t('Written'), $result['exported']);
+      }
+      if ($del) {
+        $sections[] = $this->fileSection($this->t('Deleted'), $result['deleted']);
+      }
       if ($err) {
-        $this->messenger()->addError($this->t(
-          'Export finished with @err error(s): @exp written, @skp unchanged, @del deleted.',
-          ['@exp' => $exp, '@skp' => $skp, '@del' => $del, '@err' => $err]
-        ));
-        foreach ($result['errors'] as $error) {
-          $this->messenger()->addError($error);
-        }
+        $sections[] = $this->fileSection($this->t('Errors'), $result['errors']);
       }
-      else {
-        $this->messenger()->addStatus($this->t(
-          'Export complete: @exp written, @skp unchanged, @del deleted.',
-          ['@exp' => $exp, '@skp' => $skp, '@del' => $del]
-        ));
-      }
+
+      $method = $err ? 'addError' : 'addStatus';
+      $this->messenger()->$method($this->joinSections($sections));
     }
     else {
       $result  = $this->importer->importAll();
@@ -150,25 +154,40 @@ class SyncForm extends FormBase {
       $skipped = count($result['skipped']);
       $err     = count($result['errors']);
 
+      $sections = [
+        $this->t('Import @status: @created created, @updated updated, @deleted deleted, @skipped unchanged.', [
+          '@status' => $err ? 'finished with errors' : 'complete',
+          '@created' => $created, '@updated' => $updated, '@deleted' => $deleted, '@skipped' => $skipped,
+        ]),
+      ];
+      if ($created) {
+        $sections[] = $this->fileSection($this->t('Created'), $result['imported']);
+      }
+      if ($updated) {
+        $sections[] = $this->fileSection($this->t('Updated'), $result['updated']);
+      }
+      if ($deleted) {
+        $sections[] = $this->fileSection($this->t('Deleted'), $result['deleted']);
+      }
       if ($err) {
-        $this->messenger()->addError($this->t(
-          'Import finished with @err error(s): @created created, @updated updated, @deleted deleted, @skipped unchanged.',
-          ['@created' => $created, '@updated' => $updated, '@deleted' => $deleted, '@skipped' => $skipped, '@err' => $err]
-        ));
-        foreach ($result['errors'] as $error) {
-          $this->messenger()->addError($error);
-        }
+        $sections[] = $this->fileSection($this->t('Errors'), $result['errors']);
       }
-      else {
-        $this->messenger()->addStatus($this->t(
-          'Import complete: @created created, @updated updated, @deleted deleted, @skipped unchanged.',
-          ['@created' => $created, '@updated' => $updated, '@deleted' => $deleted, '@skipped' => $skipped]
-        ));
-      }
+
+      $method = $err ? 'addError' : 'addStatus';
+      $this->messenger()->$method($this->joinSections($sections));
     }
 
     // Redirect back to the same page so previews refresh with the new state.
     $form_state->setRedirectUrl(Url::fromRoute('git_content.sync'));
+  }
+
+  private function fileSection(mixed $label, array $items): string {
+    $lines = implode('<br>', array_map(fn($p) => Html::escape($p), $items));
+    return '<strong>' . $label . ':</strong><br>' . $lines;
+  }
+
+  private function joinSections(array $sections): Markup {
+    return Markup::create(implode('<br><br>', array_map('strval', $sections)));
   }
 
   // ---------------------------------------------------------------------------
