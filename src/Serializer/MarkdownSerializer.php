@@ -166,7 +166,7 @@ class MarkdownSerializer {
       }
 
       if (is_array($value)) {
-        $lines[] = rtrim(Yaml::dump([$key => $value], 10, 2, Yaml::DUMP_NULL_AS_TILDE));
+        $lines[] = rtrim(Yaml::dump([$key => $value], 10, 2, Yaml::DUMP_NULL_AS_TILDE | Yaml::DUMP_MULTI_LINE_LITERAL_BLOCK));
         continue;
       }
 
