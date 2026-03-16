@@ -58,11 +58,11 @@ class MarkdownExporter {
       'menu_link_content' => 'menus',
     ];
 
-    // Count existing .md files per top-level directory once.
-    $fileCounts = [];
+    // Group existing .md files by top-level directory.
+    $filesByDir = [];
     foreach ($this->scanContentExportFiles() as $relpath) {
       $dir = explode('/', $relpath)[0] ?? '';
-      $fileCounts[$dir] = ($fileCounts[$dir] ?? 0) + 1;
+      $filesByDir[$dir][] = $relpath;
     }
 
     $preview = [];
@@ -82,8 +82,13 @@ class MarkdownExporter {
         $entities = 0;
       }
 
-      $dir                   = $dirMap[$entity_type] ?? $entity_type;
-      $preview[$entity_type] = ['entities' => $entities, 'files' => $fileCounts[$dir] ?? 0];
+      $dir   = $dirMap[$entity_type] ?? $entity_type;
+      $paths = $filesByDir[$dir] ?? [];
+      $preview[$entity_type] = [
+        'entities' => $entities,
+        'files'    => count($paths),
+        'paths'    => $paths,
+      ];
     }
 
     return $preview;

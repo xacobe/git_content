@@ -75,7 +75,7 @@ class SyncForm extends FormBase {
       ),
       '#attributes' => ['class' => ['description']],
     ];
-    $form['export_details']['table'] = $this->buildExportTable($exportPreview);
+    $form['export_details']['content'] = $this->buildExportDetails($exportPreview);
     $form['export_details']['actions'] = ['#type' => 'actions'];
     $form['export_details']['actions']['export'] = [
       '#type'        => 'submit',
@@ -209,7 +209,7 @@ class SyncForm extends FormBase {
     ];
   }
 
-  private function buildExportTable(array $preview): array {
+  private function buildExportDetails(array $preview): array {
     $labels = [
       'node'              => $this->t('Nodes'),
       'taxonomy_term'     => $this->t('Taxonomy terms'),
@@ -220,104 +220,76 @@ class SyncForm extends FormBase {
       'menu_link_content' => $this->t('Menu links'),
     ];
 
-    $rows = [];
+    $elements = [];
     foreach ($preview as $entity_type => $counts) {
       if ($counts['entities'] === 0 && $counts['files'] === 0) {
         continue;
       }
       $diff = $counts['entities'] - $counts['files'];
       if ($diff > 0) {
-        $status = [
-          'data'  => $this->t('+@n to export', ['@n' => $diff]),
-          'class' => ['color-warning'],
-        ];
+        $statusText  = $this->t('+@n to export', ['@n' => $diff]);
+        $statusClass = 'color-warning';
       }
       elseif ($diff < 0) {
-        $status = [
-          'data'  => $this->t('@n stale file(s)', ['@n' => abs($diff)]),
-          'class' => ['color-warning'],
-        ];
+        $statusText  = $this->t('@n stale file(s)', ['@n' => abs($diff)]);
+        $statusClass = 'color-warning';
       }
       else {
-        $status = [
-          'data'  => $this->t('In sync'),
-          'class' => ['color-success'],
-        ];
+        $statusText  = $this->t('In sync');
+        $statusClass = 'color-success';
       }
-      $rows[] = [
-        ['data' => $labels[$entity_type] ?? $entity_type],
-        ['data' => $counts['entities']],
-        ['data' => $counts['files']],
-        $status,
+
+      $label = $labels[$entity_type] ?? $entity_type;
+      $title = $label . ' — ' . $counts['entities'] . ' in Drupal · ' . $counts['files'] . ' files · ' . $statusText;
+
+      $rows = array_map(
+        fn($path) => [['data' => Html::escape($path)]],
+        $counts['paths'],
+      );
+
+      $elements[] = [
+        '#type'       => 'details',
+        '#title'      => $title,
+        '#open'       => FALSE,
+        '#attributes' => ['class' => [$statusClass]],
+        'table'       => [
+          '#type'       => 'table',
+          '#header'     => [$this->t('File')],
+          '#rows'       => $rows,
+          '#responsive' => TRUE,
+          '#empty'      => $this->t('No files on disk yet.'),
+        ],
       ];
     }
 
-    return [
-      '#type'        => 'table',
-      '#header'      => [
-        $this->t('Type'),
-        $this->t('In Drupal'),
-        $this->t('On disk'),
-        $this->t('Status'),
-      ],
-      '#rows'        => $rows,
-      '#empty'       => $this->t('No content found.'),
-      '#responsive'  => TRUE,
-      '#attributes'  => ['class' => ['responsive-enabled']],
-    ];
+    if (empty($elements)) {
+      return [
+        '#type'  => 'html_tag',
+        '#tag'   => 'p',
+        '#value' => $this->t('No content found.'),
+      ];
+    }
+
+    return ['#type' => 'container', 'items' => $elements];
   }
 
   private function buildImportPreview(array $preview): array {
-    // Each operation type maps to a label and a Drupal color utility class.
     $ops = [
       'imported' => ['label' => $this->t('New'),          'class' => 'color-success'],
       'updated'  => ['label' => $this->t('Updated'),      'class' => 'color-warning'],
       'deleted'  => ['label' => $this->t('Would delete'), 'class' => 'color-error'],
     ];
 
-    $elements = [];
-
+    // Group paths by entity type dir prefix.
+    $byDir = [];
     foreach ($ops as $op => $info) {
-      if (empty($preview[$op])) {
-        continue;
-      }
-      $grouped = [];
-      foreach ($preview[$op] as $path) {
-        $grouped[$this->detectTypeFromPath($path)][] = $path;
-      }
-      foreach ($grouped as $type => $files) {
-        $title = $info['label'] . ' — ' . $this->labelForType($type) . ' (' . count($files) . ')';
-        $elements[] = [
-          '#type'       => 'details',
-          '#title'      => $title,
-          '#open'       => FALSE,
-          '#attributes' => [
-            'class' => ['js-form-wrapper', 'form-wrapper', $info['class']],
-          ],
-          'list' => [
-            '#theme'              => 'item_list',
-            '#items'              => array_map(fn($f) => Html::escape($f), $files),
-            '#wrapper_attributes' => ['class' => ['item-list']],
-          ],
-        ];
+      foreach ($preview[$op] ?? [] as $path) {
+        $dir = explode('/', $path)[0] ?? 'other';
+        $byDir[$dir][] = ['path' => $path, 'label' => $info['label'], 'class' => $info['class']];
       }
     }
 
-    if (!empty($preview['errors'])) {
-      $elements[] = [
-        '#type'       => 'details',
-        '#title'      => $this->t('Errors (@count)', ['@count' => count($preview['errors'])]),
-        '#open'       => TRUE,
-        '#attributes' => ['class' => ['js-form-wrapper', 'form-wrapper', 'color-error']],
-        'list'        => [
-          '#theme'              => 'item_list',
-          '#items'              => array_map(fn($e) => Html::escape($e), $preview['errors']),
-          '#wrapper_attributes' => ['class' => ['item-list']],
-        ],
-      ];
-    }
-
-    if (empty($elements)) {
+    if (empty($byDir) && empty($preview['errors'])) {
       return [
         '#type'       => 'html_tag',
         '#tag'        => 'p',
@@ -326,9 +298,53 @@ class SyncForm extends FormBase {
       ];
     }
 
-    $skippedCount = count($preview['skipped'] ?? []);
-    if ($skippedCount) {
+    $elements = [];
+
+    foreach ($byDir as $dir => $items) {
+      $rows = array_map(
+        fn($item) => [
+          ['data' => Html::escape($item['path'])],
+          ['data' => $item['label'], 'class' => [$item['class']]],
+        ],
+        $items,
+      );
       $elements[] = [
+        '#type'       => 'details',
+        '#title'      => $this->labelFromDir($dir) . ' (' . count($items) . ')',
+        '#open'       => TRUE,
+        '#attributes' => ['class' => ['js-form-wrapper', 'form-wrapper']],
+        'table'       => [
+          '#type'       => 'table',
+          '#header'     => [$this->t('File'), $this->t('Operation')],
+          '#rows'       => $rows,
+          '#responsive' => TRUE,
+        ],
+      ];
+    }
+
+    if (!empty($preview['errors'])) {
+      $errorRows = array_map(
+        fn($e) => [['data' => Html::escape($e)], ['data' => $this->t('Error'), 'class' => ['color-error']]],
+        $preview['errors'],
+      );
+      $elements[] = [
+        '#type'       => 'details',
+        '#title'      => $this->t('Errors (@count)', ['@count' => count($preview['errors'])]),
+        '#open'       => TRUE,
+        '#attributes' => ['class' => ['js-form-wrapper', 'form-wrapper', 'color-error']],
+        'table'       => [
+          '#type'   => 'table',
+          '#header' => [$this->t('Message'), $this->t('Type')],
+          '#rows'   => $errorRows,
+        ],
+      ];
+    }
+
+    $skippedCount = count($preview['skipped'] ?? []);
+    $elements_wrap = ['#type' => 'container', 'items' => $elements];
+
+    if ($skippedCount) {
+      $elements_wrap['skipped'] = [
         '#type'       => 'html_tag',
         '#tag'        => 'p',
         '#value'      => $this->t('@count file(s) unchanged (checksum match).', ['@count' => $skippedCount]),
@@ -336,40 +352,23 @@ class SyncForm extends FormBase {
       ];
     }
 
-    return [
-      '#type'       => 'container',
-      '#attributes' => ['class' => ['js-form-wrapper']],
-      'items'       => $elements,
-    ];
+    return $elements_wrap;
   }
 
   // ---------------------------------------------------------------------------
   // Helpers
   // ---------------------------------------------------------------------------
 
-  private function detectTypeFromPath(string $path): string {
-    return match (explode('/', $path)[0] ?? '') {
-      'content_types' => 'nodes',
-      'taxonomy'      => 'taxonomy',
-      'media'         => 'media',
-      'blocks'        => 'blocks',
-      'files'         => 'files',
-      'users'         => 'users',
-      'menus'         => 'menus',
-      default         => 'other',
-    };
-  }
-
-  private function labelForType(string $type): string {
-    return (string) match ($type) {
-      'nodes'    => $this->t('Nodes'),
-      'taxonomy' => $this->t('Taxonomy'),
-      'media'    => $this->t('Media'),
-      'blocks'   => $this->t('Block content'),
-      'files'    => $this->t('Files'),
-      'users'    => $this->t('Users'),
-      'menus'    => $this->t('Menu links'),
-      default    => $this->t('Other'),
+  private function labelFromDir(string $dir): string {
+    return (string) match ($dir) {
+      'content_types' => $this->t('Nodes'),
+      'taxonomy'      => $this->t('Taxonomy terms'),
+      'media'         => $this->t('Media'),
+      'blocks'        => $this->t('Block content'),
+      'files'         => $this->t('Files'),
+      'users'         => $this->t('Users'),
+      'menus'         => $this->t('Menu links'),
+      default         => $this->t('Other'),
     };
   }
 
