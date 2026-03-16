@@ -28,17 +28,17 @@ class MediaExporter extends BaseExporter {
    *
    * @return array{path: string, skipped: bool}
    */
-  public function exportToFile(EntityInterface $entity): array {
+  public function exportToFile(EntityInterface $entity, bool $dryRun = FALSE): array {
     $markdown = $this->export($entity);
 
     $dir = $this->contentExportDir() . '/' . $this->typeDir() . '/' . $entity->bundle();
-    $this->ensureDir($dir);
+    $this->ensureDir($dir, $dryRun);
 
     $slug     = $this->getMediaSlug($entity);
     $langcode = $entity->language()->getId();
     $filepath = $dir . '/' . $slug . '-' . $langcode . '.md';
 
-    $written = $this->writeIfChanged($filepath, $markdown);
+    $written = $this->writeIfChanged($filepath, $markdown, $dryRun);
     return ['path' => $filepath, 'skipped' => !$written];
   }
 

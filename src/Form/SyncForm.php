@@ -48,18 +48,14 @@ class SyncForm extends FormBase {
     $exportPreview = $this->exporter->previewAll();
     $importPreview = $this->importer->previewAll();
 
+    $pendingExport = count($exportPreview['exported']) + count($exportPreview['deleted']);
     $pendingImport = count($importPreview['imported'])
       + count($importPreview['updated'])
       + count($importPreview['deleted']);
 
-    $totalEntities = array_sum(array_column($exportPreview, 'entities'));
-    $totalFiles    = array_sum(array_column($exportPreview, 'files'));
-
-    // Outer wrapper follows the layout-container pattern used across Drupal
-    // admin pages (e.g. config sync, update manager).
     $form['#attributes']['class'][] = 'layout-container';
 
-    $form['summary'] = $this->buildSummary($pendingImport, $totalEntities, $totalFiles);
+    $form['summary'] = $this->buildSummary($pendingExport, $pendingImport);
 
     // --- Export panel ---
     $form['export_details'] = [
@@ -76,13 +72,17 @@ class SyncForm extends FormBase {
       ),
       '#attributes' => ['class' => ['description']],
     ];
-    $form['export_details']['content'] = $this->buildExportDetails($exportPreview);
+    $form['export_details']['content'] = $this->buildChangesPreview($exportPreview, [
+      'exported' => ['label' => $this->t('Would write'), 'class' => 'color-warning'],
+      'deleted'  => ['label' => $this->t('Would delete'), 'class' => 'color-error'],
+    ]);
     $form['export_details']['actions'] = ['#type' => 'actions'];
     $form['export_details']['actions']['export'] = [
       '#type'        => 'submit',
       '#name'        => 'export',
       '#value'       => $this->t('Export all'),
       '#button_type' => 'primary',
+      '#disabled'    => $pendingExport === 0 && empty($exportPreview['errors']),
     ];
 
     // --- Import panel ---
@@ -100,7 +100,11 @@ class SyncForm extends FormBase {
       ),
       '#attributes' => ['class' => ['description']],
     ];
-    $form['import_details']['preview'] = $this->buildImportPreview($importPreview);
+    $form['import_details']['preview'] = $this->buildChangesPreview($importPreview, [
+      'imported' => ['label' => $this->t('New'),          'class' => 'color-success'],
+      'updated'  => ['label' => $this->t('Updated'),      'class' => 'color-warning'],
+      'deleted'  => ['label' => $this->t('Would delete'), 'class' => 'color-error'],
+    ]);
     $form['import_details']['actions'] = ['#type' => 'actions'];
     $form['import_details']['actions']['import'] = [
       '#type'        => 'submit',
@@ -194,116 +198,55 @@ class SyncForm extends FormBase {
   // Render helpers
   // ---------------------------------------------------------------------------
 
-  private function buildSummary(int $pendingImport, int $totalEntities, int $totalFiles): array {
-    $inSync     = $pendingImport === 0;
+  private function buildSummary(int $pendingExport, int $pendingImport): array {
+    $inSync     = $pendingExport === 0 && $pendingImport === 0;
     $msgType    = $inSync ? 'messages--status' : 'messages--warning';
     $icon       = $inSync ? '✔' : '⚠';
     $statusText = $inSync
       ? $this->t('Everything is in sync.')
-      : $this->t('@count pending change(s) to import from files.', ['@count' => $pendingImport]);
+      : $this->t('@export pending export(s) · @import pending import(s).', [
+          '@export' => $pendingExport,
+          '@import' => $pendingImport,
+        ]);
 
     return [
       '#type'       => 'container',
       '#attributes' => [
-        'class' => ['messages', $msgType],
-        'role'  => 'status',
+        'class'      => ['messages', $msgType],
+        'role'       => 'status',
         'aria-label' => $inSync ? $this->t('Sync status: in sync') : $this->t('Sync status: changes pending'),
       ],
       'wrapper' => [
         '#type'       => 'container',
         '#attributes' => ['class' => ['messages__wrapper']],
-        'text' => [
+        'text'        => [
           '#markup' => '<span class="messages__icon" aria-hidden="true">' . $icon . '</span>'
-            . '<div class="messages__content">'
-            . '<strong>' . $statusText . '</strong>'
-            . ' <span class="description">'
-            . $this->t('@entities entities in Drupal · @files files on disk', [
-              '@entities' => $totalEntities,
-              '@files'    => $totalFiles,
-            ])
-            . '</span>'
-            . '</div>',
+            . '<div class="messages__content"><strong>' . $statusText . '</strong></div>',
         ],
       ],
     ];
   }
 
-  private function buildExportDetails(array $preview): array {
-    $labels = [
-      'node'              => $this->t('Nodes'),
-      'taxonomy_term'     => $this->t('Taxonomy terms'),
-      'media'             => $this->t('Media'),
-      'block_content'     => $this->t('Block content'),
-      'file'              => $this->t('Files'),
-      'user'              => $this->t('Users'),
-      'menu_link_content' => $this->t('Menu links'),
-    ];
-
-    $elements = [];
-    foreach ($preview as $entity_type => $counts) {
-      if ($counts['entities'] === 0 && $counts['files'] === 0) {
-        continue;
-      }
-      $diff = $counts['entities'] - $counts['files'];
-      if ($diff > 0) {
-        $statusText  = $this->t('+@n to export', ['@n' => $diff]);
-        $statusClass = 'color-warning';
-      }
-      elseif ($diff < 0) {
-        $statusText  = $this->t('@n stale file(s)', ['@n' => abs($diff)]);
-        $statusClass = 'color-warning';
-      }
-      else {
-        $statusText  = $this->t('In sync');
-        $statusClass = 'color-success';
-      }
-
-      $label = $labels[$entity_type] ?? $entity_type;
-      $title = $label . ' — ' . $counts['entities'] . ' in Drupal · ' . $counts['files'] . ' files · ' . $statusText;
-
-      $rows = array_map(
-        fn($path) => [['data' => Html::escape($path)]],
-        $counts['paths'],
-      );
-
-      $elements[] = [
-        '#type'       => 'details',
-        '#title'      => $title,
-        '#open'       => FALSE,
-        '#attributes' => ['class' => [$statusClass]],
-        'table'       => [
-          '#type'       => 'table',
-          '#header'     => [$this->t('File')],
-          '#rows'       => $rows,
-          '#responsive' => TRUE,
-          '#empty'      => $this->t('No files on disk yet.'),
-        ],
-      ];
-    }
-
-    if (empty($elements)) {
-      return [
-        '#type'  => 'html_tag',
-        '#tag'   => 'p',
-        '#value' => $this->t('No content found.'),
-      ];
-    }
-
-    return ['#type' => 'container', 'items' => $elements];
-  }
-
-  private function buildImportPreview(array $preview): array {
-    $ops = [
-      'imported' => ['label' => $this->t('New'),          'class' => 'color-success'],
-      'updated'  => ['label' => $this->t('Updated'),      'class' => 'color-warning'],
-      'deleted'  => ['label' => $this->t('Would delete'), 'class' => 'color-error'],
-    ];
-
-    // Group paths by entity type dir prefix.
+  /**
+   * Unified preview renderer for both export and import panels.
+   *
+   * @param array $preview
+   *   Result of exporter->previewAll() or importer->previewAll().
+   * @param array $ops
+   *   Map of preview key → ['label' => ..., 'class' => ...].
+   *   e.g. ['exported' => ['label' => 'Would write', 'class' => 'color-warning']]
+   */
+  private function buildChangesPreview(array $preview, array $ops): array {
+    // Group items by entity type.
+    // Items can be either file paths (content_types/article/en/foo.md)
+    // or entity description strings (node:article: Title (uuid)) for
+    // import deletions returned by syncDeletedEntities().
     $byDir = [];
-    foreach ($ops as $op => $info) {
-      foreach ($preview[$op] ?? [] as $path) {
-        $dir = explode('/', $path)[0] ?? 'other';
+    foreach ($ops as $key => $info) {
+      foreach ($preview[$key] ?? [] as $path) {
+        $dir = str_contains($path, '/')
+          ? (explode('/', $path)[0] ?? 'other')
+          : $this->dirFromEntityType(explode(':', $path)[0] ?? 'other');
         $byDir[$dir][] = ['path' => $path, 'label' => $info['label'], 'class' => $info['class']];
       }
     }
@@ -312,7 +255,7 @@ class SyncForm extends FormBase {
       return [
         '#type'       => 'html_tag',
         '#tag'        => 'p',
-        '#value'      => '<span aria-hidden="true">✔</span> ' . $this->t('No pending changes — files are up to date with Drupal.'),
+        '#value'      => '<span aria-hidden="true">✔</span> ' . $this->t('No pending changes.'),
         '#attributes' => ['class' => ['color-success']],
       ];
     }
@@ -359,24 +302,37 @@ class SyncForm extends FormBase {
       ];
     }
 
-    $skippedCount = count($preview['skipped'] ?? []);
-    $elements_wrap = ['#type' => 'container', 'items' => $elements];
+    $wrap = ['#type' => 'container', 'items' => $elements];
 
+    $skippedCount = count($preview['skipped'] ?? []);
     if ($skippedCount) {
-      $elements_wrap['skipped'] = [
+      $wrap['skipped'] = [
         '#type'       => 'html_tag',
         '#tag'        => 'p',
-        '#value'      => $this->t('@count file(s) unchanged (checksum match).', ['@count' => $skippedCount]),
+        '#value'      => $this->t('@count file(s) unchanged.', ['@count' => $skippedCount]),
         '#attributes' => ['class' => ['description']],
       ];
     }
 
-    return $elements_wrap;
+    return $wrap;
   }
 
   // ---------------------------------------------------------------------------
   // Helpers
   // ---------------------------------------------------------------------------
+
+  private function dirFromEntityType(string $entityType): string {
+    return match ($entityType) {
+      'node'              => 'content_types',
+      'taxonomy_term'     => 'taxonomy',
+      'media'             => 'media',
+      'block_content'     => 'blocks',
+      'file'              => 'files',
+      'user'              => 'users',
+      'menu_link_content' => 'menus',
+      default             => 'other',
+    };
+  }
 
   private function labelFromDir(string $dir): string {
     return (string) match ($dir) {

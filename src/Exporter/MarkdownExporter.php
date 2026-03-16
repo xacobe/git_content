@@ -47,51 +47,43 @@ class MarkdownExporter {
    * @return array<string, array{entities: int, files: int}>
    *   Keyed by entity type machine name.
    */
+  /**
+   * Preview what exportAll() would do without writing anything.
+   *
+   * Runs the full export pipeline in dry-run mode (same cost as exportAll
+   * minus actual disk writes) and returns the same array shape so callers
+   * can treat preview and real results identically.
+   *
+   * @return array{exported: string[], skipped: string[], deleted: string[], errors: string[]}
+   */
   public function previewAll(): array {
-    $dirMap = [
-      'node'              => 'content_types',
-      'taxonomy_term'     => 'taxonomy',
-      'media'             => 'media',
-      'block_content'     => 'blocks',
-      'file'              => 'files',
-      'user'              => 'users',
-      'menu_link_content' => 'menus',
-    ];
+    $result       = ['exported' => [], 'skipped' => [], 'deleted' => [], 'errors' => []];
+    $touchedFiles = [];
 
-    // Group existing .md files by top-level directory.
-    $filesByDir = [];
-    foreach ($this->scanContentExportFiles() as $relpath) {
-      $dir = explode('/', $relpath)[0] ?? '';
-      $filesByDir[$dir][] = $relpath;
-    }
-
-    $preview = [];
     foreach ($this->exporterMap() as $entity_type => $exporter) {
-      try {
-        $storage = $this->entityTypeManager->getStorage($entity_type);
-        $ids     = $storage->getQuery()->accessCheck(TRUE)->execute();
-        // Count translations: each entity may produce more than one file.
-        $entities = 0;
-        foreach ($storage->loadMultiple($ids) as $entity) {
-          $entities += ($entity instanceof TranslatableInterface)
-            ? count($entity->getTranslationLanguages())
-            : 1;
-        }
-      }
-      catch (\Exception $e) {
-        $entities = 0;
-      }
+      $typeResult = $this->exportEntityType($entity_type, $exporter, TRUE);
 
-      $dir   = $dirMap[$entity_type] ?? $entity_type;
-      $paths = $filesByDir[$dir] ?? [];
-      $preview[$entity_type] = [
-        'entities' => $entities,
-        'files'    => count($paths),
-        'paths'    => $paths,
-      ];
+      foreach ($typeResult['exported_files'] as $file) {
+        $result['exported'][] = $file;
+        $touchedFiles[]       = $file;
+      }
+      foreach ($typeResult['skipped_files'] as $file) {
+        $result['skipped'][] = $file;
+        $touchedFiles[]      = $file;
+      }
+      foreach ($typeResult['errors'] as $error) {
+        $result['errors'][] = $error;
+      }
     }
 
-    return $preview;
+    // Files on disk that were not touched = would be deleted as orphans.
+    foreach ($this->scanContentExportFiles() as $relpath) {
+      if (!in_array($relpath, $touchedFiles)) {
+        $result['deleted'][] = $relpath;
+      }
+    }
+
+    return $result;
   }
 
   /**
@@ -203,7 +195,7 @@ class MarkdownExporter {
    *
    * @return array{exported_files: string[], skipped_files: string[], errors: string[]}
    */
-  private function exportEntityType(string $entity_type, BaseExporter $exporter): array {
+  private function exportEntityType(string $entity_type, BaseExporter $exporter, bool $dryRun = FALSE): array {
     $exportedFiles = [];
     $skippedFiles  = [];
     $errors        = [];
@@ -233,7 +225,7 @@ class MarkdownExporter {
 
       foreach ($translations as $translation) {
         try {
-          $fileResult = $exporter->exportToFile($translation);
+          $fileResult = $exporter->exportToFile($translation, $dryRun);
           $filepath   = is_array($fileResult) ? $fileResult['path'] : $fileResult;
           $relpath    = str_replace($this->contentExportDir() . '/', '', $filepath);
           $skipped    = is_array($fileResult) ? ($fileResult['skipped'] ?? FALSE) : FALSE;

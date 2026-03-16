@@ -71,20 +71,20 @@ class MenuLinkExporter extends BaseExporter {
    *
    * @return array{path: string, skipped: bool}
    */
-  public function exportToFile(EntityInterface $entity): array {
+  public function exportToFile(EntityInterface $entity, bool $dryRun = FALSE): array {
     $markdown = $this->export($entity);
 
     $menu_id  = $entity->getMenuName();
     $langcode = $entity->language()->getId();
     $dir = $this->contentExportDir() . '/' . $this->typeDir() . '/' . $menu_id . '/' . $langcode;
-    $this->ensureDir($dir);
+    $this->ensureDir($dir, $dryRun);
 
     // Build the file name using parent hierarchy:
     // parent__child__grandchild.md
     $filename = $this->getLinkPath($entity) . '.md';
     $filepath = $dir . '/' . $filename;
 
-    $written = $this->writeIfChanged($filepath, $markdown);
+    $written = $this->writeIfChanged($filepath, $markdown, $dryRun);
     return ['path' => $filepath, 'skipped' => !$written];
   }
 

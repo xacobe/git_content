@@ -78,7 +78,7 @@ abstract class BaseExporter {
    * @return array{path: string, skipped: bool}
    *   Generated file information.
    */
-  abstract public function exportToFile(EntityInterface $entity): array;
+  abstract public function exportToFile(EntityInterface $entity, bool $dryRun = FALSE): array;
 
   /**
    * Generate the full Markdown contents for the entity.
@@ -208,23 +208,21 @@ abstract class BaseExporter {
    * @return bool
    *   TRUE if the file was written (new or updated), FALSE if skipped.
    */
-  protected function writeIfChanged(string $filepath, string $content): bool {
-    if (file_exists($filepath)) {
-      $existing = file_get_contents($filepath);
-      if ($existing === $content) {
-        return false;
-      }
+  protected function writeIfChanged(string $filepath, string $content, bool $dryRun = FALSE): bool {
+    if (file_exists($filepath) && file_get_contents($filepath) === $content) {
+      return FALSE;
     }
-
-    file_put_contents($filepath, $content);
-    return true;
+    if (!$dryRun) {
+      file_put_contents($filepath, $content);
+    }
+    return TRUE;
   }
 
   /**
    * Create the export directory if it does not exist.
    */
-  protected function ensureDir(string $dir): void {
-    if (!file_exists($dir)) {
+  protected function ensureDir(string $dir, bool $dryRun = FALSE): void {
+    if (!$dryRun && !file_exists($dir)) {
       mkdir($dir, 0775, TRUE);
     }
   }

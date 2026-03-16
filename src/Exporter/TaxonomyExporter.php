@@ -24,17 +24,17 @@ class TaxonomyExporter extends BaseExporter {
    *
    * @return array{path: string, skipped: bool}
    */
-  public function exportToFile(EntityInterface $entity): array {
+  public function exportToFile(EntityInterface $entity, bool $dryRun = FALSE): array {
     $markdown = $this->export($entity);
 
     $langcode = $entity->language()->getId();
     $dir = $this->contentExportDir() . '/' . $this->typeDir() . '/' . $entity->bundle() . '/' . $langcode;
-    $this->ensureDir($dir);
+    $this->ensureDir($dir, $dryRun);
 
     $slug     = $this->getTermSlug($entity);
     $filepath = $dir . '/' . $slug . '.md';
 
-    $written = $this->writeIfChanged($filepath, $markdown);
+    $written = $this->writeIfChanged($filepath, $markdown, $dryRun);
     return ['path' => $filepath, 'skipped' => !$written];
   }
 
