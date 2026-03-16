@@ -71,18 +71,7 @@ class NodeExporter extends BaseExporter {
     $frontmatter['translation_of'] = $this->getTranslationOf($entity);
 
     // --- Body ---
-    $body = '';
-    if ($entity->hasField('body') && !$entity->get('body')->isEmpty()) {
-      $body_field  = $entity->get('body');
-      $body_format = $body_field->format ?? 'basic_html';
-      if ($body_format === 'full_html') {
-        $body = $this->serializer->prettyHtml($body_field->value) ?? '';
-        $frontmatter['body_format'] = 'full_html';
-      }
-      else {
-        $body = $this->serializer->htmlToMarkdown($body_field->value);
-      }
-    }
+    $body = $this->exportBodyField($entity, $frontmatter);
 
     $frontmatter = $this->addChecksum($frontmatter, $body);
     return $this->serializer->serialize($frontmatter, $body);

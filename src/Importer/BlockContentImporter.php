@@ -34,7 +34,7 @@ class BlockContentImporter extends BaseImporter {
     $block->set('info', $frontmatter['title'] ?? 'Untitled');
     $block->set('status', $this->resolveStatus($frontmatter, 'published', 'draft'));
 
-    $this->setBody($block, $body);
+    $this->setBody($block, $body, $frontmatter['body_format'] ?? 'basic_html');
 
     $definitions = $this->fieldDiscovery->getFields('block_content', $bundle);
     $this->populateDynamicFields($block, $frontmatter, $definitions);

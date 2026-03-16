@@ -230,6 +230,30 @@ abstract class BaseExporter {
   }
 
   /**
+   * Export the body field respecting its text format.
+   *
+   * - full_html  → pretty-prints with tidy (if available) and adds
+   *                `body_format: full_html` to frontmatter so the importer
+   *                can round-trip the HTML without converting it to Markdown.
+   * - other      → converts HTML to Markdown (default behaviour).
+   *
+   * @param array $frontmatter Passed by reference; body_format is added when needed.
+   * @return string The body content ready to embed in the .md file.
+   */
+  protected function exportBodyField(EntityInterface $entity, array &$frontmatter): string {
+    if (!$entity->hasField('body') || $entity->get('body')->isEmpty()) {
+      return '';
+    }
+    $body_field  = $entity->get('body');
+    $body_format = $body_field->format ?? 'basic_html';
+    if ($body_format === 'full_html') {
+      $frontmatter['body_format'] = 'full_html';
+      return $this->serializer->prettyHtml($body_field->value) ?? '';
+    }
+    return $this->serializer->htmlToMarkdown($body_field->value);
+  }
+
+  /**
    * Convert a string to a URL-safe slug.
    */
   protected function slugify(string $text): string {

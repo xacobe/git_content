@@ -68,11 +68,8 @@ class BlockContentExporter extends BaseExporter {
 
     $frontmatter['translation_of'] = $this->getTranslationOf($entity);
 
-    // Body: block_content may have a body field
-    $body = '';
-    if ($entity->hasField('body') && !$entity->get('body')->isEmpty()) {
-      $body = $this->serializer->htmlToMarkdown($entity->get('body')->value);
-    }
+    // Body: block_content may have a body field.
+    $body = $this->exportBodyField($entity, $frontmatter);
 
     $frontmatter = $this->addChecksum($frontmatter, $body);
     return $this->serializer->serialize($frontmatter, $body);
