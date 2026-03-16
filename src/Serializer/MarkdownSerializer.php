@@ -91,6 +91,34 @@ class MarkdownSerializer {
   }
 
   /**
+   * Pretty-print HTML using the tidy extension if available.
+   *
+   * Falls back to the raw string when tidy is not loaded, so the module
+   * works in any environment regardless of whether the extension is installed.
+   * Skips tidy entirely when the content has no HTML tags (e.g. plain text
+   * stored in a full_html field) to avoid mangling Markdown autolinks.
+   */
+  public function prettyHtml(?string $html): ?string {
+    if ($html === NULL) {
+      return NULL;
+    }
+    // Only run tidy when the content contains real HTML tags.
+    if (!preg_match('/<[a-z][a-z0-9-]*(?:\s[^>]*)?\/?>/', $html) || !extension_loaded('tidy')) {
+      return $html;
+    }
+    $tidy = new \tidy();
+    $tidy->parseString($html, [
+      'indent'         => TRUE,
+      'indent-spaces'  => 2,
+      'wrap'           => 0,
+      'output-html'    => TRUE,
+      'show-body-only' => TRUE,
+    ], 'utf8');
+    $tidy->cleanRepair();
+    return trim((string) $tidy);
+  }
+
+  /**
    * Convert HTML to Markdown using league/html-to-markdown.
    */
   public function htmlToMarkdown(string $html): string {

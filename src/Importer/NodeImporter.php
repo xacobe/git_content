@@ -39,7 +39,7 @@ class NodeImporter extends BaseImporter {
       $node->set('changed', $this->parseDate($frontmatter['changed']));
     }
 
-    $this->setBody($node, $body);
+    $this->setBody($node, $body, $frontmatter['body_format'] ?? 'basic_html');
 
     $definitions = $this->fieldDiscovery->getFields('node', $bundle);
     $this->populateDynamicFields($node, $frontmatter, $definitions);

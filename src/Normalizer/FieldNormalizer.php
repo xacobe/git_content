@@ -102,7 +102,16 @@ class FieldNormalizer {
           if ($target_id && $target_type === 'taxonomy_term') {
             $term = $this->entityTypeManager
               ->getStorage('taxonomy_term')->load($target_id);
-            $normalized[] = $term ? $term->label() : $target_id;
+            if ($term) {
+              $langcode = $field->getEntity()->language()->getId();
+              if ($langcode !== 'und' && $term->hasTranslation($langcode)) {
+                $term = $term->getTranslation($langcode);
+              }
+              $normalized[] = $term->label();
+            }
+            else {
+              $normalized[] = $target_id;
+            }
           }
           elseif ($target_id && $target_type === 'node') {
             $node = $this->entityTypeManager
@@ -124,9 +133,12 @@ class FieldNormalizer {
         case 'text_with_summary':
           $value  = $item['value'] ?? NULL;
           $format = $item['format'] ?? 'basic_html';
-          $normalized[] = ($value !== NULL && $format !== 'full_html')
-            ? $this->serializer->htmlToMarkdown($value)
-            : $this->prettyHtml($value);
+          if ($format === 'full_html') {
+            $normalized[] = ['value' => $this->serializer->prettyHtml($value), 'format' => 'full_html'];
+          }
+          else {
+            $normalized[] = $value !== NULL ? $this->serializer->htmlToMarkdown($value) : NULL;
+          }
           break;
 
         default:
@@ -222,21 +234,16 @@ class FieldNormalizer {
         case 'text':
         case 'text_long':
         case 'text_with_summary':
-          if (!is_string($item)) {
-            $result[] = ['value' => (string) $item, 'format' => 'basic_html'];
+          // Explicit format stored as array (exported from a full_html field).
+          if (is_array($item) && isset($item['format'])) {
+            $result[] = ['value' => $item['value'] ?? '', 'format' => $item['format']];
             break;
           }
-          // If the value contains HTML tags it was exported from a full_html
-          // field — keep it as-is. Otherwise treat it as Markdown.
-          if (preg_match('/<[a-z][^>]*>/i', $item)) {
-            $result[] = ['value' => $item, 'format' => 'full_html'];
-          }
-          else {
-            $result[] = [
-              'value'  => $this->serializer->markdownToHtml($item),
-              'format' => 'basic_html',
-            ];
-          }
+          // Plain string — treat as Markdown and convert to HTML.
+          $result[] = [
+            'value'  => is_string($item) ? $this->serializer->markdownToHtml($item) : (string) $item,
+            'format' => 'basic_html',
+          ];
           break;
 
         default:
@@ -326,30 +333,6 @@ class FieldNormalizer {
   // ---------------------------------------------------------------------------
   // Private helpers
   // ---------------------------------------------------------------------------
-
-  /**
-   * Pretty-print HTML using the tidy extension if available.
-   *
-   * Falls back to the raw HTML string when tidy is not loaded, so the module
-   * works in any environment regardless of whether the extension is installed.
-   */
-  private function prettyHtml(?string $html): ?string {
-    if ($html === NULL || !extension_loaded('tidy')) {
-      return $html;
-    }
-
-    $tidy = new \tidy();
-    $tidy->parseString($html, [
-      'indent'        => TRUE,
-      'indent-spaces' => 2,
-      'wrap'          => 0,
-      'output-html'   => TRUE,
-      'show-body-only' => TRUE,
-    ], 'utf8');
-    $tidy->cleanRepair();
-
-    return trim((string) $tidy);
-  }
 
   private function getSlugFromEntity(EntityInterface $entity): string {
     if ($entity->hasField('path') && !$entity->get('path')->isEmpty()) {

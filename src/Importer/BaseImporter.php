@@ -82,7 +82,7 @@ abstract class BaseImporter {
       ...ManagedFields::CORE,
       // Frontmatter keys handled explicitly before this loop.
       'bundle', 'vocabulary', 'lang', 'name', 'slug', 'translation_of',
-      'weight', 'parent', 'file', 'checksum',
+      'weight', 'parent', 'file', 'checksum', 'body_format',
       ...$extra_skip,
     ];
 
@@ -157,11 +157,11 @@ abstract class BaseImporter {
   /**
    * Set the body field from Markdown, if the entity has one.
    */
-  protected function setBody($entity, string $body): void {
+  protected function setBody($entity, string $body, string $format = 'basic_html'): void {
     if ($entity->hasField('body') && !empty($body)) {
       $entity->set('body', [
-        'value'  => $this->serializer->markdownToHtml($body),
-        'format' => 'basic_html',
+        'value'  => $format === 'full_html' ? $body : $this->serializer->markdownToHtml($body),
+        'format' => $format,
       ]);
     }
   }

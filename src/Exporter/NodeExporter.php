@@ -73,7 +73,15 @@ class NodeExporter extends BaseExporter {
     // --- Body ---
     $body = '';
     if ($entity->hasField('body') && !$entity->get('body')->isEmpty()) {
-      $body = $this->serializer->htmlToMarkdown($entity->get('body')->value);
+      $body_field  = $entity->get('body');
+      $body_format = $body_field->format ?? 'basic_html';
+      if ($body_format === 'full_html') {
+        $body = $this->serializer->prettyHtml($body_field->value) ?? '';
+        $frontmatter['body_format'] = 'full_html';
+      }
+      else {
+        $body = $this->serializer->htmlToMarkdown($body_field->value);
+      }
     }
 
     $frontmatter = $this->addChecksum($frontmatter, $body);
