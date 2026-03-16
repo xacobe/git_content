@@ -102,15 +102,7 @@ class MarkdownImporter {
     }
 
     $uuid        = $frontmatter['uuid'] ?? NULL;
-    $entity_type = match ($type) {
-      'taxonomy_term'     => 'taxonomy_term',
-      'file'              => 'file',
-      'user'              => 'user',
-      'media'             => 'media',
-      'block_content'     => 'block_content',
-      'menu_link_content' => 'menu_link_content',
-      default             => 'node',
-    };
+    $entity_type = $this->resolveEntityType($type);
 
     $bundle = match ($entity_type) {
       'taxonomy_term'     => $frontmatter['vocabulary'] ?? NULL,
@@ -303,7 +295,7 @@ class MarkdownImporter {
           }
 
           $label      = method_exists($entity, 'label') ? $entity->label() : $entity->id();
-          $affected[] = "$entity_type:$bundle: $label ($uuid)";
+          $affected[] = "$entity_type:$bundle: $label ({$entity->uuid()})";
 
           if ($delete) {
             $entity->delete();
@@ -313,6 +305,17 @@ class MarkdownImporter {
     }
 
     return $affected;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Helpers
+  // ---------------------------------------------------------------------------
+
+  private function resolveEntityType(string $type): string {
+    return match ($type) {
+      'taxonomy_term', 'file', 'user', 'media', 'block_content', 'menu_link_content' => $type,
+      default => 'node',
+    };
   }
 
   // ---------------------------------------------------------------------------
@@ -400,10 +403,7 @@ class MarkdownImporter {
 
     $frontmatter = $this->serializer->flattenGroups($parsed['frontmatter']);
     $type        = $frontmatter['type'] ?? '';
-    $entity_type = match ($type) {
-      'taxonomy_term', 'file', 'user', 'media', 'block_content', 'menu_link_content' => $type,
-      default => 'node',
-    };
+    $entity_type = $this->resolveEntityType($type);
 
     return $cache[$filepath] = [
       'type'           => $type,

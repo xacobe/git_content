@@ -42,23 +42,6 @@ class MarkdownExporter {
   // ---------------------------------------------------------------------------
 
   /**
-   * Export all content to content_export/.
-   *
-   * @return array{exported: string[], skipped: string[], deleted: string[], errors: string[]}
-   *   Relative paths of files written, unchanged, removed, and any errors.
-   */
-  /**
-   * Export a subset of entity types without orphan cleanup.
-   *
-   * Useful for partial exports (e.g. "only nodes"). For a full content sync
-   * including removal of stale files, use exportAll() instead.
-   *
-   * @param string[] $entityTypes
-   *   Entity type machine names, e.g. ['node', 'taxonomy_term'].
-   *
-   * @return array{exported: string[], skipped: string[], deleted: string[], errors: string[]}
-   */
-  /**
    * Return per-type entity counts and file counts without writing anything.
    *
    * @return array<string, array{entities: int, files: int}>
@@ -106,6 +89,17 @@ class MarkdownExporter {
     return $preview;
   }
 
+  /**
+   * Export a subset of entity types without orphan cleanup.
+   *
+   * Useful for partial exports (e.g. "only nodes"). For a full content sync
+   * including removal of stale files, use exportAll() instead.
+   *
+   * @param string[] $entityTypes
+   *   Entity type machine names, e.g. ['node', 'taxonomy_term'].
+   *
+   * @return array{exported: string[], skipped: string[], deleted: string[], errors: string[]}
+   */
   public function exportTypes(array $entityTypes): array {
     $result = ['exported' => [], 'skipped' => [], 'deleted' => [], 'errors' => []];
 
@@ -120,6 +114,12 @@ class MarkdownExporter {
     return $result;
   }
 
+  /**
+   * Export all content to content_export/.
+   *
+   * @return array{exported: string[], skipped: string[], deleted: string[], errors: string[]}
+   *   Relative paths of files written, unchanged, removed, and any errors.
+   */
   public function exportAll(): array {
     $result = ['exported' => [], 'skipped' => [], 'deleted' => [], 'errors' => []];
 
