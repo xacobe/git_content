@@ -178,6 +178,43 @@ class MarkdownExporter {
    *
    * @return array<string, BaseExporter>
    */
+  /**
+   * Re-export a single entity (all translations) identified by UUID.
+   *
+   * Used by the importer after a real import to normalise the .md file to the
+   * canonical exporter format, ensuring the next export preview shows the file
+   * as unchanged.
+   */
+  public function exportEntityByUuid(string $uuid, string $entityType): void {
+    $exporter = $this->exporterMap()[$entityType] ?? NULL;
+    if (!$exporter) {
+      return;
+    }
+
+    $entities = $this->entityTypeManager->getStorage($entityType)
+      ->loadByProperties(['uuid' => $uuid]);
+    if (empty($entities)) {
+      return;
+    }
+
+    $entity = reset($entities);
+    $translations = [$entity];
+    if ($entity instanceof TranslatableInterface) {
+      foreach ($entity->getTranslationLanguages(FALSE) as $langcode => $language) {
+        $translations[] = $entity->getTranslation($langcode);
+      }
+    }
+
+    foreach ($translations as $translation) {
+      try {
+        $exporter->exportToFile($translation);
+      }
+      catch (\Exception $e) {
+        // Ignore individual translation failures during normalisation.
+      }
+    }
+  }
+
   private function exporterMap(): array {
     return [
       'node'              => $this->nodeExporter,

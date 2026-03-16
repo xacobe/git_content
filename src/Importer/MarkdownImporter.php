@@ -2,6 +2,7 @@
 
 namespace Drupal\git_content\Importer;
 
+use Drupal\git_content\Exporter\MarkdownExporter;
 use Drupal\git_content\Serializer\MarkdownSerializer;
 use Drupal\git_content\Utility\ChecksumTrait;
 use Drupal\git_content\Utility\ContentExportTrait;
@@ -46,6 +47,7 @@ class MarkdownImporter {
     protected UserImporter $userImporter,
     protected BlockContentImporter $blockContentImporter,
     protected MenuLinkImporter $menuLinkImporter,
+    protected MarkdownExporter $exporter,
   ) {
     $this->logger = $loggerFactory->get('git_content');
   }
@@ -197,6 +199,13 @@ class MarkdownImporter {
         $bundle      = $import['bundle'] ?? '__all';
 
         $result[$op][] = str_replace($this->contentExportDir() . '/', '', $filepath);
+
+        // After a real import/update, re-export the entity so the .md file is
+        // in the canonical exporter format.  This guarantees the next export
+        // dry-run sees the file as unchanged (checksum and content match).
+        if (!$dryRun && in_array($op, ['imported', 'updated']) && $uuid && $entity_type) {
+          $this->exporter->exportEntityByUuid($uuid, $entity_type);
+        }
 
         if (!$dryRun) {
           if (!isset($typeCounts[$type])) {
@@ -457,4 +466,10 @@ class MarkdownImporter {
     return FALSE;
   }
 
+  /**
+   * Rewrite the checksum field in a .md file to match its current content.
+   *
+   * After a manual edit the stored checksum is stale. This keeps the file in
+   * sync so the next preview does not flag it as "Updated" again.
+   */
 }

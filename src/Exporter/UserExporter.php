@@ -31,7 +31,6 @@ use Drupal\Core\Entity\EntityInterface;
  *   timezone: Europe/Madrid
  *
  *   created: 2026-01-10
- *   changed: 2026-03-01
  *
  *   roles:
  *     - editor
@@ -111,7 +110,6 @@ class UserExporter extends BaseExporter {
     $frontmatter['__']       = NULL;
 
     $frontmatter['created'] = date('Y-m-d', $entity->getCreatedTime());
-    $frontmatter['changed'] = date('Y-m-d', $entity->getChangedTime());
     $frontmatter['___']     = NULL;
 
     // Roles as a readable list (actual role configuration comes from drush cex)

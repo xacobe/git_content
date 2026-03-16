@@ -35,9 +35,6 @@ class NodeImporter extends BaseImporter {
     if (!empty($frontmatter['created'])) {
       $node->set('created', $this->parseDate($frontmatter['created']));
     }
-    if (!empty($frontmatter['changed'])) {
-      $node->set('changed', $this->parseDate($frontmatter['changed']));
-    }
 
     $this->setBody($node, $body, $frontmatter['body_format'] ?? 'basic_html');
 

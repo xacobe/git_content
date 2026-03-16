@@ -59,7 +59,6 @@ class MediaExporter extends BaseExporter {
     $frontmatter['__']      = NULL;
 
     $frontmatter['created'] = date('Y-m-d', $entity->get('created')->value ?? time());
-    $frontmatter['changed'] = date('Y-m-d', $entity->get('changed')->value ?? time());
     $owner = $entity->get('uid')->entity;
     $frontmatter['author'] = $owner ? $owner->getAccountName() : NULL;
     $frontmatter['___']    = NULL;

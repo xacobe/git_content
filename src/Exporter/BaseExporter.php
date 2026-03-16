@@ -205,16 +205,37 @@ abstract class BaseExporter {
   /**
    * Write a file only if its contents have changed.
    *
+   * In dry-run mode the comparison is checksum-based rather than raw-content
+   * based.  This prevents false positives when a .md file was manually edited:
+   * the entity has not changed (export concern), only the file has (import
+   * concern), so the checksums still match and dry-run correctly returns FALSE.
+   *
    * @return bool
-   *   TRUE if the file was written (new or updated), FALSE if skipped.
+   *   TRUE if the file was written (or would be written), FALSE if skipped.
    */
   protected function writeIfChanged(string $filepath, string $content, bool $dryRun = FALSE): bool {
-    if (file_exists($filepath) && file_get_contents($filepath) === $content) {
+    if (!file_exists($filepath)) {
+      if (!$dryRun) {
+        file_put_contents($filepath, $content);
+      }
+      return TRUE;
+    }
+
+    if ($dryRun) {
+      // Compare only the checksum field.  The checksum encodes the entity
+      // state at last export; if it matches the entity's current output the
+      // entity has not changed, even if the file was manually edited.
+      $existing = $this->serializer->deserialize(file_get_contents($filepath));
+      $generated = $this->serializer->deserialize($content);
+      $existingChecksum  = $existing['frontmatter']['checksum'] ?? NULL;
+      $generatedChecksum = $generated['frontmatter']['checksum'] ?? NULL;
+      return $existingChecksum !== $generatedChecksum;
+    }
+
+    if (file_get_contents($filepath) === $content) {
       return FALSE;
     }
-    if (!$dryRun) {
-      file_put_contents($filepath, $content);
-    }
+    file_put_contents($filepath, $content);
     return TRUE;
   }
 

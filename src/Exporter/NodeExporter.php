@@ -57,7 +57,6 @@ class NodeExporter extends BaseExporter {
     $frontmatter['__']     = NULL;
 
     $frontmatter['created'] = date('Y-m-d', $entity->getCreatedTime());
-    $frontmatter['changed'] = date('Y-m-d', $entity->getChangedTime());
     $owner = $entity->get('uid')->entity;
     $frontmatter['author'] = $owner ? $owner->getAccountName() : NULL;
     $frontmatter['___']    = NULL;

@@ -111,4 +111,5 @@ services:
       - '@git_content.user_importer'
       - '@git_content.block_content_importer'
       - '@git_content.menu_link_importer'
+      - '@git_content.exporter'
 
