@@ -8,7 +8,6 @@ use Drupal\git_content\Serializer\MarkdownSerializer;
 use Drupal\git_content\Utility\ChecksumTrait;
 use Drupal\git_content\Utility\ContentExportTrait;
 use Drupal\git_content\Utility\ManagedFields;
-use Drupal\git_content\Utility\UuidTrait;
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Field\FieldDefinitionInterface;
@@ -26,7 +25,6 @@ abstract class BaseExporter {
 
   use ChecksumTrait;
   use ContentExportTrait;
-  use UuidTrait;
 
   protected FieldDiscovery $fieldDiscovery;
   protected MarkdownSerializer $serializer;
@@ -195,7 +193,7 @@ abstract class BaseExporter {
   }
 
   /**
-   * Return the short UUID of the original entity when this is a translation.
+   * Return the UUID of the original entity when this is a translation.
    */
   protected function getTranslationOf(EntityInterface $entity): ?string {
     if (!$entity->isDefaultTranslation()) {

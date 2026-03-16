@@ -13,7 +13,7 @@ namespace Drupal\git_content\Importer;
 class UserImporter extends BaseImporter {
 
   public function import(array $frontmatter, string $body): string {
-    $short_uuid = $frontmatter['uuid'] ?? NULL;
+    $uuid = $frontmatter['uuid'] ?? NULL;
     $name       = $frontmatter['name'] ?? NULL;
     $mail       = $frontmatter['mail'] ?? NULL;
     $langcode   = $frontmatter['lang'] ?? 'und';
@@ -23,7 +23,7 @@ class UserImporter extends BaseImporter {
     }
 
     // Look up by UUID first, then by name, then by email.
-    $existing = $short_uuid ? $this->findByUuidGlobal($short_uuid, 'user') : NULL;
+    $existing = $uuid ? $this->findByUuidGlobal($uuid, 'user') : NULL;
 
     if (!$existing && $name) {
       $users = $this->entityTypeManager->getStorage('user')
@@ -51,7 +51,7 @@ class UserImporter extends BaseImporter {
     else {
       $user = $this->entityTypeManager->getStorage('user')->create([
         'langcode' => $langcode,
-        'uuid'     => $short_uuid ? $this->expandShortUuid($short_uuid) : $this->uuid->generate(),
+        'uuid'     => $uuid ?? $this->uuid->generate(),
         // Secure random password; must be reset manually.
         'pass'     => $this->passwordGenerator->generate(20),
       ]);

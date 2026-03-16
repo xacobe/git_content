@@ -6,7 +6,6 @@ use Drupal\git_content\Discovery\FieldDiscovery;
 use Drupal\git_content\Normalizer\FieldNormalizer;
 use Drupal\git_content\Serializer\MarkdownSerializer;
 use Drupal\git_content\Utility\ManagedFields;
-use Drupal\git_content\Utility\UuidTrait;
 use Drupal\Component\Datetime\TimeInterface;
 use Drupal\Component\Uuid\UuidInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
@@ -25,7 +24,6 @@ use Psr\Log\LoggerInterface;
  */
 abstract class BaseImporter {
 
-  use UuidTrait;
 
   protected FieldDiscovery $fieldDiscovery;
   protected MarkdownSerializer $serializer;
@@ -172,7 +170,7 @@ abstract class BaseImporter {
   // Reference resolution
   // ---------------------------------------------------------------------------
 
-  protected function findByUuid(string $short_uuid, string $entity_type, string $bundle): mixed {
+  protected function findByUuid(string $uuid, string $entity_type, string $bundle): mixed {
     $bundle_key = match($entity_type) {
       'node'              => 'type',
       'taxonomy_term'     => 'vid',
@@ -182,14 +180,11 @@ abstract class BaseImporter {
       default             => 'type',
     };
 
-    // The short UUID is the first 8 chars of the full UUID (before the first
-    // dash), so a LIKE prefix query lets the DB use its UUID index instead of
-    // loading every entity into PHP.
     $storage = $this->entityTypeManager->getStorage($entity_type);
     $ids = $storage->getQuery()
       ->accessCheck(FALSE)
       ->condition($bundle_key, $bundle)
-      ->condition('uuid', $short_uuid . '%', 'LIKE')
+      ->condition('uuid', $uuid)
       ->range(0, 1)
       ->execute();
 
@@ -200,14 +195,14 @@ abstract class BaseImporter {
   }
 
   /**
-   * Find an entity by short UUID without filtering by bundle.
+   * Find an entity by UUID without filtering by bundle.
    * Safer when the bundle may have changed or is not reliable.
    */
-  protected function findByUuidGlobal(string $short_uuid, string $entity_type): mixed {
+  protected function findByUuidGlobal(string $uuid, string $entity_type): mixed {
     $storage = $this->entityTypeManager->getStorage($entity_type);
     $ids = $storage->getQuery()
       ->accessCheck(FALSE)
-      ->condition('uuid', $short_uuid . '%', 'LIKE')
+      ->condition('uuid', $uuid)
       ->range(0, 1)
       ->execute();
 

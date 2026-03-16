@@ -7,7 +7,7 @@ namespace Drupal\git_content\Importer;
  *
  * Links are imported respecting the hierarchy: parents before children.
  * MarkdownImporter already sorts files by weight; hierarchy is resolved here
- * using a short-uuid → real plugin_id map that is populated during import.
+ * using a uuid → real plugin_id map that is populated during import.
  */
 class MenuLinkImporter extends BaseImporter {
 
@@ -18,11 +18,11 @@ class MenuLinkImporter extends BaseImporter {
 
   public function import(array $frontmatter, string $body): string {
     $langcode   = $frontmatter['lang'] ?? 'und';
-    $short_uuid = $frontmatter['uuid'] ?? NULL;
+    $uuid = $frontmatter['uuid'] ?? NULL;
     $menu_name  = $frontmatter['menu'] ?? 'main';
 
-    $existing = $short_uuid
-      ? $this->findByUuid($short_uuid, 'menu_link_content', $menu_name)
+    $existing = $uuid
+      ? $this->findByUuid($uuid, 'menu_link_content', $menu_name)
       : NULL;
 
     if ($existing) {
@@ -32,7 +32,7 @@ class MenuLinkImporter extends BaseImporter {
       $link = $this->entityTypeManager->getStorage('menu_link_content')->create([
         'langcode'  => $langcode,
         'menu_name' => $menu_name,
-        'uuid'      => $short_uuid ? $this->expandShortUuid($short_uuid) : $this->uuid->generate(),
+        'uuid'      => $uuid ?? $this->uuid->generate(),
       ]);
       $operation = 'imported';
     }
@@ -42,7 +42,7 @@ class MenuLinkImporter extends BaseImporter {
     $link->set('expanded', (bool) ($frontmatter['expanded'] ?? FALSE));
     $link->set('enabled', (bool) ($frontmatter['enabled'] ?? TRUE));
 
-    // Resolve the parent: the frontmatter stores the short UUID of the parent.
+    // Resolve the parent: the frontmatter stores the UUID of the parent link.
     // We resolve it against the map built during this import run.
     $parent_ref = $frontmatter['parent'] ?? NULL;
     if ($parent_ref) {
@@ -77,15 +77,15 @@ class MenuLinkImporter extends BaseImporter {
     $link->save();
 
     // Register the real plugin_id so children can resolve it later.
-    if ($short_uuid) {
-      $this->menuLinkUuidMap[$short_uuid] = 'menu_link_content:' . $link->uuid();
+    if ($uuid) {
+      $this->menuLinkUuidMap[$uuid] = 'menu_link_content:' . $link->uuid();
     }
 
     return $operation;
   }
 
   /**
-   * Resolve the parent plugin_id from its short UUID.
+   * Resolve the parent plugin_id from its UUID.
    * If the parent is a plugin from another module, return it as-is.
    */
   protected function resolveMenuLinkParent(string $parent_ref, string $menu_name): ?string {
@@ -95,12 +95,11 @@ class MenuLinkImporter extends BaseImporter {
     }
 
     // External plugin (not menu_link_content): return as-is.
-    // A menu_link_content UUID is either 8 hex chars (legacy) or a full UUID.
-    if (!preg_match('/^[a-f0-9]{8}$/', $parent_ref) && !preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/', $parent_ref)) {
+    if (!preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/', $parent_ref)) {
       return $parent_ref;
     }
 
-    // Look up in the database by short UUID.
+    // Look up in the database by UUID.
     $existing = $this->findByUuid($parent_ref, 'menu_link_content', $menu_name);
     if ($existing) {
       return 'menu_link_content:' . $existing->uuid();

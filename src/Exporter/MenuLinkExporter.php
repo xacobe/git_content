@@ -115,32 +115,13 @@ class MenuLinkExporter extends BaseExporter {
   }
 
   /**
-   * Load a menu_link_content by its UUID (full or short).
+   * Load a menu_link_content by its UUID.
    */
   protected function loadMenuLinkByUuid(string $uuid): ?\Drupal\Core\Entity\EntityInterface {
-    $storage = $this->entityTypeManager->getStorage('menu_link_content');
-
-    // Try exact match first (full UUID).
-    $links = $storage->loadByProperties(['uuid' => $uuid]);
-    if (!empty($links)) {
-      return reset($links);
-    }
-
-    // Short UUID: the first 8 hex chars equal the start of the full UUID
-    // string, so a LIKE prefix query is sufficient — no full scan needed.
-    $clean = str_replace('-', '', $uuid);
-    if (strlen($clean) === 8) {
-      $ids = $storage->getQuery()
-        ->accessCheck(FALSE)
-        ->condition('uuid', $clean . '%', 'LIKE')
-        ->range(0, 1)
-        ->execute();
-      if (!empty($ids)) {
-        return $storage->load(reset($ids));
-      }
-    }
-
-    return NULL;
+    $links = $this->entityTypeManager
+      ->getStorage('menu_link_content')
+      ->loadByProperties(['uuid' => $uuid]);
+    return !empty($links) ? reset($links) : NULL;
   }
 
   /**
@@ -188,7 +169,7 @@ class MenuLinkExporter extends BaseExporter {
       }
     }
 
-    // Reference to the parent link (short UUID of the parent menu_link_content)
+    // Reference to the parent link (UUID of the parent menu_link_content)
     $frontmatter['parent'] = $this->getParentUuid($entity);
 
     $frontmatter['translation_of'] = $this->getTranslationOf($entity);
@@ -204,10 +185,10 @@ class MenuLinkExporter extends BaseExporter {
   }
 
   /**
-   * Return the short UUID of the parent link, or null for root links.
+   * Return the UUID of the parent link, or null for root links.
    *
    * The 'parent' field of menu_link_content stores the full plugin ID as
-   * "menu_link_content:{uuid}". We extract only the short UUID.
+   * "menu_link_content:{uuid}". We extract the UUID for portability.
    */
   protected function getParentUuid(EntityInterface $entity): ?string {
     $parent_plugin_id = $entity->getParentId();

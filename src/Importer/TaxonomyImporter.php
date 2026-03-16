@@ -10,7 +10,7 @@ class TaxonomyImporter extends BaseImporter {
   public function import(array $frontmatter, string $body): string {
     $vid        = $frontmatter['vocabulary'] ?? NULL;
     $langcode   = $frontmatter['lang'] ?? 'und';
-    $short_uuid = $frontmatter['uuid'] ?? NULL;
+    $uuid = $frontmatter['uuid'] ?? NULL;
 
     if (!$vid) {
       throw new \Exception(t("The term frontmatter is missing 'vocabulary'."));
@@ -25,7 +25,7 @@ class TaxonomyImporter extends BaseImporter {
       ])->save();
     }
 
-    $existing = $short_uuid ? $this->findByUuid($short_uuid, 'taxonomy_term', $vid) : NULL;
+    $existing = $uuid ? $this->findByUuid($uuid, 'taxonomy_term', $vid) : NULL;
 
     if ($existing) {
       [$term, $operation] = $this->resolveTranslation($existing, $langcode);
@@ -35,7 +35,7 @@ class TaxonomyImporter extends BaseImporter {
         'vid'              => $vid,
         'langcode'         => $langcode,
         'default_langcode' => 1,
-        'uuid'             => $short_uuid ? $this->expandShortUuid($short_uuid) : $this->uuid->generate(),
+        'uuid'             => $uuid ?? $this->uuid->generate(),
       ];
       // Preserve the original tid so Views filters referencing terms by ID
       // keep working after a fresh import. Only applied if the slot is free.
@@ -61,17 +61,9 @@ class TaxonomyImporter extends BaseImporter {
     }
 
     if (!empty($frontmatter['parent'])) {
-      $parent_val = $frontmatter['parent'];
-      if (is_numeric($parent_val)) {
-        // Legacy format: direct tid stored in old .md files.
-        $term->set('parent', [(int) $parent_val]);
-      }
-      else {
-        // New format: short UUID — resolve to current tid.
-        $parent = $this->findByUuidGlobal((string) $parent_val, 'taxonomy_term');
-        if ($parent) {
-          $term->set('parent', [(int) $parent->id()]);
-        }
+      $parent = $this->findByUuidGlobal((string) $frontmatter['parent'], 'taxonomy_term');
+      if ($parent) {
+        $term->set('parent', [(int) $parent->id()]);
       }
     }
 

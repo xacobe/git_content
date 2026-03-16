@@ -12,9 +12,9 @@ class NodeImporter extends BaseImporter {
   public function import(array $frontmatter, string $body): string {
     $bundle     = $frontmatter['type'];
     $langcode   = $frontmatter['lang'] ?? 'und';
-    $short_uuid = $frontmatter['uuid'] ?? NULL;
+    $uuid = $frontmatter['uuid'] ?? NULL;
 
-    $existing = $short_uuid ? $this->findByUuid($short_uuid, 'node', $bundle) : NULL;
+    $existing = $uuid ? $this->findByUuid($uuid, 'node', $bundle) : NULL;
 
     if ($existing) {
       [$node, $operation] = $this->resolveTranslation($existing, $langcode);
@@ -23,7 +23,7 @@ class NodeImporter extends BaseImporter {
       $node = Node::create([
         'type'     => $bundle,
         'langcode' => $langcode,
-        'uuid'     => $short_uuid ? $this->expandShortUuid($short_uuid) : $this->uuid->generate(),
+        'uuid'     => $uuid ?? $this->uuid->generate(),
       ]);
       $operation = 'imported';
     }

@@ -10,13 +10,13 @@ class BlockContentImporter extends BaseImporter {
   public function import(array $frontmatter, string $body): string {
     $bundle     = $frontmatter['bundle'] ?? NULL;
     $langcode   = $frontmatter['lang'] ?? 'und';
-    $short_uuid = $frontmatter['uuid'] ?? NULL;
+    $uuid = $frontmatter['uuid'] ?? NULL;
 
     if (!$bundle) {
       throw new \Exception(t("The block_content frontmatter is missing 'bundle'."));
     }
 
-    $existing = $short_uuid ? $this->findByUuidGlobal($short_uuid, 'block_content') : NULL;
+    $existing = $uuid ? $this->findByUuidGlobal($uuid, 'block_content') : NULL;
 
     if ($existing) {
       [$block, $operation] = $this->resolveTranslation($existing, $langcode);
@@ -26,7 +26,7 @@ class BlockContentImporter extends BaseImporter {
         'type'             => $bundle,
         'langcode'         => $langcode,
         'default_langcode' => 1,
-        'uuid'             => $short_uuid ? $this->expandShortUuid($short_uuid) : $this->uuid->generate(),
+        'uuid'             => $uuid ?? $this->uuid->generate(),
       ]);
       $operation = 'imported';
     }

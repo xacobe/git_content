@@ -56,7 +56,7 @@ class TaxonomyExporter extends BaseExporter {
     $frontmatter['weight'] = (int) ($entity->get('weight')->value ?? 0);
     $frontmatter['__']     = NULL;
 
-    // Parent term (short UUID for portability across environments)
+    // Parent term (UUID for portability across environments)
     $frontmatter['parent'] = $this->getParentUuid($entity);
     $frontmatter['___']    = NULL;
 
@@ -91,9 +91,9 @@ class TaxonomyExporter extends BaseExporter {
   }
 
   /**
-   * Get the parent term as a short UUID, or NULL for root terms.
+   * Get the parent term UUID, or NULL for root terms.
    *
-   * Short UUIDs are portable across environments (unlike tids).
+   * UUIDs are portable across environments (unlike tids).
    */
   protected function getParentUuid(EntityInterface $entity): ?string {
     if ($entity->hasField('parent')) {

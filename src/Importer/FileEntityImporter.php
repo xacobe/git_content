@@ -11,7 +11,7 @@ namespace Drupal\git_content\Importer;
 class FileEntityImporter extends BaseImporter {
 
   public function import(array $frontmatter, string $body): string {
-    $short_uuid = $frontmatter['uuid'] ?? NULL;
+    $uuid = $frontmatter['uuid'] ?? NULL;
     $uri        = $frontmatter['uri'] ?? NULL;
     $langcode   = $frontmatter['lang'] ?? 'und';
 
@@ -19,8 +19,8 @@ class FileEntityImporter extends BaseImporter {
       throw new \Exception(t("The file frontmatter is missing 'uri'."));
     }
 
-    // Look up by short UUID first, then fall back to URI.
-    $existing = $short_uuid ? $this->findByUuidGlobal($short_uuid, 'file') : NULL;
+    // Look up by UUID first, then fall back to URI.
+    $existing = $uuid ? $this->findByUuidGlobal($uuid, 'file') : NULL;
 
     if (!$existing) {
       $existing_files = $this->entityTypeManager->getStorage('file')
@@ -35,7 +35,7 @@ class FileEntityImporter extends BaseImporter {
     else {
       $file = $this->entityTypeManager->getStorage('file')->create([
         'langcode' => $langcode,
-        'uuid'     => $short_uuid ? $this->expandShortUuid($short_uuid) : $this->uuid->generate(),
+        'uuid'     => $uuid ?? $this->uuid->generate(),
       ]);
       $operation = 'imported';
     }

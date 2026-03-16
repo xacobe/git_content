@@ -101,7 +101,7 @@ class MarkdownImporter {
       throw new \Exception(t("The frontmatter is missing the 'type' field."));
     }
 
-    $short_uuid  = $frontmatter['uuid'] ?? NULL;
+    $uuid        = $frontmatter['uuid'] ?? NULL;
     $entity_type = match ($type) {
       'taxonomy_term'     => 'taxonomy_term',
       'file'              => 'file',
@@ -128,18 +128,18 @@ class MarkdownImporter {
     $existsQuery = $this->entityTypeManager->getStorage($entity_type)
       ->getQuery()
       ->accessCheck(FALSE)
-      ->condition('uuid', $short_uuid . '%', 'LIKE');
+      ->condition('uuid', $uuid);
     if ($langcode && $langcode !== 'und') {
       $existsQuery->condition('langcode', $langcode);
     }
-    $exists = $short_uuid && !empty($existsQuery->range(0, 1)->execute());
+    $exists = $uuid && !empty($existsQuery->range(0, 1)->execute());
 
     // Checksum match AND entity exists in DB → skip, unless any referenced
     // entity has been deleted (e.g. media re-imported with a new entity ID).
     $checksum = $frontmatter['checksum'] ?? NULL;
     if ($exists && $checksum && $this->computeChecksum($frontmatter, $body) === $checksum) {
       if (!$this->hasStaleReferences($frontmatter)) {
-        return ['op' => 'skipped', 'entity_type' => $entity_type, 'type' => $type, 'uuid' => $short_uuid, 'bundle' => $bundle];
+        return ['op' => 'skipped', 'entity_type' => $entity_type, 'type' => $type, 'uuid' => $uuid, 'bundle' => $bundle];
       }
     }
 
@@ -158,7 +158,7 @@ class MarkdownImporter {
       };
     }
 
-    return ['op' => $op, 'entity_type' => $entity_type, 'type' => $type, 'uuid' => $short_uuid, 'bundle' => $bundle];
+    return ['op' => $op, 'entity_type' => $entity_type, 'type' => $type, 'uuid' => $uuid, 'bundle' => $bundle];
   }
 
   // ---------------------------------------------------------------------------
@@ -218,10 +218,7 @@ class MarkdownImporter {
         }
 
         if ($entity_type && $uuid) {
-          // Normalize to short UUID (8 hex chars) so syncDeletedEntities can
-          // compare regardless of whether the export stored a short or full UUID.
-          $short = substr(str_replace('-', '', $uuid), 0, 8);
-          $seenUuids[$entity_type][$bundle][$short] = TRUE;
+          $seenUuids[$entity_type][$bundle][$uuid] = TRUE;
         }
       }
       catch (\Exception $e) {
@@ -297,8 +294,7 @@ class MarkdownImporter {
         }
 
         foreach ($storage->loadMultiple($query->execute()) as $entity) {
-          $uuid = substr(str_replace('-', '', $entity->uuid()), 0, 8);
-          if (isset($uuids[$uuid])) {
+          if (isset($uuids[$entity->uuid()])) {
             continue;
           }
           // Never touch the admin user or the currently logged-in user.
@@ -422,7 +418,7 @@ class MarkdownImporter {
    * Check whether any entity reference in the frontmatter points to a deleted
    * entity, making the stored checksum stale even though the file is unchanged.
    *
-   * Only inspects the `references` group (media and node short UUIDs).
+   * Only inspects the `references` group (media and node UUIDs).
    * A stale reference means the cached entity ID on disk no longer exists in
    * the database, so the entity must be re-imported to update the reference.
    */
@@ -433,12 +429,11 @@ class MarkdownImporter {
     }
 
     foreach ($references as $value) {
-      // References are stored as short UUIDs (8 hex chars) for media/nodes,
+      // References are stored as UUIDs for media/nodes,
       // or as arrays for multi-value fields.
       $uuids = is_array($value) ? $value : [$value];
       foreach ($uuids as $uuid) {
-        // Accept 8-char legacy short UUIDs and full 36-char UUIDs.
-        if (!is_string($uuid) || (strlen($uuid) !== 8 && strlen($uuid) !== 36)) {
+        if (!is_string($uuid) || strlen($uuid) !== 36) {
           continue;
         }
         // Check both media and node storages.
@@ -446,7 +441,7 @@ class MarkdownImporter {
           $ids = $this->entityTypeManager->getStorage($entity_type)
             ->getQuery()
             ->accessCheck(FALSE)
-            ->condition('uuid', $uuid . '%', 'LIKE')
+            ->condition('uuid', $uuid)
             ->range(0, 1)
             ->execute();
           if (!empty($ids)) {

@@ -6,7 +6,6 @@ use Drupal\git_content\Discovery\FieldDiscovery;
 use Drupal\git_content\Handler\FieldHandlerInterface;
 use Drupal\git_content\Normalizer\FieldNormalizer;
 use Drupal\git_content\Utility\ManagedFields;
-use Drupal\git_content\Utility\UuidTrait;
 use Drupal\Component\Uuid\UuidInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Field\FieldDefinitionInterface;
@@ -39,7 +38,6 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  */
 class ParagraphsFieldHandler implements FieldHandlerInterface {
 
-  use UuidTrait;
 
   /**
    * Paragraph-specific fields beyond ManagedFields::CORE.
@@ -172,7 +170,7 @@ class ParagraphsFieldHandler implements FieldHandlerInterface {
       else {
         $paragraph = $this->entityTypeManager->getStorage('paragraph')->create([
           'type'     => $bundle,
-          'uuid'     => $uuid ? $this->expandShortUuid($uuid) : $this->uuid->generate(),
+          'uuid'     => $uuid ?? $this->uuid->generate(),
           'langcode' => 'und',
         ]);
       }

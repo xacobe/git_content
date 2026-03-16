@@ -4,7 +4,6 @@ namespace Drupal\git_content\Normalizer;
 
 use Drupal\git_content\Handler\FieldHandlerRegistry;
 use Drupal\git_content\Serializer\MarkdownSerializer;
-use Drupal\git_content\Utility\UuidTrait;
 use Drupal\Component\Datetime\TimeInterface;
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
@@ -25,7 +24,6 @@ use Drupal\Core\Field\FieldItemListInterface;
  */
 class FieldNormalizer {
 
-  use UuidTrait;
 
   public function __construct(
     protected EntityTypeManagerInterface $entityTypeManager,
@@ -304,7 +302,7 @@ class FieldNormalizer {
     $ids = $this->entityTypeManager->getStorage('media')
       ->getQuery()
       ->accessCheck(FALSE)
-      ->condition('uuid', $uuid . '%', 'LIKE')
+      ->condition('uuid', $uuid)
       ->range(0, 1)
       ->execute();
     return !empty($ids) ? (int) reset($ids) : NULL;
