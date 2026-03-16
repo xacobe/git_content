@@ -24,6 +24,9 @@ Each entity is serialized as a `.md` file with YAML frontmatter containing metad
 - Composer libraries (installed automatically via `composer require drupal/git_content`):
   - `league/html-to-markdown ^5.1`
   - `league/commonmark ^2.4`
+- Optional PHP extension: `tidy` — when available, `full_html` text fields are exported as
+  human-readable indented HTML. Without it the HTML is still exported correctly, just on a
+  single line. See [Optional: tidy extension](#optional-tidy-extension) below.
 
 ## Installation
 
@@ -159,6 +162,51 @@ Key frontmatter fields:
 - **Passwords** are never exported. On import, user 1 is not overwritten to protect production credentials.
 - **Comments** are not exported or imported.
 - **Import order** is handled automatically: files, users, taxonomy, and media are imported before nodes; default translations before non-default translations within the same entity.
+
+## Optional: tidy extension
+
+The PHP [`tidy`](https://www.php.net/manual/en/book.tidy.php) extension pretty-prints HTML
+exported from `full_html` text fields, making it easier to read and edit in GitHub.
+The module works without it — HTML is just exported on a single line.
+
+### DDEV
+
+Add to `.ddev/config.yaml` (adjust PHP version to match your project):
+
+```yaml
+webimage_extra_packages:
+  - php8.3-tidy   # or php8.4-tidy, php8.2-tidy, etc.
+```
+
+Then restart:
+
+```bash
+ddev restart
+```
+
+### Lando
+
+Add a build step to `.lando.yml`:
+
+```yaml
+services:
+  appserver:
+    build:
+      - apt-get install -y php8.3-tidy
+```
+
+Then rebuild:
+
+```bash
+lando rebuild
+```
+
+### Verify
+
+```bash
+php -r 'var_dump(extension_loaded("tidy"));'
+# Expected: bool(true)
+```
 
 ## Maintainers
 
