@@ -163,6 +163,10 @@ Key frontmatter fields:
 - **Comments** are not exported or imported.
 - **Import order** is handled automatically: files, users, taxonomy, and media are imported before nodes; default translations before non-default translations within the same entity.
 
+## Install libraríes (if module not installed from drupal.org) 
+composer require league/html-to-markdown:^5.1 league/commonmark:^2.4
+
+
 ## Optional: tidy extension
 
 The PHP [`tidy`](https://www.php.net/manual/en/book.tidy.php) extension pretty-prints HTML
