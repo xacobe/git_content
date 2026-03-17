@@ -137,12 +137,6 @@ class SyncForm extends FormBase {
           '@exp' => $exp, '@skp' => $skp, '@del' => $del,
         ]),
       ];
-      if ($exp) {
-        $sections[] = $this->fileSection($this->t('Written'), $result['exported']);
-      }
-      if ($del) {
-        $sections[] = $this->fileSection($this->t('Deleted'), $result['deleted']);
-      }
       if ($err) {
         $sections[] = $this->fileSection($this->t('Errors'), $result['errors']);
       }
@@ -164,15 +158,6 @@ class SyncForm extends FormBase {
           '@created' => $created, '@updated' => $updated, '@deleted' => $deleted, '@skipped' => $skipped,
         ]),
       ];
-      if ($created) {
-        $sections[] = $this->fileSection($this->t('Created'), $result['imported']);
-      }
-      if ($updated) {
-        $sections[] = $this->fileSection($this->t('Updated'), $result['updated']);
-      }
-      if ($deleted) {
-        $sections[] = $this->fileSection($this->t('Deleted'), $result['deleted']);
-      }
       if ($err) {
         $sections[] = $this->fileSection($this->t('Errors'), $result['errors']);
       }
