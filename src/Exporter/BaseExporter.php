@@ -226,9 +226,11 @@ abstract class BaseExporter {
       // state at last export; if it matches the entity's current output the
       // entity has not changed, even if the file was manually edited.
       $existing = $this->serializer->deserialize(file_get_contents($filepath));
-      $generated = $this->serializer->deserialize($content);
-      $existingChecksum  = $existing['frontmatter']['checksum'] ?? NULL;
-      $generatedChecksum = $generated['frontmatter']['checksum'] ?? NULL;
+      $existingChecksum = $existing['frontmatter']['checksum'] ?? NULL;
+      // Extract checksum from the generated content with a targeted regex
+      // instead of a full deserialize — the value was just computed in memory.
+      preg_match('/^checksum:\s*([0-9a-f]+)\s*$/m', $content, $m);
+      $generatedChecksum = $m[1] ?? NULL;
       return $existingChecksum !== $generatedChecksum;
     }
 

@@ -13,6 +13,9 @@ use Symfony\Component\Yaml\Yaml;
  */
 class MarkdownSerializer {
 
+  private ?\League\HTMLToMarkdown\HtmlConverter $htmlConverter = NULL;
+  private ?\League\CommonMark\CommonMarkConverter $markdownConverter = NULL;
+
   /**
    * Build a full Markdown file from frontmatter and body.
    *
@@ -122,20 +125,20 @@ class MarkdownSerializer {
    * Convert HTML to Markdown using league/html-to-markdown.
    */
   public function htmlToMarkdown(string $html): string {
-    $converter = new \League\HTMLToMarkdown\HtmlConverter([
+    $this->htmlConverter ??= new \League\HTMLToMarkdown\HtmlConverter([
       'strip_tags'   => FALSE,
       'bold_style'   => '**',
       'italic_style' => '_',
     ]);
-    return $converter->convert($html);
+    return $this->htmlConverter->convert($html);
   }
 
   /**
    * Convert Markdown to HTML using league/commonmark.
    */
   public function markdownToHtml(string $markdown): string {
-    $converter = new \League\CommonMark\CommonMarkConverter();
-    return (string) $converter->convert($markdown);
+    $this->markdownConverter ??= new \League\CommonMark\CommonMarkConverter();
+    return (string) $this->markdownConverter->convert($markdown);
   }
 
   // ---------------------------------------------------------------------------
