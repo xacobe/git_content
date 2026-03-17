@@ -42,12 +42,6 @@ class MarkdownExporter {
   // ---------------------------------------------------------------------------
 
   /**
-   * Return per-type entity counts and file counts without writing anything.
-   *
-   * @return array<string, array{entities: int, files: int}>
-   *   Keyed by entity type machine name.
-   */
-  /**
    * Preview what exportAll() would do without writing anything.
    *
    * Runs the full export pipeline in dry-run mode (same cost as exportAll
@@ -58,18 +52,18 @@ class MarkdownExporter {
    */
   public function previewAll(): array {
     $result       = ['exported' => [], 'skipped' => [], 'deleted' => [], 'errors' => []];
-    $touchedFiles = [];
+    $touchedSet = [];
 
     foreach ($this->exporterMap() as $entity_type => $exporter) {
       $typeResult = $this->exportEntityType($entity_type, $exporter, TRUE);
 
       foreach ($typeResult['exported_files'] as $file) {
         $result['exported'][] = $file;
-        $touchedFiles[]       = $file;
+        $touchedSet[$file]    = TRUE;
       }
       foreach ($typeResult['skipped_files'] as $file) {
         $result['skipped'][] = $file;
-        $touchedFiles[]      = $file;
+        $touchedSet[$file]   = TRUE;
       }
       foreach ($typeResult['errors'] as $error) {
         $result['errors'][] = $error;
@@ -78,7 +72,7 @@ class MarkdownExporter {
 
     // Files on disk that were not touched = would be deleted as orphans.
     foreach ($this->scanContentExportFiles() as $relpath) {
-      if (!in_array($relpath, $touchedFiles)) {
+      if (!isset($touchedSet[$relpath])) {
         $result['deleted'][] = $relpath;
       }
     }
@@ -145,8 +139,9 @@ class MarkdownExporter {
 
     // Remove .md files that are on disk but were not touched in this run
     // (entities deleted from Drupal since the last export).
-    $allFiles = $this->scanContentExportFiles();
-    $orphans  = array_diff($allFiles, $touchedFiles);
+    $touchedSet = array_flip($touchedFiles);
+    $allFiles   = $this->scanContentExportFiles();
+    $orphans    = array_filter($allFiles, fn($f) => !isset($touchedSet[$f]));
     foreach ($orphans as $file) {
       $result['deleted'][] = $file;
       $path = $this->contentExportDir() . '/' . $file;
@@ -174,11 +169,6 @@ class MarkdownExporter {
   // ---------------------------------------------------------------------------
 
   /**
-   * Returns the entity-type → exporter map used by exportAll() and exportTypes().
-   *
-   * @return array<string, BaseExporter>
-   */
-  /**
    * Re-export a single entity (all translations) identified by UUID.
    *
    * Used by the importer after a real import to normalise the .md file to the
@@ -198,14 +188,8 @@ class MarkdownExporter {
     }
 
     $entity = reset($entities);
-    $translations = [$entity];
-    if ($entity instanceof TranslatableInterface) {
-      foreach ($entity->getTranslationLanguages(FALSE) as $langcode => $language) {
-        $translations[] = $entity->getTranslation($langcode);
-      }
-    }
 
-    foreach ($translations as $translation) {
+    foreach ($this->getEntityTranslations($entity) as $translation) {
       try {
         $exporter->exportToFile($translation);
       }
@@ -215,6 +199,11 @@ class MarkdownExporter {
     }
   }
 
+  /**
+   * Returns the entity-type → exporter map used by all export methods.
+   *
+   * @return array<string, BaseExporter>
+   */
   private function exporterMap(): array {
     return [
       'node'              => $this->nodeExporter,
@@ -252,15 +241,7 @@ class MarkdownExporter {
     }
 
     foreach ($storage->loadMultiple($ids) as $entity) {
-      // Build the list of translations to export: default first, then the rest.
-      $translations = [$entity];
-      if ($entity instanceof TranslatableInterface) {
-        foreach ($entity->getTranslationLanguages(FALSE) as $langcode => $language) {
-          $translations[] = $entity->getTranslation($langcode);
-        }
-      }
-
-      foreach ($translations as $translation) {
+      foreach ($this->getEntityTranslations($entity) as $translation) {
         try {
           $fileResult = $exporter->exportToFile($translation, $dryRun);
           $filepath   = is_array($fileResult) ? $fileResult['path'] : $fileResult;
@@ -285,6 +266,21 @@ class MarkdownExporter {
     }
 
     return ['exported_files' => $exportedFiles, 'skipped_files' => $skippedFiles, 'errors' => $errors];
+  }
+
+  /**
+   * Returns all translations of an entity, default translation first.
+   *
+   * @return \Drupal\Core\Entity\EntityInterface[]
+   */
+  private function getEntityTranslations(\Drupal\Core\Entity\EntityInterface $entity): array {
+    $translations = [$entity];
+    if ($entity instanceof TranslatableInterface) {
+      foreach ($entity->getTranslationLanguages(FALSE) as $langcode => $language) {
+        $translations[] = $entity->getTranslation($langcode);
+      }
+    }
+    return $translations;
   }
 
   // ---------------------------------------------------------------------------

@@ -466,10 +466,4 @@ class MarkdownImporter {
     return FALSE;
   }
 
-  /**
-   * Rewrite the checksum field in a .md file to match its current content.
-   *
-   * After a manual edit the stored checksum is stale. This keeps the file in
-   * sync so the next preview does not flag it as "Updated" again.
-   */
 }
