@@ -213,7 +213,7 @@ class ParagraphsFieldHandler implements FieldHandlerInterface {
     $ids = $storage->getQuery()
       ->accessCheck(FALSE)
       ->condition('type', $bundle)
-      ->condition('uuid', $uuid . '%', 'LIKE')
+      ->condition('uuid', $uuid)
       ->range(0, 1)
       ->execute();
 

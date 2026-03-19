@@ -256,7 +256,7 @@ class SyncForm extends FormBase {
       $elements[] = [
         '#type'       => 'details',
         '#title'      => $this->labelFromDir($dir) . ' (' . count($items) . ')',
-        '#open'       => TRUE,
+        '#open'       => FALSE,
         '#attributes' => ['class' => ['js-form-wrapper', 'form-wrapper']],
         'table'       => [
           '#type'       => 'table',

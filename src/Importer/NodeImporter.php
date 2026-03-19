@@ -28,7 +28,7 @@ class NodeImporter extends BaseImporter {
       $operation = 'imported';
     }
 
-    $node->set('title', $frontmatter['title'] ?? 'Untitled');
+    $node->set('title', $frontmatter['title'] ?? $this->t('Untitled'));
     $node->set('status', $this->resolveStatus($frontmatter));
     $this->setAuthor($node, $frontmatter);
 

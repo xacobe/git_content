@@ -57,9 +57,8 @@ class NodeExporter extends BaseExporter {
     $frontmatter['slug']   = $this->getSlug($entity);
     $frontmatter['__']     = NULL;
 
-    $frontmatter['date'] = date('Y-m-d', $entity->getCreatedTime());
-    $owner = $entity->get('uid')->entity;
-    $frontmatter['author'] = $owner ? $owner->getAccountName() : NULL;
+    $frontmatter['date']   = date('Y-m-d', $entity->getCreatedTime());
+    $frontmatter['author'] = $this->getAuthorName($entity);
     $frontmatter['___']    = NULL;
 
     $frontmatter['path']    = $this->getPathAlias($entity);

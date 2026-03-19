@@ -84,14 +84,6 @@ class FileExporter extends BaseExporter {
    * {@inheritdoc}
    */
   public function export(EntityInterface $entity): string {
-    // Resolve owner name
-    $owner_name = NULL;
-    $owner_id = $entity->getOwnerId();
-    if ($owner_id) {
-      $owner = $this->entityTypeManager->getStorage('user')->load($owner_id);
-      $owner_name = $owner ? $owner->getAccountName() : NULL;
-    }
-
     $frontmatter = [];
     $frontmatter['uuid']   = $entity->uuid();
     $frontmatter['type']   = 'file';
@@ -106,7 +98,7 @@ class FileExporter extends BaseExporter {
     $frontmatter['__']       = NULL;
 
     $frontmatter['created'] = date('Y-m-d', $entity->getCreatedTime());
-    $frontmatter['owner']   = $owner_name;
+    $frontmatter['owner']   = $this->getAuthorName($entity);
 
     $frontmatter = $this->wrapDrupalNamespace($frontmatter, '');
     return $this->serializer->serialize($frontmatter);

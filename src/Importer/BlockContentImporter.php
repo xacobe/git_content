@@ -31,7 +31,7 @@ class BlockContentImporter extends BaseImporter {
       $operation = 'imported';
     }
 
-    $block->set('info', $frontmatter['title'] ?? 'Untitled');
+    $block->set('info', $frontmatter['title'] ?? $this->t('Untitled'));
     $block->set('status', $this->resolveStatus($frontmatter));
 
     $this->setBody($block, $body, $frontmatter['body_format'] ?? 'basic_html');

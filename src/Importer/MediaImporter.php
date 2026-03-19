@@ -30,7 +30,7 @@ class MediaImporter extends BaseImporter {
       $operation = 'imported';
     }
 
-    $media->set('name', $frontmatter['name'] ?? 'Unnamed');
+    $media->set('name', $frontmatter['name'] ?? $this->t('Unnamed'));
     $media->set('status', $this->resolveStatus($frontmatter));
     $this->setAuthor($media, $frontmatter);
 

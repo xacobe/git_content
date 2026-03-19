@@ -13,6 +13,7 @@ use Drupal\Core\Field\FieldDefinitionInterface;
 use Drupal\Core\Logger\LoggerChannelFactoryInterface;
 use Drupal\Core\Password\PasswordGeneratorInterface;
 use Drupal\Core\Session\AccountProxyInterface;
+use Drupal\Core\StringTranslation\StringTranslationTrait;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -23,6 +24,8 @@ use Psr\Log\LoggerInterface;
  * Each subclass must implement import() for its specific entity type.
  */
 abstract class BaseImporter {
+
+  use StringTranslationTrait;
 
 
   protected FieldDiscovery $fieldDiscovery;

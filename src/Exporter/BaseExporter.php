@@ -208,6 +208,17 @@ abstract class BaseExporter {
   }
 
   /**
+   * Return the account name of the entity owner, or NULL if none.
+   */
+  protected function getAuthorName(EntityInterface $entity): ?string {
+    if (!$entity->hasField('uid')) {
+      return NULL;
+    }
+    $owner = $entity->get('uid')->entity;
+    return $owner ? $owner->getAccountName() : NULL;
+  }
+
+  /**
    * Return the UUID of the original entity when this is a translation.
    */
   protected function getTranslationOf(EntityInterface $entity): ?string {
