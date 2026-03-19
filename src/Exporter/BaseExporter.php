@@ -7,6 +7,7 @@ use Drupal\git_content\Normalizer\FieldNormalizer;
 use Drupal\git_content\Serializer\MarkdownSerializer;
 use Drupal\git_content\Utility\ChecksumTrait;
 use Drupal\git_content\Utility\ContentExportTrait;
+use Drupal\git_content\Utility\EntityLinkRewriteTrait;
 use Drupal\git_content\Utility\ManagedFields;
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
@@ -25,6 +26,7 @@ abstract class BaseExporter {
 
   use ChecksumTrait;
   use ContentExportTrait;
+  use EntityLinkRewriteTrait;
 
   protected FieldDiscovery $fieldDiscovery;
   protected MarkdownSerializer $serializer;
@@ -297,11 +299,12 @@ abstract class BaseExporter {
     }
     $body_field  = $entity->get('body');
     $body_format = $body_field->format ?? 'basic_html';
+    $raw = $this->rewriteEntityIdsToUuids($body_field->value ?? '');
     if ($body_format === 'full_html') {
       $frontmatter['body_format'] = 'full_html';
-      return $this->serializer->prettyHtml($body_field->value) ?? '';
+      return $this->serializer->prettyHtml($raw) ?? '';
     }
-    return $this->serializer->htmlToMarkdown($body_field->value);
+    return $this->serializer->htmlToMarkdown($raw);
   }
 
   /**

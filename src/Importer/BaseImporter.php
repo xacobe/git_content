@@ -14,6 +14,7 @@ use Drupal\Core\Logger\LoggerChannelFactoryInterface;
 use Drupal\Core\Password\PasswordGeneratorInterface;
 use Drupal\Core\Session\AccountProxyInterface;
 use Drupal\Core\StringTranslation\StringTranslationTrait;
+use Drupal\git_content\Utility\EntityLinkRewriteTrait;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -25,6 +26,7 @@ use Psr\Log\LoggerInterface;
  */
 abstract class BaseImporter {
 
+  use EntityLinkRewriteTrait;
   use StringTranslationTrait;
 
 
@@ -164,8 +166,9 @@ abstract class BaseImporter {
    */
   protected function setBody($entity, string $body, string $format = 'basic_html'): void {
     if ($entity->hasField('body') && !empty($body)) {
+      $html = $format === 'full_html' ? $body : $this->serializer->markdownToHtml($body);
       $entity->set('body', [
-        'value'  => $format === 'full_html' ? $body : $this->serializer->markdownToHtml($body),
+        'value'  => $this->rewriteEntityUuidsToIds($html),
         'format' => $format,
       ]);
     }
