@@ -31,7 +31,7 @@ class MediaImporter extends BaseImporter {
     }
 
     $media->set('name', $frontmatter['name'] ?? 'Unnamed');
-    $media->set('status', $this->resolveStatus($frontmatter, 'published', 'draft'));
+    $media->set('status', $this->resolveStatus($frontmatter));
     $this->setAuthor($media, $frontmatter);
 
     $definitions = $this->fieldDiscovery->getFields('media', $bundle);

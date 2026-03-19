@@ -108,7 +108,7 @@ class FileExporter extends BaseExporter {
     $frontmatter['created'] = date('Y-m-d', $entity->getCreatedTime());
     $frontmatter['owner']   = $owner_name;
 
-    $frontmatter = $this->addChecksum($frontmatter, '');
+    $frontmatter = $this->wrapDrupalNamespace($frontmatter, '');
     return $this->serializer->serialize($frontmatter);
   }
 

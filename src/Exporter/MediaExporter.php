@@ -51,14 +51,14 @@ class MediaExporter extends BaseExporter {
     $frontmatter['type']   = 'media';
     $frontmatter['bundle'] = $entity->bundle();
     $frontmatter['lang']   = $entity->language()->getId();
-    $frontmatter['status'] = $entity->get('status')->value ? 'published' : 'draft';
+    $frontmatter['draft'] = !(bool) $entity->get('status')->value;
     $frontmatter['_']      = NULL;
 
     $frontmatter['name']    = $entity->label();
     $frontmatter['slug']    = $this->getMediaSlug($entity);
     $frontmatter['__']      = NULL;
 
-    $frontmatter['created'] = date('Y-m-d', $entity->get('created')->value ?? time());
+    $frontmatter['date'] = date('Y-m-d', $entity->get('created')->value ?? time());
     $owner = $entity->get('uid')->entity;
     $frontmatter['author'] = $owner ? $owner->getAccountName() : NULL;
     $frontmatter['___']    = NULL;
@@ -75,7 +75,7 @@ class MediaExporter extends BaseExporter {
 
     $frontmatter['translation_of'] = $this->getTranslationOf($entity);
 
-    $frontmatter = $this->addChecksum($frontmatter, '');
+    $frontmatter = $this->wrapDrupalNamespace($frontmatter, '');
     return $this->serializer->serialize($frontmatter);
   }
 

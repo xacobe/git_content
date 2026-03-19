@@ -50,7 +50,7 @@ class TaxonomyExporter extends BaseExporter {
     $frontmatter['lang']       = $entity->language()->getId();
     $frontmatter['_']          = NULL;
 
-    $frontmatter['status'] = $entity->get('status')->value ? 'published' : 'draft';
+    $frontmatter['draft'] = !(bool) $entity->get('status')->value;
     $frontmatter['name']   = $entity->label();
     $frontmatter['slug']   = $this->getTermSlug($entity);
     $frontmatter['weight'] = (int) ($entity->get('weight')->value ?? 0);
@@ -79,7 +79,7 @@ class TaxonomyExporter extends BaseExporter {
       $body = $this->serializer->htmlToMarkdown($entity->get('description')->value ?? '');
     }
 
-    $frontmatter = $this->addChecksum($frontmatter, $body);
+    $frontmatter = $this->wrapDrupalNamespace($frontmatter, $body);
     return $this->serializer->serialize($frontmatter, $body);
   }
 

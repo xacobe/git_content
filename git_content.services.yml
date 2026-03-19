@@ -59,6 +59,7 @@ services:
     arguments:
       - '@entity_type.manager'
       - '@logger.factory'
+      - '@language_manager'
       - '@git_content.node_exporter'
       - '@git_content.taxonomy_exporter'
       - '@git_content.media_exporter'

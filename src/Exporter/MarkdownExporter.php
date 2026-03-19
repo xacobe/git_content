@@ -6,8 +6,10 @@ use Drupal\git_content\Utility\ContentExportTrait;
 use Drupal\git_content\Utility\SummaryTrait;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Entity\TranslatableInterface;
+use Drupal\Core\Language\LanguageManagerInterface;
 use Drupal\Core\Logger\LoggerChannelFactoryInterface;
 use Psr\Log\LoggerInterface;
+use Symfony\Component\Yaml\Yaml;
 
 /**
  * Orchestrates the export of all Drupal content to content_export/.
@@ -21,11 +23,14 @@ class MarkdownExporter {
   use ContentExportTrait;
   use SummaryTrait;
 
+  const FORMAT_VERSION = 1;
+
   protected LoggerInterface $logger;
 
   public function __construct(
     protected EntityTypeManagerInterface $entityTypeManager,
     LoggerChannelFactoryInterface $loggerFactory,
+    protected LanguageManagerInterface $languageManager,
     protected NodeExporter $nodeExporter,
     protected TaxonomyExporter $taxonomyExporter,
     protected MediaExporter $mediaExporter,
@@ -150,6 +155,8 @@ class MarkdownExporter {
       }
     }
 
+    $this->writeSiteYaml();
+
     $this->logger->notice(
       'Export finished: @summary. Total: @exported exported, @skipped unchanged, @deleted deleted, @errors errors.',
       [
@@ -196,6 +203,33 @@ class MarkdownExporter {
       catch (\Exception $e) {
         // Ignore individual translation failures during normalisation.
       }
+    }
+  }
+
+  /**
+   * Write content_export/site.yaml with site-wide metadata for SSG tooling.
+   *
+   * Contains the format version (so SSG tools can detect breaking changes),
+   * the list of enabled content languages, and the default language.
+   * This file is idempotent: running export multiple times produces the same
+   * output and only rewrites the file when something has changed.
+   */
+  private function writeSiteYaml(): void {
+    $languages = array_keys($this->languageManager->getLanguages());
+    $default   = $this->languageManager->getDefaultLanguage()->getId();
+
+    $data = [
+      'git_content_format' => self::FORMAT_VERSION,
+      'languages'          => $languages,
+      'default_language'   => $default,
+    ];
+
+    $yaml    = Yaml::dump($data, 2, 2);
+    $path    = $this->contentExportDir() . '/site.yaml';
+    $current = file_exists($path) ? file_get_contents($path) : '';
+
+    if ($current !== $yaml) {
+      file_put_contents($path, $yaml);
     }
   }
 

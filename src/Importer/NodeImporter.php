@@ -29,11 +29,12 @@ class NodeImporter extends BaseImporter {
     }
 
     $node->set('title', $frontmatter['title'] ?? 'Untitled');
-    $node->set('status', $this->resolveStatus($frontmatter, 'published', 'draft'));
+    $node->set('status', $this->resolveStatus($frontmatter));
     $this->setAuthor($node, $frontmatter);
 
-    if (!empty($frontmatter['created'])) {
-      $node->set('created', $this->parseDate($frontmatter['created']));
+    $dateVal = $frontmatter['date'] ?? $frontmatter['created'] ?? NULL;
+    if (!empty($dateVal)) {
+      $node->set('created', $this->parseDate($dateVal));
     }
 
     $this->setBody($node, $body, $frontmatter['body_format'] ?? 'basic_html');

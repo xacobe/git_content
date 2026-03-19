@@ -53,7 +53,7 @@ class BlockContentExporter extends BaseExporter {
     $frontmatter['type']   = 'block_content';
     $frontmatter['bundle'] = $entity->bundle();
     $frontmatter['lang']   = $langcode;
-    $frontmatter['status'] = $entity->get('status')->value ? 'published' : 'draft';
+    $frontmatter['draft'] = !(bool) $entity->get('status')->value;
     $frontmatter['_']      = NULL;
 
     $frontmatter['title']  = $entity->label();
@@ -68,7 +68,7 @@ class BlockContentExporter extends BaseExporter {
     // Body: block_content may have a body field.
     $body = $this->exportBodyField($entity, $frontmatter);
 
-    $frontmatter = $this->addChecksum($frontmatter, $body);
+    $frontmatter = $this->wrapDrupalNamespace($frontmatter, $body);
     return $this->serializer->serialize($frontmatter, $body);
   }
 

@@ -50,14 +50,14 @@ class NodeExporter extends BaseExporter {
     $frontmatter['uuid']   = $entity->uuid();
     $frontmatter['type']   = $entity->bundle();
     $frontmatter['lang']   = $langcode;
-    $frontmatter['status'] = $entity->isPublished() ? 'published' : 'draft';
-    $frontmatter['_']      = NULL; // blank line
+    $frontmatter['draft'] = !$entity->isPublished();
+    $frontmatter['_']     = NULL; // blank line
 
     $frontmatter['title']  = $entity->label();
     $frontmatter['slug']   = $this->getSlug($entity);
     $frontmatter['__']     = NULL;
 
-    $frontmatter['created'] = date('Y-m-d', $entity->getCreatedTime());
+    $frontmatter['date'] = date('Y-m-d', $entity->getCreatedTime());
     $owner = $entity->get('uid')->entity;
     $frontmatter['author'] = $owner ? $owner->getAccountName() : NULL;
     $frontmatter['___']    = NULL;
@@ -73,7 +73,7 @@ class NodeExporter extends BaseExporter {
     // --- Body ---
     $body = $this->exportBodyField($entity, $frontmatter);
 
-    $frontmatter = $this->addChecksum($frontmatter, $body);
+    $frontmatter = $this->wrapDrupalNamespace($frontmatter, $body);
     return $this->serializer->serialize($frontmatter, $body);
   }
 

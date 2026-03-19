@@ -179,16 +179,31 @@ abstract class BaseExporter {
   }
 
   /**
-   * Add a SHA1 checksum to frontmatter to detect changes to the file.
+   * Move Drupal-internal fields under a 'drupal:' namespace and add checksum.
    *
-   * The checksum is calculated over a canonical representation of the
-   * frontmatter + body (JSON with sorted keys) so it remains stable even when
-   * YAML key order or serialization formatting changes.
+   * Fields moved: uuid, translation_of, body_format (when present), tid.
+   * The drupal block is placed at the end so SSG-relevant fields stay at the
+   * top of the file. SSG tools can ignore the drupal block entirely.
+   *
+   * The checksum covers all entity data (SSG-visible + drupal-internal) so
+   * change detection works the same as before.
    */
-  protected function addChecksum(array $frontmatter, string $body): array {
-    // Flatten groups so the hash matches what MarkdownImporter computes.
+  protected function wrapDrupalNamespace(array $frontmatter, string $body): array {
+    $drupal = [];
+
+    foreach (['uuid', 'translation_of', 'body_format', 'tid'] as $key) {
+      if (array_key_exists($key, $frontmatter)) {
+        $drupal[$key] = $frontmatter[$key];
+        unset($frontmatter[$key]);
+      }
+    }
+
+    // Checksum covers all entity data: SSG fields + drupal-internal fields.
     $fm = $this->serializer->flattenGroups($frontmatter);
-    $frontmatter['checksum'] = $this->computeChecksum($fm, $body);
+    $fm = array_merge($fm, $drupal);
+    $drupal['checksum'] = $this->computeChecksum($fm, $body);
+
+    $frontmatter['drupal'] = $drupal;
     return $frontmatter;
   }
 
@@ -226,10 +241,14 @@ abstract class BaseExporter {
       // state at last export; if it matches the entity's current output the
       // entity has not changed, even if the file was manually edited.
       $existing = $this->serializer->deserialize(file_get_contents($filepath));
-      $existingChecksum = $existing['frontmatter']['checksum'] ?? NULL;
-      // Extract checksum from the generated content with a targeted regex
-      // instead of a full deserialize — the value was just computed in memory.
-      preg_match('/^checksum:\s*([0-9a-f]+)\s*$/m', $content, $m);
+      // Checksum lives under drupal: in the new format; fall back to root for
+      // files exported before the drupal: namespace was introduced.
+      $existingChecksum = $existing['frontmatter']['drupal']['checksum']
+        ?? $existing['frontmatter']['checksum']
+        ?? NULL;
+      // Extract checksum from the generated content with a targeted regex.
+      // Handles both indented (under drupal:) and root-level (legacy) formats.
+      preg_match('/^\s*checksum:\s*([0-9a-f]+)\s*$/m', $content, $m);
       $generatedChecksum = $m[1] ?? NULL;
       return $existingChecksum !== $generatedChecksum;
     }

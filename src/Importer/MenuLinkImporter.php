@@ -68,7 +68,9 @@ class MenuLinkImporter extends BaseImporter {
 
     // Set link AFTER populateDynamicFields so link_options are never
     // overwritten by the dynamic field loop processing the 'link' field.
-    $link_value = ['uri' => $frontmatter['url'] ?? 'internal:/'];
+    $url = $frontmatter['url'] ?? '/';
+    $uri = str_starts_with($url, '/') ? 'internal:' . $url : $url;
+    $link_value = ['uri' => $uri];
     if (!empty($frontmatter['link_options'])) {
       $link_value['options'] = $frontmatter['link_options'];
     }

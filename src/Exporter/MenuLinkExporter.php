@@ -177,7 +177,7 @@ class MenuLinkExporter extends BaseExporter {
       $body = $entity->get('description')->value ?? '';
     }
 
-    $frontmatter = $this->addChecksum($frontmatter, $body);
+    $frontmatter = $this->wrapDrupalNamespace($frontmatter, $body);
     return $this->serializer->serialize($frontmatter, $body);
   }
 
@@ -219,8 +219,13 @@ class MenuLinkExporter extends BaseExporter {
       $node = $this->entityTypeManager->getStorage('node')->load((int) $m[1]);
       if ($node) {
         $alias = $node->hasField('path') ? ($node->get('path')->alias ?? NULL) : NULL;
-        return $alias ? 'internal:' . $alias : 'internal:/node/' . $m[1];
+        return $alias ?: '/node/' . $m[1];
       }
+    }
+
+    // Strip the 'internal:' scheme for SSG-friendly clean paths.
+    if (str_starts_with($uri, 'internal:')) {
+      return substr($uri, strlen('internal:'));
     }
 
     return $uri;

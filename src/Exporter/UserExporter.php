@@ -124,7 +124,7 @@ class UserExporter extends BaseExporter {
     // NEVER export the password
     // $frontmatter['pass'] is intentionally omitted
 
-    $frontmatter = $this->addChecksum($frontmatter, '');
+    $frontmatter = $this->wrapDrupalNamespace($frontmatter, '');
     return $this->serializer->serialize($frontmatter);
   }
 

@@ -80,7 +80,7 @@ class MarkdownSerializer {
    *   Frontmatter with groups flattened.
    */
   public function flattenGroups(array $frontmatter): array {
-    foreach (['taxonomy', 'media', 'references'] as $group) {
+    foreach (['taxonomy', 'media', 'references', 'drupal'] as $group) {
       if (isset($frontmatter[$group]) && is_array($frontmatter[$group])) {
         foreach ($frontmatter[$group] as $key => $value) {
           if (!isset($frontmatter[$key])) {

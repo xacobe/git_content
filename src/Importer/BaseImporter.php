@@ -127,14 +127,16 @@ abstract class BaseImporter {
   }
 
   /**
-   * Resolve a frontmatter status string to a Drupal integer (1 or 0).
+   * Resolve a frontmatter status value to a Drupal integer (1 or 0).
    *
-   * @param array  $frontmatter
-   * @param string $published_value  The string value that means "active/published".
-   * @param string $default_status   What to assume when the key is absent.
+   * Supports both the new `draft: bool` format (SSG-compatible) and the
+   * legacy `status: published|draft` string for backwards compatibility.
    */
-  protected function resolveStatus(array $frontmatter, string $published_value = 'published', string $default_status = 'published'): int {
-    return ($frontmatter['status'] ?? $default_status) === $published_value ? 1 : 0;
+  protected function resolveStatus(array $frontmatter): int {
+    if (isset($frontmatter['draft'])) {
+      return $frontmatter['draft'] ? 0 : 1;
+    }
+    return ($frontmatter['status'] ?? 'published') === 'published' ? 1 : 0;
   }
 
   /**
