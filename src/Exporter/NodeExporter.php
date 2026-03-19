@@ -9,13 +9,14 @@ use Drupal\Core\Entity\EntityInterface;
  *
  * Output structure:
  *   content_export/
- *     {bundle}/
- *       {slug}-{langcode}.md
+ *     content/
+ *       {bundle_plural}/
+ *         {slug}.{lang}.md
  */
 class NodeExporter extends BaseExporter {
 
   protected function typeDir(): string {
-    return 'content_types';
+    return 'content';
   }
 
   /**
@@ -27,11 +28,11 @@ class NodeExporter extends BaseExporter {
     $markdown = $this->export($entity);
 
     $langcode = $entity->language()->getId();
-    $dir = $this->contentExportDir() . '/' . $this->typeDir() . '/' . $entity->bundle() . '/' . $langcode;
+    $dir      = $this->contentExportDir() . '/content/' . $this->pluralBundle($entity->bundle());
     $this->ensureDir($dir, $dryRun);
 
     $slug     = $this->getSlug($entity);
-    $filepath = $dir . '/' . $slug . '.md';
+    $filepath = $dir . '/' . $this->buildFilename($slug, $langcode);
 
     $written = $this->writeIfChanged($filepath, $markdown, $dryRun);
 

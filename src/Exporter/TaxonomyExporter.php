@@ -11,7 +11,7 @@ use Drupal\Core\Entity\EntityInterface;
  *   content_export/
  *     taxonomy/
  *       {vocabulary}/
- *         {slug}-{langcode}.md
+ *         {slug}.{lang}.md
  */
 class TaxonomyExporter extends BaseExporter {
 
@@ -28,11 +28,11 @@ class TaxonomyExporter extends BaseExporter {
     $markdown = $this->export($entity);
 
     $langcode = $entity->language()->getId();
-    $dir = $this->contentExportDir() . '/' . $this->typeDir() . '/' . $entity->bundle() . '/' . $langcode;
+    $dir      = $this->contentExportDir() . '/taxonomy/' . $entity->bundle();
     $this->ensureDir($dir, $dryRun);
 
     $slug     = $this->getTermSlug($entity);
-    $filepath = $dir . '/' . $slug . '.md';
+    $filepath = $dir . '/' . $this->buildFilename($slug, $langcode);
 
     $written = $this->writeIfChanged($filepath, $markdown, $dryRun);
     return ['path' => $filepath, 'skipped' => !$written];

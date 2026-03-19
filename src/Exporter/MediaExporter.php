@@ -15,7 +15,7 @@ use Drupal\Core\Entity\EntityInterface;
  *   content_export/
  *     media/
  *       {bundle}/
- *         {slug}-{langcode}.md
+ *         {slug}.{lang}.md
  */
 class MediaExporter extends BaseExporter {
 
@@ -31,12 +31,12 @@ class MediaExporter extends BaseExporter {
   public function exportToFile(EntityInterface $entity, bool $dryRun = FALSE): array {
     $markdown = $this->export($entity);
 
-    $dir = $this->contentExportDir() . '/' . $this->typeDir() . '/' . $entity->bundle();
+    $langcode = $entity->language()->getId();
+    $dir      = $this->contentExportDir() . '/media/' . $entity->bundle();
     $this->ensureDir($dir, $dryRun);
 
     $slug     = $this->getMediaSlug($entity);
-    $langcode = $entity->language()->getId();
-    $filepath = $dir . '/' . $slug . '-' . $langcode . '.md';
+    $filepath = $dir . '/' . $this->buildFilename($slug, $langcode);
 
     $written = $this->writeIfChanged($filepath, $markdown, $dryRun);
     return ['path' => $filepath, 'skipped' => !$written];

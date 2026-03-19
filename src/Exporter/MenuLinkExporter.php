@@ -15,8 +15,7 @@ use Drupal\Core\Entity\EntityInterface;
  *   content_export/
  *     menus/
  *       {menu-id}/
- *         {langcode}/
- *           {slug}[__{parent-slug}...].md
+ *         {slug}[__{parent-slug}...].{lang}.md
  *
  * Order and hierarchy are reconstructed from frontmatter fields (`weight`, `parent`).
  *
@@ -76,12 +75,10 @@ class MenuLinkExporter extends BaseExporter {
 
     $menu_id  = $entity->getMenuName();
     $langcode = $entity->language()->getId();
-    $dir = $this->contentExportDir() . '/' . $this->typeDir() . '/' . $menu_id . '/' . $langcode;
+    $dir = $this->contentExportDir() . '/menus/' . $menu_id;
     $this->ensureDir($dir, $dryRun);
 
-    // Build the file name using parent hierarchy:
-    // parent__child__grandchild.md
-    $filename = $this->getLinkPath($entity) . '.md';
+    $filename = $this->buildFilename($this->getLinkPath($entity), $langcode);
     $filepath = $dir . '/' . $filename;
 
     $written = $this->writeIfChanged($filepath, $markdown, $dryRun);

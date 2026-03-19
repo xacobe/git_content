@@ -15,7 +15,7 @@ use Drupal\Core\Entity\EntityInterface;
  *   content_export/
  *     blocks/
  *       {bundle}/
- *         {uuid-slug}-{langcode}.md
+ *         {slug}.{lang}.md
  */
 class BlockContentExporter extends BaseExporter {
 
@@ -32,11 +32,11 @@ class BlockContentExporter extends BaseExporter {
     $markdown = $this->export($entity);
 
     $langcode = $entity->language()->getId();
-    $dir = $this->contentExportDir() . '/' . $this->typeDir() . '/' . $entity->bundle() . '/' . $langcode;
+    $dir      = $this->contentExportDir() . '/blocks/' . $entity->bundle();
     $this->ensureDir($dir, $dryRun);
 
     $slug     = $this->getBlockSlug($entity);
-    $filepath = $dir . '/' . $slug . '.md';
+    $filepath = $dir . '/' . $this->buildFilename($slug, $langcode);
 
     $written = $this->writeIfChanged($filepath, $markdown, $dryRun);
     return ['path' => $filepath, 'skipped' => !$written];

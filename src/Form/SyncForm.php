@@ -229,9 +229,7 @@ class SyncForm extends FormBase {
     $byDir = [];
     foreach ($ops as $key => $info) {
       foreach ($preview[$key] ?? [] as $path) {
-        $dir = str_contains($path, '/')
-          ? (explode('/', $path)[0] ?? 'other')
-          : $this->dirFromEntityType(explode(':', $path)[0] ?? 'other');
+        $dir = $this->groupKeyFromPath($path);
         $byDir[$dir][] = ['path' => $path, 'label' => $info['label'], 'class' => $info['class']];
       }
     }
@@ -306,29 +304,68 @@ class SyncForm extends FormBase {
   // Helpers
   // ---------------------------------------------------------------------------
 
+  /**
+   * Derive a grouping key from a file path or entity description string.
+   *
+   * Path examples:
+   *   content/articles/my-post.es.md  → 'articles'
+   *   taxonomy/tags/drupal.es.md      → 'taxonomy'
+   *   media/image/photo.es.md         → 'media'
+   *   blocks/basic/foo.es.md          → 'blocks'
+   *   menus/main/home.es.md           → 'menus'
+   *   files/doc.md                    → 'files'
+   *   users/admin.md                  → 'users'
+   *
+   * Entity description strings (import deletions):
+   *   "node:article: Title (uuid)"    → 'articles'
+   *   "taxonomy_term:tags: …"         → 'taxonomy'
+   */
+  private function groupKeyFromPath(string $path): string {
+    if (!str_contains($path, '/')) {
+      // Entity description string: "entity_type:bundle: …"
+      return $this->dirFromEntityType(explode(':', $path)[0] ?? 'other');
+    }
+
+    $parts = explode('/', $path);
+    $first  = $parts[0] ?? '';
+    $second = $parts[1] ?? 'other';
+
+    // Node content lives under content/{bundle_plural}/…
+    if ($first === 'content') {
+      return $second;
+    }
+
+    // Infrastructure dirs use their top-level prefix.
+    return in_array($first, ['taxonomy', 'media', 'blocks', 'files', 'users', 'menus'], TRUE)
+      ? $first
+      : 'other';
+  }
+
   private function dirFromEntityType(string $entityType): string {
     return match ($entityType) {
-      'node'              => 'content_types',
       'taxonomy_term'     => 'taxonomy',
       'media'             => 'media',
       'block_content'     => 'blocks',
       'file'              => 'files',
       'user'              => 'users',
       'menu_link_content' => 'menus',
-      default             => 'other',
+      // Nodes: use a generic 'content' key; bundle is unknown from entity type alone.
+      default             => 'content',
     };
   }
 
   private function labelFromDir(string $dir): string {
     return (string) match ($dir) {
-      'content_types' => $this->t('Nodes'),
-      'taxonomy'      => $this->t('Taxonomy terms'),
-      'media'         => $this->t('Media'),
-      'blocks'        => $this->t('Block content'),
-      'files'         => $this->t('Files'),
-      'users'         => $this->t('Users'),
-      'menus'         => $this->t('Menu links'),
-      default         => $this->t('Other'),
+      'content'  => $this->t('Content'),
+      'taxonomy' => $this->t('Taxonomy terms'),
+      'media'    => $this->t('Media'),
+      'blocks'   => $this->t('Block content'),
+      'files'    => $this->t('Files'),
+      'users'    => $this->t('Users'),
+      'menus'    => $this->t('Menu links'),
+      'other'    => $this->t('Other'),
+      // Node bundle dirs are plural machine names: articles, pages, sessions…
+      default    => ucfirst($dir),
     };
   }
 

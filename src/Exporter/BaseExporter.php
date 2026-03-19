@@ -282,6 +282,28 @@ abstract class BaseExporter {
   }
 
   /**
+   * Build the .md filename including the language suffix.
+   *
+   * Examples: my-article.es.md, contact.en.md
+   * Language-neutral entities (und) omit the suffix: my-file.md
+   */
+  protected function buildFilename(string $slug, string $langcode): string {
+    return $langcode !== 'und' ? $slug . '.' . $langcode . '.md' : $slug . '.md';
+  }
+
+  /**
+   * Pluralise a bundle machine name for use as a directory.
+   *
+   * article → articles, page → pages, category → categories.
+   */
+  protected function pluralBundle(string $bundle): string {
+    if (str_ends_with($bundle, 'y')) {
+      return substr($bundle, 0, -1) . 'ies';
+    }
+    return $bundle . 's';
+  }
+
+  /**
    * Write all dynamic field groups (taxonomy, media, references, extra) into
    * the frontmatter array. Handles all entity types uniformly.
    *
