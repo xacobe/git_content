@@ -11,10 +11,11 @@ use Drupal\Core\Entity\EntityInterface;
  * owner, timestamps). The binary file itself must be managed separately
  * (git-lfs, rsync, etc.) since it can be too large for a Git repository.
  *
- * Output structure:
+ * Output structure mirrors sites/default/files/:
  *   content_export/
  *     files/
- *       {fid}-{filename}.md
+ *       {subdir}/
+ *         {filename}.md
  *
  * Example frontmatter:
  *   ---
@@ -72,11 +73,14 @@ class FileExporter extends BaseExporter {
   public function exportToFile(EntityInterface $entity, bool $dryRun = FALSE): array {
     $markdown = $this->export($entity);
 
-    $dir = $this->contentExportDir() . '/' . $this->typeDir();
+    $uri     = $entity->getFileUri();
+    $path    = $this->stripStreamWrapper($uri);
+    $subdir  = dirname($path);
+    $dir     = $this->contentExportDir() . '/files' . ($subdir !== '.' ? '/' . $subdir : '');
     $this->ensureDir($dir, $dryRun);
 
     $filename = $this->sanitizeFilename($entity->getFilename());
-    $filepath = $dir . '/' . $entity->id() . '-' . $filename . '.md';
+    $filepath = $dir . '/' . $filename . '.md';
 
     $written = $this->writeIfChanged($filepath, $markdown, $dryRun);
 
