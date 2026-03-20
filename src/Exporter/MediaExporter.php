@@ -28,10 +28,8 @@ class MediaExporter extends BaseExporter {
   protected array $managedFields = [
     ...ManagedFields::CORE,
     'body', 'uid', 'revision_uid', 'metatag',
-    // Drupal-computed thumbnail — redundant with the real source field below.
+    // Drupal-computed thumbnail — redundant with the real source field.
     'thumbnail',
-    // Source file fields — already captured as 'file:' by getSourceFile().
-    'field_media_image', 'field_media_file', 'field_media_video_file', 'field_media_audio_file',
   ];
 
   protected function typeDir(): string {
