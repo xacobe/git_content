@@ -190,10 +190,10 @@ abstract class BaseExporter {
    * The checksum covers all entity data (SSG-visible + drupal-internal) so
    * change detection works the same as before.
    */
-  protected function wrapDrupalNamespace(array $frontmatter, string $body): array {
+  protected function wrapDrupalNamespace(array $frontmatter, string $body, array $extra = []): array {
     $drupal = [];
 
-    foreach (['uuid', 'translation_of', 'body_format', 'tid'] as $key) {
+    foreach (['uuid', 'translation_of', 'body_format', 'tid', ...$extra] as $key) {
       if (array_key_exists($key, $frontmatter)) {
         $drupal[$key] = $frontmatter[$key];
         unset($frontmatter[$key]);
@@ -305,6 +305,17 @@ abstract class BaseExporter {
       return $this->serializer->prettyHtml($raw) ?? '';
     }
     return $this->serializer->htmlToMarkdown($raw);
+  }
+
+  /**
+   * Strip Drupal stream wrapper prefix from a URI, returning a plain path.
+   *
+   * Examples:
+   *   public://images/photo.jpg  → images/photo.jpg
+   *   private://docs/report.pdf  → docs/report.pdf
+   */
+  protected function stripStreamWrapper(string $uri): string {
+    return preg_replace('/^[a-z][a-z0-9+\-.]*:\/\//', '', $uri);
   }
 
   /**

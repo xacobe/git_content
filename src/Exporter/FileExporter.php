@@ -18,18 +18,21 @@ use Drupal\Core\Entity\EntityInterface;
  *
  * Example frontmatter:
  *   ---
- *   uuid: a1b2c3d4
  *   type: file
- *   lang: en
- *   status: permanent
  *
  *   filename: drupal.jpg
- *   uri: public://images/drupal.jpg
+ *   path: images/drupal.jpg
  *   mime: image/jpeg
  *   size: 45231
  *
  *   created: 2026-01-15
  *   owner: admin
+ *   drupal:
+ *     uuid: a1b2c3d4
+ *     uri: public://images/drupal.jpg
+ *     status: permanent
+ *     lang: en
+ *     checksum: …
  *   ---
  */
 class FileExporter extends BaseExporter {
@@ -85,22 +88,25 @@ class FileExporter extends BaseExporter {
    */
   public function export(EntityInterface $entity): string {
     $frontmatter = [];
-    $frontmatter['uuid']   = $entity->uuid();
-    $frontmatter['type']   = 'file';
-    $frontmatter['lang']   = $entity->language()->getId();
-    $frontmatter['status'] = $entity->isPermanent() ? 'permanent' : 'temporary';
-    $frontmatter['_']      = NULL;
+    $frontmatter['uuid']     = $entity->uuid();
+    $frontmatter['type']     = 'file';
+    $frontmatter['_']        = NULL;
 
     $frontmatter['filename'] = $entity->getFilename();
-    $frontmatter['uri']      = $entity->getFileUri();
+    $frontmatter['path']     = $this->stripStreamWrapper($entity->getFileUri());
     $frontmatter['mime']     = $entity->getMimeType();
     $frontmatter['size']     = (int) $entity->getSize();
     $frontmatter['__']       = NULL;
 
-    $frontmatter['created'] = date('Y-m-d', $entity->getCreatedTime());
-    $frontmatter['owner']   = $this->getAuthorName($entity);
+    $frontmatter['created']  = date('Y-m-d', $entity->getCreatedTime());
+    $frontmatter['owner']    = $this->getAuthorName($entity);
 
-    $frontmatter = $this->wrapDrupalNamespace($frontmatter, '');
+    // Drupal-internal: full URI (with stream wrapper), file status and language.
+    $frontmatter['uri']    = $entity->getFileUri();
+    $frontmatter['status'] = $entity->isPermanent() ? 'permanent' : 'temporary';
+    $frontmatter['lang']   = $entity->language()->getId();
+
+    $frontmatter = $this->wrapDrupalNamespace($frontmatter, '', ['uri', 'status', 'lang']);
     return $this->serializer->serialize($frontmatter);
   }
 

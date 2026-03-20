@@ -3,6 +3,7 @@
 namespace Drupal\git_content\Exporter;
 
 use Drupal\Core\Entity\EntityInterface;
+use Drupal\git_content\Utility\ManagedFields;
 
 /**
  * Export user accounts to Markdown files.
@@ -21,23 +22,36 @@ use Drupal\Core\Entity\EntityInterface;
  *
  * Example frontmatter:
  *   ---
- *   uuid: a1b2c3d4
  *   type: user
- *   lang: en
  *   status: active
  *
  *   name: editor
- *   mail: editor@example.com
- *   timezone: Europe/Madrid
- *
  *   created: 2026-01-10
+ *   avatar: photo.webp
  *
  *   roles:
  *     - editor
  *     - content_manager
+ *   drupal:
+ *     uuid: a1b2c3d4
+ *     lang: en
+ *     mail: editor@example.com
+ *     timezone: Europe/Madrid
+ *     checksum: …
  *   ---
  */
 class UserExporter extends BaseExporter {
+
+  /**
+   * user_picture is handled explicitly as 'avatar'.
+   * preferred_langcode is a Drupal UI pref set from 'lang' on import — skip it.
+   */
+  protected array $managedFields = [
+    ...ManagedFields::CORE,
+    'body', 'uid', 'revision_uid', 'metatag',
+    'user_picture',
+    'preferred_langcode',
+  ];
 
   protected function typeDir(): string {
     return 'users';
@@ -100,31 +114,36 @@ class UserExporter extends BaseExporter {
     $frontmatter = [];
     $frontmatter['uuid']   = $entity->uuid();
     $frontmatter['type']   = 'user';
-    $frontmatter['lang']   = $entity->language()->getId();
     $frontmatter['status'] = $entity->isActive() ? 'active' : 'blocked';
     $frontmatter['_']      = NULL;
 
-    $frontmatter['name']     = $entity->getAccountName();
-    $frontmatter['mail']     = $entity->getEmail();
-    $frontmatter['timezone'] = $entity->getTimeZone() ?: 'UTC';
-    $frontmatter['__']       = NULL;
-
+    $frontmatter['name']    = $entity->getAccountName();
     $frontmatter['created'] = date('Y-m-d', $entity->getCreatedTime());
-    $frontmatter['___']     = NULL;
+
+    if ($entity->hasField('user_picture') && !$entity->get('user_picture')->isEmpty()) {
+      $picture = $entity->get('user_picture')->entity;
+      if ($picture) {
+        $frontmatter['avatar'] = basename($picture->getFileUri());
+      }
+    }
+
+    $frontmatter['__'] = NULL;
 
     // Roles as a readable list (actual role configuration comes from drush cex)
     if (!empty($roles)) {
       $frontmatter['roles'] = $roles;
-      $frontmatter['____'] = NULL;
+      $frontmatter['___']   = NULL;
     }
 
     // Extra profile fields (bio, avatar, etc.)
     $this->applyDynamicGroups($frontmatter, $entity, 'user');
 
-    // NEVER export the password
-    // $frontmatter['pass'] is intentionally omitted
+    // Drupal-internal: not useful for SSG. NEVER export the password.
+    $frontmatter['lang']     = $entity->language()->getId();
+    $frontmatter['mail']     = $entity->getEmail();
+    $frontmatter['timezone'] = $entity->getTimeZone() ?: 'UTC';
 
-    $frontmatter = $this->wrapDrupalNamespace($frontmatter, '');
+    $frontmatter = $this->wrapDrupalNamespace($frontmatter, '', ['lang', 'mail', 'timezone']);
     return $this->serializer->serialize($frontmatter);
   }
 

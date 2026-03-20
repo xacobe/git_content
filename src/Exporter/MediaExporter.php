@@ -3,6 +3,7 @@
 namespace Drupal\git_content\Exporter;
 
 use Drupal\Core\Entity\EntityInterface;
+use Drupal\git_content\Utility\ManagedFields;
 
 /**
  * Export media entities to Markdown files with YAML frontmatter.
@@ -18,6 +19,20 @@ use Drupal\Core\Entity\EntityInterface;
  *         {slug}.{lang}.md
  */
 class MediaExporter extends BaseExporter {
+
+  /**
+   * thumbnail is Drupal-computed from the source field — redundant with
+   * field_media_image / field_media_file. Exclude it from the dynamic loop
+   * so it does not appear alongside the real source field in media: group.
+   */
+  protected array $managedFields = [
+    ...ManagedFields::CORE,
+    'body', 'uid', 'revision_uid', 'metatag',
+    // Drupal-computed thumbnail — redundant with the real source field below.
+    'thumbnail',
+    // Source file fields — already captured as 'file:' by getSourceFile().
+    'field_media_image', 'field_media_file', 'field_media_video_file', 'field_media_audio_file',
+  ];
 
   protected function typeDir(): string {
     return 'media';
@@ -51,16 +66,12 @@ class MediaExporter extends BaseExporter {
     $frontmatter['type']   = 'media';
     $frontmatter['bundle'] = $entity->bundle();
     $frontmatter['lang']   = $entity->language()->getId();
-    $frontmatter['draft'] = !(bool) $entity->get('status')->value;
+    $frontmatter['draft']  = !(bool) $entity->get('status')->value;
     $frontmatter['_']      = NULL;
 
-    $frontmatter['name']    = $entity->label();
-    $frontmatter['slug']    = $this->getMediaSlug($entity);
-    $frontmatter['__']      = NULL;
-
-    $frontmatter['date']   = date('Y-m-d', $entity->get('created')->value ?? time());
-    $frontmatter['author'] = $this->getAuthorName($entity);
-    $frontmatter['___']    = NULL;
+    $frontmatter['name'] = $entity->label();
+    $frontmatter['date'] = date('Y-m-d', $entity->get('created')->value ?? time());
+    $frontmatter['__']   = NULL;
 
     // Source file (thumbnail field or bundle source file field)
     $source_file = $this->getSourceFile($entity);
@@ -74,7 +85,12 @@ class MediaExporter extends BaseExporter {
 
     $frontmatter['translation_of'] = $this->getTranslationOf($entity);
 
-    $frontmatter = $this->wrapDrupalNamespace($frontmatter, '');
+    // Drupal-internal: bundle (encoded in file path), uploader, slug with entity ID.
+    $frontmatter['bundle'] = $entity->bundle();
+    $frontmatter['author'] = $this->getAuthorName($entity);
+    $frontmatter['slug']   = $this->getMediaSlug($entity);
+
+    $frontmatter = $this->wrapDrupalNamespace($frontmatter, '', ['bundle', 'author', 'slug']);
     return $this->serializer->serialize($frontmatter);
   }
 
