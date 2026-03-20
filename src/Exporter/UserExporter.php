@@ -18,7 +18,7 @@ use Drupal\git_content\Utility\ManagedFields;
  * Output structure:
  *   content_export/
  *     users/
- *       {uid}-{username}.md
+ *       {username}.md
  *
  * Example frontmatter:
  *   ---
@@ -89,13 +89,17 @@ class UserExporter extends BaseExporter {
    * @return array{path: string, skipped: bool}
    */
   public function exportToFile(EntityInterface $entity, bool $dryRun = FALSE): array {
+    if ((int) $entity->id() === 0) {
+      return ['path' => '', 'skipped' => TRUE];
+    }
+
     $markdown = $this->export($entity);
 
     $dir = $this->contentExportDir() . '/' . $this->typeDir();
     $this->ensureDir($dir, $dryRun);
 
     $username = preg_replace('/[^a-z0-9]+/', '-', mb_strtolower($entity->getAccountName()));
-    $filepath = $dir . '/' . $entity->id() . '-' . $username . '.md';
+    $filepath = $dir . '/' . $username . '.md';
 
     $written = $this->writeIfChanged($filepath, $markdown, $dryRun);
     return ['path' => $filepath, 'skipped' => !$written];

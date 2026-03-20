@@ -37,6 +37,11 @@ class UserImporter extends BaseImporter {
       $existing = !empty($users) ? reset($users) : NULL;
     }
 
+    // Never import the anonymous user (uid=0).
+    if ($existing && (int) $existing->id() === 0) {
+      return 'skipped';
+    }
+
     // If user 1 already exists, only update non-critical data.
     if ($existing && (int) $existing->id() === 1) {
       $existing->set('timezone', $frontmatter['timezone'] ?? 'UTC');
