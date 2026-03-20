@@ -128,17 +128,36 @@ class MarkdownImporter {
     }
     $exists = $uuid && !empty($existsQuery->range(0, 1)->execute());
 
+    // For file entities not found by UUID, check for an existing entity with
+    // the same URI. This handles fresh Drupal installs (e.g. Umami demo) that
+    // create file entities with different UUIDs than those in the .md files.
+    // We track the actual entity UUID so syncDeletedEntities does not delete
+    // the entity we are about to update.
+    $actual_uuid    = $uuid;
+    $found_by_uri   = FALSE;
+    if (!$exists && $entity_type === 'file') {
+      $uri = $frontmatter['uri'] ?? NULL;
+      if ($uri) {
+        $existing_files = $this->entityTypeManager->getStorage('file')
+          ->loadByProperties(['uri' => $uri]);
+        if (!empty($existing_files)) {
+          $actual_uuid  = reset($existing_files)->uuid();
+          $found_by_uri = TRUE;
+        }
+      }
+    }
+
     // Checksum match AND entity exists in DB → skip, unless any referenced
     // entity has been deleted (e.g. media re-imported with a new entity ID).
     $checksum = $frontmatter['checksum'] ?? NULL;
     if ($exists && $checksum && $this->computeChecksum($frontmatter, $body) === $checksum) {
       if (!$this->hasStaleReferences($frontmatter)) {
-        return ['op' => 'skipped', 'entity_type' => $entity_type, 'type' => $type, 'uuid' => $uuid, 'bundle' => $bundle];
+        return ['op' => 'skipped', 'entity_type' => $entity_type, 'type' => $type, 'uuid' => $uuid, 'actual_uuid' => $uuid, 'bundle' => $bundle];
       }
     }
 
     if ($dryRun) {
-      $op = $exists ? 'updated' : 'imported';
+      $op = ($exists || $found_by_uri) ? 'updated' : 'imported';
     }
     else {
       $op = match ($type) {
@@ -152,7 +171,7 @@ class MarkdownImporter {
       };
     }
 
-    return ['op' => $op, 'entity_type' => $entity_type, 'type' => $type, 'uuid' => $uuid, 'bundle' => $bundle];
+    return ['op' => $op, 'entity_type' => $entity_type, 'type' => $type, 'uuid' => $uuid, 'actual_uuid' => $actual_uuid, 'bundle' => $bundle];
   }
 
   // ---------------------------------------------------------------------------
@@ -196,6 +215,10 @@ class MarkdownImporter {
         $type        = $import['type'];
         $entity_type = $import['entity_type'] ?? NULL;
         $uuid        = $import['uuid'] ?? NULL;
+        // actual_uuid may differ from uuid when a file entity was found by URI
+        // rather than by UUID (e.g. after a fresh Drupal install with demo content).
+        // Using the actual DB uuid prevents syncDeletedEntities from deleting it.
+        $actual_uuid = $import['actual_uuid'] ?? $uuid;
         $bundle      = $import['bundle'] ?? '__all';
 
         $result[$op][] = str_replace($this->contentExportDir() . '/', '', $filepath);
@@ -203,8 +226,9 @@ class MarkdownImporter {
         // After a real import/update, re-export the entity so the .md file is
         // in the canonical exporter format.  This guarantees the next export
         // dry-run sees the file as unchanged (checksum and content match).
-        if (!$dryRun && in_array($op, ['imported', 'updated']) && $uuid && $entity_type) {
-          $this->exporter->exportEntityByUuid($uuid, $entity_type);
+        // Use actual_uuid so the re-export can find the entity in the DB.
+        if (!$dryRun && in_array($op, ['imported', 'updated']) && $actual_uuid && $entity_type) {
+          $this->exporter->exportEntityByUuid($actual_uuid, $entity_type);
         }
 
         if (!$dryRun) {
@@ -218,8 +242,8 @@ class MarkdownImporter {
           }
         }
 
-        if ($entity_type && $uuid) {
-          $seenUuids[$entity_type][$bundle][$uuid] = TRUE;
+        if ($entity_type && $actual_uuid) {
+          $seenUuids[$entity_type][$bundle][$actual_uuid] = TRUE;
         }
       }
       catch (\Exception $e) {
