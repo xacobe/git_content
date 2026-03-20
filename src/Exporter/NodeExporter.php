@@ -15,6 +15,9 @@ use Drupal\Core\Entity\EntityInterface;
  */
 class NodeExporter extends BaseExporter {
 
+  /** metatag is SSG-relevant for nodes; allow it through the dynamic loop. */
+  protected array $allowedFields = ['metatag'];
+
   protected function typeDir(): string {
     return 'content';
   }

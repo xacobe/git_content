@@ -152,12 +152,11 @@ class MenuLinkExporter extends BaseExporter {
     // Extra custom fields added to menu_link_content (e.g. field_* via UI).
     // Excludes fields already handled explicitly above and internal/computed
     // fields that are noise (menu_name, bundle, link, external, rediscover,
-    // content_translation_*, metatag, etc.).
+    // content_translation_*, etc.).
     $skip_extra = [
       'link', 'bundle', 'menu_name', 'enabled', 'title', 'weight', 'expanded',
       'external', 'rediscover',
       'content_translation_uid', 'content_translation_status', 'content_translation_created',
-      'metatag',
     ];
     $groups = $this->buildDynamicGroups($entity, 'menu_link_content');
     foreach ($groups['extra'] as $key => $val) {

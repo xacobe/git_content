@@ -39,12 +39,21 @@ abstract class BaseExporter {
    * Extends ManagedFields::CORE with exporter-specific fields that are
    * serialized individually (body, uid) or intentionally omitted.
    */
+  /**
+   * Fields excluded from the managed list for this specific exporter.
+   * Subclasses can whitelist fields that are in $managedFields (or CORE)
+   * but should flow through the dynamic loop for this entity type.
+   */
+  protected array $allowedFields = [];
+
   protected array $managedFields = [
     ...ManagedFields::CORE,
     // Exported individually by each exporter, not via the dynamic loop.
     'body', 'uid',
     // Revision owner — not meaningful for static content.
     'revision_uid',
+    // SEO metadata — only meaningful for nodes; excluded everywhere else.
+    'metatag',
   ];
 
   protected FieldNormalizer $fieldNormalizer;
@@ -108,7 +117,7 @@ abstract class BaseExporter {
     $extra      = [];
 
     foreach ($fields as $field_name => $definition) {
-      if (in_array($field_name, $this->managedFields)) {
+      if (in_array($field_name, $this->managedFields) && !in_array($field_name, $this->allowedFields)) {
         continue;
       }
       if (!$entity->hasField($field_name)) {
