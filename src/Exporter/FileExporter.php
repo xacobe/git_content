@@ -97,7 +97,7 @@ class FileExporter extends BaseExporter {
   /**
    * Sanitize the file name for use as part of the .md file name.
    */
-  protected function sanitizeFilename(string $filename): string {
+  private function sanitizeFilename(string $filename): string {
     $name = pathinfo($filename, PATHINFO_FILENAME);
     return preg_replace('/[^a-z0-9]+/', '-', mb_strtolower($name));
   }

@@ -17,7 +17,7 @@ class TaxonomyImporter extends BaseImporter {
     $uuid = $frontmatter['uuid'] ?? NULL;
 
     if (!$vid) {
-      throw new \Exception(t("The term frontmatter is missing 'vocabulary'."));
+      throw new \Exception($this->t("The term frontmatter is missing 'vocabulary'."));
     }
 
     // Ensure the vocabulary config entity exists before creating terms.

@@ -78,7 +78,7 @@ class BlockContentExporter extends BaseExporter {
    * Generate a slug for the block from its title/label.
    * Falls back to the internal ID if no readable name is available.
    */
-  protected function getBlockSlug(EntityInterface $entity): string {
+  private function getBlockSlug(EntityInterface $entity): string {
     $slug = $this->slugify($entity->label() ?? '');
     return $slug ? $slug . '-' . $entity->id() : 'block-' . $entity->id();
   }

@@ -352,7 +352,7 @@ class MarkdownImporter {
             continue;
           }
 
-          $label      = method_exists($entity, 'label') ? $entity->label() : $entity->id();
+          $label      = $entity->label() ?? (string) $entity->id();
           $affected[] = "$entity_type:$bundle: $label ({$entity->uuid()})";
 
           if ($delete) {
@@ -370,10 +370,9 @@ class MarkdownImporter {
   // ---------------------------------------------------------------------------
 
   private function resolveEntityType(string $type): string {
-    return match ($type) {
-      'taxonomy_term', 'file', 'user', 'media', 'block_content', 'menu_link_content' => $type,
-      default => 'node',
-    };
+    // Non-node types use their frontmatter type as entity_type directly.
+    // Node bundle names ('article', 'page', …) all map to 'node'.
+    return (isset(self::IMPORT_ORDER[$type]) && $type !== 'node') ? $type : 'node';
   }
 
   // ---------------------------------------------------------------------------
@@ -410,7 +409,7 @@ class MarkdownImporter {
    * are further sorted by menu name and weight (parents before children).
    * Within the same entity type, files are sorted alphabetically.
    */
-  protected function compareImportFiles(string $a, string $b): int {
+  private function compareImportFiles(string $a, string $b): int {
     $metaA = $this->getImportFileMeta($a);
     $metaB = $this->getImportFileMeta($b);
 
@@ -438,12 +437,12 @@ class MarkdownImporter {
     return $a <=> $b;
   }
 
-  protected function getImportFileMeta(string $filepath): array {
+  private function getImportFileMeta(string $filepath): array {
     if (array_key_exists($filepath, $this->importFileMetaCache)) {
       return $this->importFileMetaCache[$filepath];
     }
 
-    $empty = ['type' => '', 'entity_type' => 'node', 'menu' => '', 'weight' => 0];
+    $empty = ['type' => '', 'entity_type' => 'node', 'menu' => '', 'weight' => 0, 'is_translation' => 0];
 
     if (!is_file($filepath) || !is_readable($filepath)) {
       return $this->importFileMetaCache[$filepath] = $empty;

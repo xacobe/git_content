@@ -200,7 +200,7 @@ class MarkdownExporter {
     foreach ($this->getEntityTranslations($entity) as $translation) {
       try {
         $result  = $exporter->exportToFile($translation, $dryRun);
-        $paths[] = is_array($result) ? $result['path'] : $result;
+        $paths[] = $result['path'];
       }
       catch (\Exception $e) {
         // Re-export after import is best-effort; log but do not fail.
@@ -287,9 +287,9 @@ class MarkdownExporter {
       foreach ($this->getEntityTranslations($entity) as $translation) {
         try {
           $fileResult = $exporter->exportToFile($translation, $dryRun);
-          $filepath   = is_array($fileResult) ? $fileResult['path'] : $fileResult;
+          $filepath   = $fileResult['path'];
           $relpath    = str_replace($this->contentExportDir() . '/', '', $filepath);
-          $skipped    = is_array($fileResult) ? ($fileResult['skipped'] ?? FALSE) : FALSE;
+          $skipped    = $fileResult['skipped'] ?? FALSE;
 
           if ($skipped) {
             $skippedFiles[] = $relpath;

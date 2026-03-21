@@ -17,7 +17,7 @@ class BlockContentImporter extends BaseImporter {
     $uuid = $frontmatter['uuid'] ?? NULL;
 
     if (!$bundle) {
-      throw new \Exception(t("The block_content frontmatter is missing 'bundle'."));
+      throw new \Exception($this->t("The block_content frontmatter is missing 'bundle'."));
     }
 
     [$block, $operation] = $this->resolveOrCreate('block_content', $uuid, $langcode, [

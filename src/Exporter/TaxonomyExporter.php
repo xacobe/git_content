@@ -87,7 +87,7 @@ class TaxonomyExporter extends BaseExporter {
   /**
    * Generate a slug for the term: lowercase name with hyphens.
    */
-  protected function getTermSlug(EntityInterface $entity): string {
+  private function getTermSlug(EntityInterface $entity): string {
     return $this->slugify($entity->label() ?? 'term-' . $entity->id());
   }
 
@@ -96,7 +96,7 @@ class TaxonomyExporter extends BaseExporter {
    *
    * UUIDs are portable across environments (unlike tids).
    */
-  protected function getParentUuid(EntityInterface $entity): ?string {
+  private function getParentUuid(EntityInterface $entity): ?string {
     if ($entity->hasField('parent')) {
       $parents = $entity->get('parent')->getValue();
       if (!empty($parents[0]['target_id']) && (int) $parents[0]['target_id'] !== 0) {

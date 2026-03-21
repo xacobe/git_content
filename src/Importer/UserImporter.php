@@ -23,7 +23,7 @@ class UserImporter extends BaseImporter {
     $langcode   = $frontmatter['lang'] ?? 'und';
 
     if (!$name) {
-      throw new \Exception(t("The user frontmatter is missing 'name'."));
+      throw new \Exception($this->t("The user frontmatter is missing 'name'."));
     }
 
     // Look up by UUID first, then by name, then by email.

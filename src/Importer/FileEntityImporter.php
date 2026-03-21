@@ -20,7 +20,7 @@ class FileEntityImporter extends BaseImporter {
     $langcode   = $frontmatter['lang'] ?? 'und';
 
     if (!$uri) {
-      throw new \Exception(t("The file frontmatter is missing 'uri'."));
+      throw new \Exception($this->t("The file frontmatter is missing 'uri'."));
     }
 
     // Look up by UUID first, then fall back to URI.

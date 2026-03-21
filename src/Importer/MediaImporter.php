@@ -17,7 +17,7 @@ class MediaImporter extends BaseImporter {
     $uuid = $frontmatter['uuid'] ?? NULL;
 
     if (!$bundle) {
-      throw new \Exception(t("The media frontmatter is missing 'bundle'."));
+      throw new \Exception($this->t("The media frontmatter is missing 'bundle'."));
     }
 
     [$media, $operation] = $this->resolveOrCreate('media', $uuid, $langcode, [

@@ -70,7 +70,7 @@ class MenuLinkExporter extends BaseExporter {
    * Build the file name for a menu link including its parent chain separated by
    * double underscores (__).
    */
-  protected function getLinkPath(EntityInterface $entity): string {
+  private function getLinkPath(EntityInterface $entity): string {
     $slug = $this->getLinkSlug($entity);
     $parent_id = $entity->getParentId();
 
@@ -95,7 +95,7 @@ class MenuLinkExporter extends BaseExporter {
   /**
    * Load a menu_link_content by its UUID.
    */
-  protected function loadMenuLinkByUuid(string $uuid): ?\Drupal\Core\Entity\EntityInterface {
+  private function loadMenuLinkByUuid(string $uuid): ?\Drupal\Core\Entity\EntityInterface {
     $links = $this->entityTypeManager
       ->getStorage('menu_link_content')
       ->loadByProperties(['uuid' => $uuid]);
@@ -164,7 +164,7 @@ class MenuLinkExporter extends BaseExporter {
    * The 'parent' field of menu_link_content stores the full plugin ID as
    * "menu_link_content:{uuid}". We extract the UUID for portability.
    */
-  protected function getParentUuid(EntityInterface $entity): ?string {
+  private function getParentUuid(EntityInterface $entity): ?string {
     $parent_plugin_id = $entity->getParentId();
 
     if (empty($parent_plugin_id)) {
@@ -189,7 +189,7 @@ class MenuLinkExporter extends BaseExporter {
    * internal path aliases (internal:/{alias}) so the link survives import
    * into environments where entity IDs may differ.
    */
-  protected function getPortableUri(EntityInterface $entity): string {
+  private function getPortableUri(EntityInterface $entity): string {
     $uri = $entity->get('link')->uri ?? '';
 
     if (preg_match('/^entity:node\/(\d+)$/', $uri, $m)) {
@@ -211,7 +211,7 @@ class MenuLinkExporter extends BaseExporter {
   /**
    * Generate a readable slug from the link title.
    */
-  protected function getLinkSlug(EntityInterface $entity): string {
+  private function getLinkSlug(EntityInterface $entity): string {
     return $this->slugify($entity->getTitle() ?? 'link-' . $entity->id());
   }
 

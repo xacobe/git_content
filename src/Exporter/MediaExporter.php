@@ -95,7 +95,7 @@ class MediaExporter extends BaseExporter {
   /**
    * Try to determine the media source filename.
    */
-  protected function getSourceFile(EntityInterface $entity): ?string {
+  private function getSourceFile(EntityInterface $entity): ?string {
     // Common source fields by media bundle type
     $source_fields = ['field_media_image', 'field_media_file', 'field_media_video_file',
                       'field_media_audio_file', 'thumbnail'];
@@ -120,7 +120,7 @@ class MediaExporter extends BaseExporter {
   /**
    * Generate a slug for the media based on its name.
    */
-  protected function getMediaSlug(EntityInterface $entity): string {
+  private function getMediaSlug(EntityInterface $entity): string {
     $name = $entity->label() ?? 'media-' . $entity->id();
     return 'media-' . $entity->id() . '-' . $this->slugify($name);
   }
