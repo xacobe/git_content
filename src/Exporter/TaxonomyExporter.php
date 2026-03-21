@@ -48,17 +48,14 @@ class TaxonomyExporter extends BaseExporter {
     $frontmatter['type']       = 'taxonomy_term';
     $frontmatter['vocabulary'] = $entity->bundle();
     $frontmatter['lang']       = $entity->language()->getId();
-    $frontmatter['_']          = NULL;
 
     $frontmatter['draft'] = !(bool) $entity->get('status')->value;
     $frontmatter['name']   = $entity->label();
     $frontmatter['slug']   = $this->getTermSlug($entity);
     $frontmatter['weight'] = (int) ($entity->get('weight')->value ?? 0);
-    $frontmatter['__']     = NULL;
 
     // Parent term (UUID for portability across environments)
     $frontmatter['parent'] = $this->getParentUuid($entity);
-    $frontmatter['___']    = NULL;
 
     // Extra dynamic fields for the vocabulary
     $groups = $this->buildDynamicGroups($entity, 'taxonomy_term');

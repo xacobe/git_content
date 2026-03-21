@@ -23,6 +23,10 @@ use Psr\Log\LoggerInterface;
  * Holds the injected services and every helper used by more than one concrete
  * importer: UUID resolution, field denormalization, path aliases, etc.
  * Each subclass must implement import() for its specific entity type.
+ *
+ * All entity queries in this class use accessCheck(FALSE). Import and export
+ * are privileged batch operations that run as an admin user; skipping access
+ * checks is intentional and avoids false negatives on unpublished content.
  */
 abstract class BaseImporter {
 
@@ -132,16 +136,10 @@ abstract class BaseImporter {
   }
 
   /**
-   * Resolve a frontmatter status value to a Drupal integer (1 or 0).
-   *
-   * Supports both the new `draft: bool` format (SSG-compatible) and the
-   * legacy `status: published|draft` string for backwards compatibility.
+   * Resolve the frontmatter `draft` flag to a Drupal status integer (1 or 0).
    */
   protected function resolveStatus(array $frontmatter): int {
-    if (isset($frontmatter['draft'])) {
-      return $frontmatter['draft'] ? 0 : 1;
-    }
-    return ($frontmatter['status'] ?? 'published') === 'published' ? 1 : 0;
+    return ($frontmatter['draft'] ?? FALSE) ? 0 : 1;
   }
 
   /**
@@ -160,10 +158,6 @@ abstract class BaseImporter {
    * @param array $create_values
    *   Values passed to storage->create() for new entities. The 'uuid' key is
    *   always set automatically from $uuid (or a new UUID is generated).
-   * @param bool $globalLookup
-   *   When TRUE, look up by UUID without a bundle filter (e.g. block_content).
-   * @param string|null $bundle
-   *   Bundle key for the scoped lookup (required when $globalLookup is FALSE).
    *
    * @return array{0: mixed, 1: string}
    *   [entity_or_translation, 'imported'|'updated']
@@ -173,15 +167,8 @@ abstract class BaseImporter {
     ?string $uuid,
     string $langcode,
     array $create_values,
-    bool $globalLookup = FALSE,
-    ?string $bundle = NULL,
   ): array {
-    $existing = NULL;
-    if ($uuid) {
-      $existing = $globalLookup
-        ? $this->findByUuidGlobal($uuid, $entity_type)
-        : $this->findByUuid($uuid, $entity_type, $bundle ?? '');
-    }
+    $existing = $uuid ? $this->findByUuid($uuid, $entity_type) : NULL;
 
     if ($existing) {
       return $this->resolveTranslation($existing, $langcode);
@@ -227,35 +214,7 @@ abstract class BaseImporter {
   // Reference resolution
   // ---------------------------------------------------------------------------
 
-  protected function findByUuid(string $uuid, string $entity_type, string $bundle): mixed {
-    $bundle_key = match($entity_type) {
-      'node'              => 'type',
-      'taxonomy_term'     => 'vid',
-      'media'             => 'bundle',
-      'block_content'     => 'type',
-      'menu_link_content' => 'menu_name',
-      default             => 'type',
-    };
-
-    $storage = $this->entityTypeManager->getStorage($entity_type);
-    $ids = $storage->getQuery()
-      ->accessCheck(FALSE)
-      ->condition($bundle_key, $bundle)
-      ->condition('uuid', $uuid)
-      ->range(0, 1)
-      ->execute();
-
-    if (empty($ids)) {
-      return NULL;
-    }
-    return $storage->load(reset($ids));
-  }
-
-  /**
-   * Find an entity by UUID without filtering by bundle.
-   * Safer when the bundle may have changed or is not reliable.
-   */
-  protected function findByUuidGlobal(string $uuid, string $entity_type): mixed {
+  protected function findByUuid(string $uuid, string $entity_type): mixed {
     $storage = $this->entityTypeManager->getStorage($entity_type);
     $ids = $storage->getQuery()
       ->accessCheck(FALSE)

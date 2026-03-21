@@ -28,12 +28,13 @@ use Drupal\Core\Entity\EntityInterface;
  *
  *   created: 2026-01-15
  *   owner: admin
- *   drupal:
- *     uuid: a1b2c3d4
- *     uri: public://images/drupal.jpg
- *     status: permanent
- *     lang: en
- *     checksum: …
+ *
+ *   # Drupal
+ *   uuid: a1b2c3d4
+ *   uri: public://images/drupal.jpg
+ *   status: permanent
+ *   lang: en
+ *   checksum: …
  *   ---
  */
 class FileExporter extends BaseExporter {
@@ -94,13 +95,11 @@ class FileExporter extends BaseExporter {
     $frontmatter = [];
     $frontmatter['uuid']     = $entity->uuid();
     $frontmatter['type']     = 'file';
-    $frontmatter['_']        = NULL;
 
     $frontmatter['filename'] = $entity->getFilename();
     $frontmatter['path']     = $this->stripStreamWrapper($entity->getFileUri());
     $frontmatter['mime']     = $entity->getMimeType();
     $frontmatter['size']     = (int) $entity->getSize();
-    $frontmatter['__']       = NULL;
 
     $frontmatter['created']  = date('Y-m-d', $entity->getCreatedTime());
     $frontmatter['owner']    = $this->getAuthorName($entity);

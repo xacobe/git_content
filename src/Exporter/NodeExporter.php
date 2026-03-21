@@ -54,18 +54,14 @@ class NodeExporter extends BaseExporter {
     $frontmatter['type']   = $entity->bundle();
     $frontmatter['lang']   = $langcode;
     $frontmatter['draft'] = !$entity->isPublished();
-    $frontmatter['_']     = NULL; // blank line
 
     $frontmatter['title']  = $entity->label();
     $frontmatter['slug']   = $this->getSlug($entity);
-    $frontmatter['__']     = NULL;
 
     $frontmatter['date']   = date('Y-m-d', $entity->getCreatedTime());
     $frontmatter['author'] = $this->getAuthorName($entity);
-    $frontmatter['___']    = NULL;
 
     $frontmatter['path']    = $this->getPathAlias($entity);
-    $frontmatter['____']    = NULL;
 
     // --- Grouped dynamic fields ---
     $this->applyDynamicGroups($frontmatter, $entity, 'node');

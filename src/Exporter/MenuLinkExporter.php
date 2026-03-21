@@ -133,7 +133,6 @@ class MenuLinkExporter extends BaseExporter {
     $frontmatter['menu']    = $entity->getMenuName();
     $frontmatter['lang']    = $langcode;
     $frontmatter['enabled'] = (bool) $entity->isEnabled();
-    $frontmatter['_']       = NULL;
 
     $frontmatter['title']    = $entity->getTitle();
     $frontmatter['url']      = $this->getPortableUri($entity);
@@ -146,8 +145,6 @@ class MenuLinkExporter extends BaseExporter {
     if (!empty($link_options)) {
       $frontmatter['link_options'] = $link_options;
     }
-
-    $frontmatter['__']       = NULL;
 
     // Extra custom fields added to menu_link_content (e.g. field_* via UI).
     // Excludes fields already handled explicitly above and internal/computed

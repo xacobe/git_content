@@ -54,11 +54,9 @@ class BlockContentExporter extends BaseExporter {
     $frontmatter['bundle'] = $entity->bundle();
     $frontmatter['lang']   = $langcode;
     $frontmatter['draft'] = !(bool) $entity->get('status')->value;
-    $frontmatter['_']      = NULL;
 
     $frontmatter['title']  = $entity->label();
     $frontmatter['slug']   = $this->getBlockSlug($entity);
-    $frontmatter['__']     = NULL;
 
     // Dynamic bundle fields (same approach as NodeExporter)
     $this->applyDynamicGroups($frontmatter, $entity, 'block_content');

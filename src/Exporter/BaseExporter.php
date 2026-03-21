@@ -21,6 +21,10 @@ use Psr\Log\LoggerInterface;
  * Contains shared logic for normalizing fields and building frontmatter.
  * Each concrete exporter (NodeExporter, TaxonomyExporter, etc.) extends
  * this class and implements entity-specific behavior.
+ *
+ * All entity queries use accessCheck(FALSE). Export is a privileged batch
+ * operation; skipping access checks is intentional so unpublished content
+ * is included in the export.
  */
 abstract class BaseExporter {
 
@@ -190,32 +194,43 @@ abstract class BaseExporter {
   }
 
   /**
-   * Move Drupal-internal fields under a 'drupal:' namespace and add checksum.
+   * Separate Drupal-internal fields from SSG-visible fields and add checksum.
    *
-   * Fields moved: uuid, translation_of, body_format (when present), tid.
-   * The drupal block is placed at the end so SSG-relevant fields stay at the
-   * top of the file. SSG tools can ignore the drupal block entirely.
-   *
-   * The checksum covers all entity data (SSG-visible + drupal-internal) so
-   * change detection works the same as before.
+   * Drupal-internal fields are placed after a '# Drupal' YAML comment separator.
+   * YAML parsers ignore the comment; all fields remain flat and directly accessible.
+   * The checksum covers all entity data (SSG-visible + Drupal-internal).
    */
   protected function wrapDrupalNamespace(array $frontmatter, string $body, array $extra = []): array {
-    $drupal = [];
+    $drupal_keys = ['uuid', 'translation_of', 'body_format', 'tid', ...$extra];
 
-    foreach (['uuid', 'translation_of', 'body_format', 'tid', ...$extra] as $key) {
-      if (array_key_exists($key, $frontmatter)) {
-        $drupal[$key] = $frontmatter[$key];
-        unset($frontmatter[$key]);
+    // Split frontmatter into SSG fields and Drupal-internal fields.
+    $ssg    = [];
+    $drupal = [];
+    foreach ($frontmatter as $key => $value) {
+      if (in_array($key, $drupal_keys, TRUE)) {
+        $drupal[$key] = $value;
+      }
+      else {
+        $ssg[$key] = $value;
       }
     }
 
-    // Checksum covers all entity data: SSG fields + drupal-internal fields.
-    $fm = $this->serializer->flattenGroups($frontmatter);
-    $fm = array_merge($fm, $drupal);
-    $drupal['checksum'] = $this->computeChecksum($fm, $body);
+    // Checksum covers all entity data: SSG fields + Drupal-internal fields.
+    $all_flat = array_merge($this->serializer->flattenGroups($ssg), $drupal);
+    $checksum = $this->computeChecksum($all_flat, $body);
 
-    $frontmatter['drupal'] = $drupal;
-    return $frontmatter;
+    // Rebuild: SSG fields first, then a visual '# Drupal' separator,
+    // then Drupal-internal fields, then checksum — all at the same level.
+    $result = $ssg;
+    if (!empty($drupal)) {
+      $result['# Drupal'] = NULL; // comment header (rendered by buildCleanYaml)
+      foreach ($drupal as $key => $value) {
+        $result[$key] = $value;
+      }
+    }
+    $result['checksum'] = $checksum;
+
+    return $result;
   }
 
   /**
@@ -259,18 +274,12 @@ abstract class BaseExporter {
     }
 
     if ($dryRun) {
-      // Compare only the checksum field.  The checksum encodes the entity
+      // Compare only the checksum field. The checksum encodes the entity
       // state at last export; if it matches the entity's current output the
       // entity has not changed, even if the file was manually edited.
-      $existing = $this->serializer->deserialize(file_get_contents($filepath));
-      // Checksum lives under drupal: in the new format; fall back to root for
-      // files exported before the drupal: namespace was introduced.
-      $existingChecksum = $existing['frontmatter']['drupal']['checksum']
-        ?? $existing['frontmatter']['checksum']
-        ?? NULL;
-      // Extract checksum from the generated content with a targeted regex.
-      // Handles both indented (under drupal:) and root-level (legacy) formats.
-      preg_match('/^\s*checksum:\s*([0-9a-f]+)\s*$/m', $content, $m);
+      $existing         = $this->serializer->deserialize(file_get_contents($filepath));
+      $existingChecksum = $existing['frontmatter']['checksum'] ?? NULL;
+      preg_match('/^checksum:\s*([0-9a-f]+)\s*$/m', $content, $m);
       $generatedChecksum = $m[1] ?? NULL;
       return $existingChecksum !== $generatedChecksum;
     }

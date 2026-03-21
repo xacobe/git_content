@@ -20,7 +20,7 @@ class FileEntityImporter extends BaseImporter {
     }
 
     // Look up by UUID first, then fall back to URI.
-    $existing = $uuid ? $this->findByUuidGlobal($uuid, 'file') : NULL;
+    $existing = $uuid ? $this->findByUuid($uuid, 'file') : NULL;
 
     if (!$existing) {
       $existing_files = $this->entityTypeManager->getStorage('file')

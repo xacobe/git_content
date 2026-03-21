@@ -23,7 +23,7 @@ class UserImporter extends BaseImporter {
     }
 
     // Look up by UUID first, then by name, then by email.
-    $existing = $uuid ? $this->findByUuidGlobal($uuid, 'user') : NULL;
+    $existing = $uuid ? $this->findByUuid($uuid, 'user') : NULL;
 
     if (!$existing && $name) {
       $users = $this->entityTypeManager->getStorage('user')

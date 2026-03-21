@@ -35,7 +35,7 @@ class TaxonomyImporter extends BaseImporter {
       }
     }
 
-    [$term, $operation] = $this->resolveOrCreate('taxonomy_term', $uuid, $langcode, $create_values, FALSE, $vid);
+    [$term, $operation] = $this->resolveOrCreate('taxonomy_term', $uuid, $langcode, $create_values);
 
     // 'name' is required; fall back to slug if empty.
     $name = !empty($frontmatter['name'])
@@ -49,7 +49,7 @@ class TaxonomyImporter extends BaseImporter {
     }
 
     if (!empty($frontmatter['parent'])) {
-      $parent = $this->findByUuidGlobal((string) $frontmatter['parent'], 'taxonomy_term');
+      $parent = $this->findByUuid((string) $frontmatter['parent'], 'taxonomy_term');
       if ($parent) {
         $term->set('parent', [(int) $parent->id()]);
       }

@@ -65,17 +65,14 @@ class MediaExporter extends BaseExporter {
     $frontmatter['bundle'] = $entity->bundle();
     $frontmatter['lang']   = $entity->language()->getId();
     $frontmatter['draft']  = !(bool) $entity->get('status')->value;
-    $frontmatter['_']      = NULL;
 
     $frontmatter['name'] = $entity->label();
     $frontmatter['date'] = date('Y-m-d', $entity->get('created')->value ?? time());
-    $frontmatter['__']   = NULL;
 
     // Source file (thumbnail field or bundle source file field)
     $source_file = $this->getSourceFile($entity);
     if ($source_file) {
       $frontmatter['file'] = $source_file;
-      $frontmatter['____'] = NULL;
     }
 
     // Dynamic fields (source image, alt text, caption, taxonomy, etc.)

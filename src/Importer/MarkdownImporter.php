@@ -230,36 +230,15 @@ class MarkdownImporter {
 
         $result[$op][] = str_replace($this->contentExportDir() . '/', '', $filepath);
 
-        // Re-export the entity to its canonical .md path and clean up any
-        // stale source file that was left over from a previous install.
-        //
-        // Background: slugs for media and block_content include the entity ID
-        // (e.g. media-22-...). After a fresh Drupal install the entity keeps
-        // its UUID but gets a new ID (e.g. 64), so the canonical path changes
-        // to media-64-... while the old media-22-... file stays on disk.
-        //
-        // For imported/updated: always re-export (writes new canonical path).
-        // For skipped:          dry-run the export to see if path changed; if
-        //                       so, force a real re-export + delete old file.
-        if ($actual_uuid && $entity_type) {
-          $needsExport    = !$dryRun && in_array($op, ['imported', 'updated']);
-          $canonicalPaths = $this->exporter->exportEntityByUuid(
-            $actual_uuid,
-            $entity_type,
-            !$needsExport,   // dry-run for skipped; real for imported/updated
-          );
-          $pathChanged = !empty($canonicalPaths) && !in_array($filepath, $canonicalPaths);
-
-          // Skipped entity whose canonical path changed: force a real re-export.
-          if ($pathChanged && $op === 'skipped' && !$dryRun) {
-            $this->exporter->exportEntityByUuid($actual_uuid, $entity_type);
-          }
-
-          // Delete the stale source file (or report it in dry-run).
-          if ($pathChanged) {
-            if (!$dryRun) {
-              @unlink($filepath);
-            }
+        // Newly imported entities may have a different entity ID than the one
+        // encoded in the source file's slug (e.g. media-22-... vs media-64-...).
+        // Re-export to the canonical path and delete the stale source file.
+        // Only needed for 'imported': updated/skipped entities already have
+        // the correct ID and path.
+        if ($op === 'imported' && $actual_uuid && $entity_type && !$dryRun) {
+          $canonicalPaths = $this->exporter->exportEntityByUuid($actual_uuid, $entity_type);
+          if (!empty($canonicalPaths) && !in_array($filepath, $canonicalPaths)) {
+            @unlink($filepath);
             $result['deleted'][] = str_replace($this->contentExportDir() . '/', '', $filepath);
           }
         }
@@ -509,33 +488,37 @@ class MarkdownImporter {
       return FALSE;
     }
 
+    // Collect all UUIDs from references (scalar or array values).
+    $uuids = [];
     foreach ($references as $value) {
-      // References are stored as UUIDs for media/nodes,
-      // or as arrays for multi-value fields.
-      $uuids = is_array($value) ? $value : [$value];
-      foreach ($uuids as $uuid) {
-        if (!is_string($uuid) || strlen($uuid) !== 36) {
-          continue;
+      foreach ((array) $value as $candidate) {
+        if (is_string($candidate) && strlen($candidate) === 36) {
+          $uuids[$candidate] = TRUE;
         }
-        // Check both media and node storages.
-        foreach (['media', 'node'] as $entity_type) {
-          $ids = $this->entityTypeManager->getStorage($entity_type)
-            ->getQuery()
-            ->accessCheck(FALSE)
-            ->condition('uuid', $uuid)
-            ->range(0, 1)
-            ->execute();
-          if (!empty($ids)) {
-            // Found in this storage — reference is not stale for this type.
-            continue 2;
-          }
-        }
-        // Not found in any storage → stale reference detected.
-        return TRUE;
       }
     }
 
-    return FALSE;
+    if (empty($uuids)) {
+      return FALSE;
+    }
+
+    // Two IN queries (one per entity type) instead of 2×N individual queries.
+    // Drupal UUIDs are globally unique, so each UUID appears in at most one
+    // storage. If the total found count equals the number of UUIDs, all
+    // references are intact.
+    $all     = array_keys($uuids);
+    $found   = 0;
+    foreach (['media', 'node'] as $entity_type) {
+      $found += count(
+        $this->entityTypeManager->getStorage($entity_type)
+          ->getQuery()
+          ->accessCheck(FALSE)
+          ->condition('uuid', $all, 'IN')
+          ->execute()
+      );
+    }
+
+    return $found < count($uuids);
   }
 
 }

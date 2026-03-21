@@ -20,7 +20,7 @@ class BlockContentImporter extends BaseImporter {
       'type'             => $bundle,
       'langcode'         => $langcode,
       'default_langcode' => 1,
-    ], TRUE);
+    ]);
 
     $block->set('info', $frontmatter['title'] ?? $this->t('Untitled'));
     $block->set('status', $this->resolveStatus($frontmatter));

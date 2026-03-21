@@ -32,12 +32,13 @@ use Drupal\git_content\Utility\ManagedFields;
  *   roles:
  *     - editor
  *     - content_manager
- *   drupal:
- *     uuid: a1b2c3d4
- *     lang: en
- *     mail: editor@example.com
- *     timezone: Europe/Madrid
- *     checksum: …
+ *
+ *   # Drupal
+ *   uuid: a1b2c3d4
+ *   lang: en
+ *   mail: editor@example.com
+ *   timezone: Europe/Madrid
+ *   checksum: …
  *   ---
  */
 class UserExporter extends BaseExporter {
@@ -119,7 +120,6 @@ class UserExporter extends BaseExporter {
     $frontmatter['uuid']   = $entity->uuid();
     $frontmatter['type']   = 'user';
     $frontmatter['status'] = $entity->isActive() ? 'active' : 'blocked';
-    $frontmatter['_']      = NULL;
 
     $frontmatter['name']    = $entity->getAccountName();
     $frontmatter['created'] = date('Y-m-d', $entity->getCreatedTime());
@@ -131,12 +131,9 @@ class UserExporter extends BaseExporter {
       }
     }
 
-    $frontmatter['__'] = NULL;
-
     // Roles as a readable list (actual role configuration comes from drush cex)
     if (!empty($roles)) {
       $frontmatter['roles'] = $roles;
-      $frontmatter['___']   = NULL;
     }
 
     // Extra profile fields (bio, avatar, etc.)

@@ -15,7 +15,7 @@ class NodeImporter extends BaseImporter {
     [$node, $operation] = $this->resolveOrCreate('node', $uuid, $langcode, [
       'type'     => $bundle,
       'langcode' => $langcode,
-    ], FALSE, $bundle);
+    ]);
 
     $node->set('title', $frontmatter['title'] ?? $this->t('Untitled'));
     $node->set('status', $this->resolveStatus($frontmatter));

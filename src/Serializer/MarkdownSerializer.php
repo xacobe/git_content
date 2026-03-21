@@ -57,11 +57,7 @@ class MarkdownSerializer {
     $yaml_raw = $matches[1];
     $body = trim($matches[2]);
 
-    // Remove placeholder blank-line keys that the serializer inserts.
-    $yaml_clean = preg_replace('/^_+:\s*(null|~)?\s*$/m', '', $yaml_raw);
-    $yaml_clean = preg_replace('/^\s*:\s*(null|~)?\s*$/m', '', $yaml_clean);
-
-    $frontmatter = Yaml::parse($yaml_clean) ?? [];
+    $frontmatter = Yaml::parse($yaml_raw) ?? [];
 
     return [
       'frontmatter' => $frontmatter,
@@ -80,7 +76,7 @@ class MarkdownSerializer {
    *   Frontmatter with groups flattened.
    */
   public function flattenGroups(array $frontmatter): array {
-    foreach (['taxonomy', 'media', 'references', 'drupal'] as $group) {
+    foreach (['taxonomy', 'media', 'references'] as $group) {
       if (isset($frontmatter[$group]) && is_array($frontmatter[$group])) {
         foreach ($frontmatter[$group] as $key => $value) {
           if (!isset($frontmatter[$key])) {
@@ -152,9 +148,10 @@ class MarkdownSerializer {
     $lines = [];
 
     foreach ($frontmatter as $key => $value) {
-      // Placeholder keys → blank line
-      if ($key === '' || preg_match('/^_+$/', (string) $key)) {
-        $lines[] = '';
+      // Comment-marker keys (starting with #) → YAML comment line.
+      // Used to visually separate Drupal-internal fields from SSG fields.
+      if (str_starts_with((string) $key, '#')) {
+        $lines[] = (string) $key;
         continue;
       }
 

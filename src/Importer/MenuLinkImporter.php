@@ -24,7 +24,7 @@ class MenuLinkImporter extends BaseImporter {
     [$link, $operation] = $this->resolveOrCreate('menu_link_content', $uuid, $langcode, [
       'langcode'  => $langcode,
       'menu_name' => $menu_name,
-    ], FALSE, $menu_name);
+    ]);
 
     $link->set('title', $frontmatter['title'] ?? '');
     $link->set('weight', (int) ($frontmatter['weight'] ?? 0));
@@ -91,7 +91,7 @@ class MenuLinkImporter extends BaseImporter {
     }
 
     // Look up in the database by UUID.
-    $existing = $this->findByUuid($parent_ref, 'menu_link_content', $menu_name);
+    $existing = $this->findByUuid($parent_ref, 'menu_link_content');
     if ($existing) {
       return 'menu_link_content:' . $existing->uuid();
     }

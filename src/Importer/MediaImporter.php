@@ -19,7 +19,7 @@ class MediaImporter extends BaseImporter {
     [$media, $operation] = $this->resolveOrCreate('media', $uuid, $langcode, [
       'bundle'   => $bundle,
       'langcode' => $langcode,
-    ], FALSE, $bundle);
+    ]);
 
     $media->set('name', $frontmatter['name'] ?? $this->t('Unnamed'));
     $media->set('status', $this->resolveStatus($frontmatter));

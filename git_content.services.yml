@@ -24,33 +24,42 @@ services:
 
   # --- Exporters ---
 
+  git_content.base_exporter:
+    abstract: true
+    arguments:
+      - '@git_content.field_discovery'
+      - '@git_content.serializer'
+      - '@entity_type.manager'
+      - '@logger.factory'
+      - '@git_content.field_normalizer'
+
   git_content.node_exporter:
+    parent: git_content.base_exporter
     class: Drupal\git_content\Exporter\NodeExporter
-    arguments: ['@git_content.field_discovery', '@git_content.serializer', '@entity_type.manager', '@logger.factory', '@git_content.field_normalizer']
 
   git_content.taxonomy_exporter:
+    parent: git_content.base_exporter
     class: Drupal\git_content\Exporter\TaxonomyExporter
-    arguments: ['@git_content.field_discovery', '@git_content.serializer', '@entity_type.manager', '@logger.factory', '@git_content.field_normalizer']
 
   git_content.file_exporter:
+    parent: git_content.base_exporter
     class: Drupal\git_content\Exporter\FileExporter
-    arguments: ['@git_content.field_discovery', '@git_content.serializer', '@entity_type.manager', '@logger.factory', '@git_content.field_normalizer']
 
   git_content.user_exporter:
+    parent: git_content.base_exporter
     class: Drupal\git_content\Exporter\UserExporter
-    arguments: ['@git_content.field_discovery', '@git_content.serializer', '@entity_type.manager', '@logger.factory', '@git_content.field_normalizer']
 
   git_content.menu_link_exporter:
+    parent: git_content.base_exporter
     class: Drupal\git_content\Exporter\MenuLinkExporter
-    arguments: ['@git_content.field_discovery', '@git_content.serializer', '@entity_type.manager', '@logger.factory', '@git_content.field_normalizer']
 
   git_content.block_content_exporter:
+    parent: git_content.base_exporter
     class: Drupal\git_content\Exporter\BlockContentExporter
-    arguments: ['@git_content.field_discovery', '@git_content.serializer', '@entity_type.manager', '@logger.factory', '@git_content.field_normalizer']
 
   git_content.media_exporter:
+    parent: git_content.base_exporter
     class: Drupal\git_content\Exporter\MediaExporter
-    arguments: ['@git_content.field_discovery', '@git_content.serializer', '@entity_type.manager', '@logger.factory', '@git_content.field_normalizer']
 
   # --- Exporter orchestrator ---
 
@@ -70,33 +79,46 @@ services:
 
   # --- Importers ---
 
+  git_content.base_importer:
+    abstract: true
+    arguments:
+      - '@git_content.field_discovery'
+      - '@git_content.serializer'
+      - '@entity_type.manager'
+      - '@uuid'
+      - '@password_generator'
+      - '@datetime.time'
+      - '@logger.factory'
+      - '@current_user'
+      - '@git_content.field_normalizer'
+
   git_content.node_importer:
+    parent: git_content.base_importer
     class: Drupal\git_content\Importer\NodeImporter
-    arguments: ['@git_content.field_discovery', '@git_content.serializer', '@entity_type.manager', '@uuid', '@password_generator', '@datetime.time', '@logger.factory', '@current_user', '@git_content.field_normalizer']
 
   git_content.taxonomy_importer:
+    parent: git_content.base_importer
     class: Drupal\git_content\Importer\TaxonomyImporter
-    arguments: ['@git_content.field_discovery', '@git_content.serializer', '@entity_type.manager', '@uuid', '@password_generator', '@datetime.time', '@logger.factory', '@current_user', '@git_content.field_normalizer']
 
   git_content.media_importer:
+    parent: git_content.base_importer
     class: Drupal\git_content\Importer\MediaImporter
-    arguments: ['@git_content.field_discovery', '@git_content.serializer', '@entity_type.manager', '@uuid', '@password_generator', '@datetime.time', '@logger.factory', '@current_user', '@git_content.field_normalizer']
 
   git_content.file_entity_importer:
+    parent: git_content.base_importer
     class: Drupal\git_content\Importer\FileEntityImporter
-    arguments: ['@git_content.field_discovery', '@git_content.serializer', '@entity_type.manager', '@uuid', '@password_generator', '@datetime.time', '@logger.factory', '@current_user', '@git_content.field_normalizer']
 
   git_content.user_importer:
+    parent: git_content.base_importer
     class: Drupal\git_content\Importer\UserImporter
-    arguments: ['@git_content.field_discovery', '@git_content.serializer', '@entity_type.manager', '@uuid', '@password_generator', '@datetime.time', '@logger.factory', '@current_user', '@git_content.field_normalizer']
 
   git_content.block_content_importer:
+    parent: git_content.base_importer
     class: Drupal\git_content\Importer\BlockContentImporter
-    arguments: ['@git_content.field_discovery', '@git_content.serializer', '@entity_type.manager', '@uuid', '@password_generator', '@datetime.time', '@logger.factory', '@current_user', '@git_content.field_normalizer']
 
   git_content.menu_link_importer:
+    parent: git_content.base_importer
     class: Drupal\git_content\Importer\MenuLinkImporter
-    arguments: ['@git_content.field_discovery', '@git_content.serializer', '@entity_type.manager', '@uuid', '@password_generator', '@datetime.time', '@logger.factory', '@current_user', '@git_content.field_normalizer']
 
   git_content.importer:
     class: Drupal\git_content\Importer\MarkdownImporter
@@ -114,4 +136,3 @@ services:
       - '@git_content.menu_link_importer'
       - '@git_content.exporter'
       - '@cache.default'
-
