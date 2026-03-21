@@ -274,7 +274,24 @@ class MarkdownExporter {
       return ['exported_files' => [], 'skipped_files' => [], 'errors' => []];
     }
 
+    // For file entities, track exported URIs to skip duplicate entities that
+    // share the same physical file (e.g. Umami creates two file entities per
+    // image). Only the first entity per URI is exported; siblings are silently
+    // skipped. The importer's sibling-UUID tracking ensures they are never
+    // deleted by syncDeletedEntities.
+    $exportedFileUris = [];
+
     foreach ($storage->loadMultiple($ids) as $entity) {
+      if ($entity_type === 'file' && $entity->hasField('uri')) {
+        $uri = $entity->get('uri')->value;
+        if ($uri && isset($exportedFileUris[$uri])) {
+          continue;
+        }
+        if ($uri) {
+          $exportedFileUris[$uri] = TRUE;
+        }
+      }
+
       foreach ($this->getEntityTranslations($entity) as $translation) {
         try {
           $fileResult = $exporter->exportToFile($translation, $dryRun);
