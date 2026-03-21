@@ -63,32 +63,6 @@ class UserExporter extends BaseExporter {
   }
 
   /**
-   * Export all users (except anonymous uid=0).
-   *
-   * @return string[] Generated file paths.
-   */
-  public function exportAll(): array {
-    $storage = $this->entityTypeManager->getStorage('user');
-    $uids = $storage->getQuery()
-      ->accessCheck(FALSE)
-      ->condition('uid', 0, '>')  // exclude anonymous user
-      ->execute();
-
-    $files = [];
-    foreach ($storage->loadMultiple($uids) as $user) {
-      try {
-        $result = $this->exportToFile($user);
-        $files[] = is_array($result) ? $result['path'] : $result;
-      }
-      catch (\Exception $e) {
-        $this->logger->error('UserExporter: @msg', ['@msg' => $e->getMessage()]);
-      }
-    }
-
-    return $files;
-  }
-
-  /**
    * {@inheritdoc}
    *
    * @return array{path: string, skipped: bool}
@@ -103,7 +77,7 @@ class UserExporter extends BaseExporter {
     $dir = $this->contentExportDir() . '/' . $this->typeDir();
     $this->ensureDir($dir, $dryRun);
 
-    $username = preg_replace('/[^a-z0-9]+/', '-', mb_strtolower($entity->getAccountName()));
+    $username = $this->slugify($entity->getAccountName());
     $filepath = $dir . '/' . $username . '.md';
 
     $written = $this->writeIfChanged($filepath, $markdown, $dryRun);

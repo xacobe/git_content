@@ -209,15 +209,7 @@ class MarkdownImporter {
     usort($files, fn($a, $b) => $this->compareImportFiles($a, $b));
 
     $typeCounts = [];
-    $seenUuids  = [
-      'node'              => [],
-      'taxonomy_term'     => [],
-      'media'             => [],
-      'block_content'     => [],
-      'file'              => [],
-      'user'              => [],
-      'menu_link_content' => [],
-    ];
+    $seenUuids  = array_fill_keys(array_keys(self::IMPORT_ORDER), []);
 
     foreach ($files as $filepath) {
       try {
@@ -242,7 +234,7 @@ class MarkdownImporter {
         if ($op === 'imported' && $actual_uuid && $entity_type && !$dryRun) {
           $canonicalPaths = $this->exporter->exportEntityByUuid($actual_uuid, $entity_type);
           if (!empty($canonicalPaths) && !in_array($filepath, $canonicalPaths)) {
-            @unlink($filepath);
+            is_file($filepath) && unlink($filepath);
             $result['deleted'][] = str_replace($this->contentExportDir() . '/', '', $filepath);
           }
         }
@@ -327,7 +319,7 @@ class MarkdownImporter {
 
     foreach ($seenUuids as $entity_type => $bundles) {
       // Only sync entity types we deliberately manage.
-      if (!in_array($entity_type, ['node', 'taxonomy_term', 'media', 'block_content', 'menu_link_content', 'file', 'user'], TRUE)) {
+      if (!isset(self::IMPORT_ORDER[$entity_type])) {
         continue;
       }
       // If no files were seen for this type, skip deletion to avoid wiping
@@ -388,6 +380,9 @@ class MarkdownImporter {
 
   /**
    * Dependency order for import: earlier = imported first.
+   *
+   * Doubles as the authoritative list of entity types managed by this module.
+   * Used for import ordering, seenUuids initialisation, and deletion sync.
    *
    * Dependencies:
    *   media        → file

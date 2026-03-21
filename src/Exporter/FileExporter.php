@@ -48,29 +48,6 @@ class FileExporter extends BaseExporter {
   }
 
   /**
-   * Export all managed files.
-   *
-   * @return string[] Generated file paths.
-   */
-  public function exportAll(): array {
-    $storage = $this->entityTypeManager->getStorage('file');
-    $fids = $storage->getQuery()->accessCheck(FALSE)->execute();
-    $files = [];
-
-    foreach ($storage->loadMultiple($fids) as $file) {
-      try {
-        $result = $this->exportToFile($file);
-        $files[] = is_array($result) ? $result['path'] : $result;
-      }
-      catch (\Exception $e) {
-        $this->logger->error('FileExporter: @msg', ['@msg' => $e->getMessage()]);
-      }
-    }
-
-    return $files;
-  }
-
-  /**
    * {@inheritdoc}
    *
    * @return array{path: string, skipped: bool}

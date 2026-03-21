@@ -152,9 +152,7 @@ class MarkdownExporter {
     foreach ($orphans as $file) {
       $result['deleted'][] = $file;
       $path = $this->contentExportDir() . '/' . $file;
-      if (is_file($path)) {
-        @unlink($path);
-      }
+      is_file($path) && unlink($path);
     }
 
     $this->writeSiteYaml();

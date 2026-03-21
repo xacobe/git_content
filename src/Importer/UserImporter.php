@@ -28,18 +28,8 @@ class UserImporter extends BaseImporter {
 
     // Look up by UUID first, then by name, then by email.
     $existing = $uuid ? $this->findByUuid($uuid, 'user') : NULL;
-
-    if (!$existing && $name) {
-      $users = $this->entityTypeManager->getStorage('user')
-        ->loadByProperties(['name' => $name]);
-      $existing = !empty($users) ? reset($users) : NULL;
-    }
-
-    if (!$existing && $mail) {
-      $users = $this->entityTypeManager->getStorage('user')
-        ->loadByProperties(['mail' => $mail]);
-      $existing = !empty($users) ? reset($users) : NULL;
-    }
+    $existing ??= $name ? $this->loadOneByProperty('user', 'name', $name) : NULL;
+    $existing ??= $mail ? $this->loadOneByProperty('user', 'mail', $mail) : NULL;
 
     // Never import the anonymous user (uid=0).
     if ($existing && (int) $existing->id() === 0) {

@@ -47,29 +47,6 @@ class MenuLinkExporter extends BaseExporter {
   }
 
   /**
-   * Export all menu_link_content items grouped by menu.
-   *
-   * @return string[] Generated file paths.
-   */
-  public function exportAll(): array {
-    $storage = $this->entityTypeManager->getStorage('menu_link_content');
-    $ids = $storage->getQuery()->accessCheck(FALSE)->execute();
-    $files = [];
-
-    foreach ($storage->loadMultiple($ids) as $link) {
-      try {
-        $result = $this->exportToFile($link);
-        $files[] = is_array($result) ? $result['path'] : $result;
-      }
-      catch (\Exception $e) {
-        $this->logger->error('MenuLinkExporter: @msg', ['@msg' => $e->getMessage()]);
-      }
-    }
-
-    return $files;
-  }
-
-  /**
    * {@inheritdoc}
    *
    * @return array{path: string, skipped: bool}

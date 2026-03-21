@@ -34,37 +34,20 @@ abstract class BaseImporter implements ImporterInterface {
   use StringTranslationTrait;
 
 
-  protected FieldDiscovery $fieldDiscovery;
-  protected MarkdownSerializer $serializer;
-  protected EntityTypeManagerInterface $entityTypeManager;
-  protected UuidInterface $uuid;
-  protected PasswordGeneratorInterface $passwordGenerator;
-  protected TimeInterface $time;
   protected LoggerInterface $logger;
-  protected AccountProxyInterface $currentUser;
-
-  protected FieldNormalizer $fieldNormalizer;
 
   public function __construct(
-    FieldDiscovery $fieldDiscovery,
-    MarkdownSerializer $serializer,
-    EntityTypeManagerInterface $entityTypeManager,
-    UuidInterface $uuid,
-    PasswordGeneratorInterface $passwordGenerator,
-    TimeInterface $time,
+    protected FieldDiscovery $fieldDiscovery,
+    protected MarkdownSerializer $serializer,
+    protected EntityTypeManagerInterface $entityTypeManager,
+    protected UuidInterface $uuid,
+    protected PasswordGeneratorInterface $passwordGenerator,
+    protected TimeInterface $time,
     LoggerChannelFactoryInterface $loggerFactory,
-    AccountProxyInterface $currentUser,
-    FieldNormalizer $fieldNormalizer,
+    protected AccountProxyInterface $currentUser,
+    protected FieldNormalizer $fieldNormalizer,
   ) {
-    $this->fieldDiscovery    = $fieldDiscovery;
-    $this->serializer        = $serializer;
-    $this->entityTypeManager = $entityTypeManager;
-    $this->uuid              = $uuid;
-    $this->passwordGenerator = $passwordGenerator;
-    $this->time              = $time;
-    $this->logger            = $loggerFactory->get('git_content');
-    $this->currentUser       = $currentUser;
-    $this->fieldNormalizer   = $fieldNormalizer;
+    $this->logger = $loggerFactory->get('git_content');
   }
 
   /**
@@ -233,9 +216,17 @@ abstract class BaseImporter implements ImporterInterface {
   }
 
   protected function findUserByName(string $name): ?int {
-    $users = $this->entityTypeManager->getStorage('user')
-      ->loadByProperties(['name' => $name]);
-    return !empty($users) ? (int) reset($users)->id() : NULL;
+    $user = $this->loadOneByProperty('user', 'name', $name);
+    return $user ? (int) $user->id() : NULL;
+  }
+
+  /**
+   * Load a single entity by a property value, or NULL if not found.
+   */
+  protected function loadOneByProperty(string $entity_type, string $property, mixed $value): mixed {
+    $results = $this->entityTypeManager->getStorage($entity_type)
+      ->loadByProperties([$property => $value]);
+    return !empty($results) ? reset($results) : NULL;
   }
 
 
