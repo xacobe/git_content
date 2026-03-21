@@ -145,6 +145,55 @@ abstract class BaseImporter {
   }
 
   /**
+   * Look up an entity by UUID (or create it) and resolve its translation.
+   *
+   * Encapsulates the repeated lookup → resolveTranslation / create pattern
+   * present in every concrete importer. Callers pass the entity type, UUID,
+   * langcode, and the values to use when creating a new entity.
+   *
+   * @param string $entity_type
+   *   The entity type machine name (e.g. 'node', 'media').
+   * @param string|null $uuid
+   *   The UUID from the frontmatter, or NULL if none.
+   * @param string $langcode
+   *   The langcode from the frontmatter.
+   * @param array $create_values
+   *   Values passed to storage->create() for new entities. The 'uuid' key is
+   *   always set automatically from $uuid (or a new UUID is generated).
+   * @param bool $globalLookup
+   *   When TRUE, look up by UUID without a bundle filter (e.g. block_content).
+   * @param string|null $bundle
+   *   Bundle key for the scoped lookup (required when $globalLookup is FALSE).
+   *
+   * @return array{0: mixed, 1: string}
+   *   [entity_or_translation, 'imported'|'updated']
+   */
+  protected function resolveOrCreate(
+    string $entity_type,
+    ?string $uuid,
+    string $langcode,
+    array $create_values,
+    bool $globalLookup = FALSE,
+    ?string $bundle = NULL,
+  ): array {
+    $existing = NULL;
+    if ($uuid) {
+      $existing = $globalLookup
+        ? $this->findByUuidGlobal($uuid, $entity_type)
+        : $this->findByUuid($uuid, $entity_type, $bundle ?? '');
+    }
+
+    if ($existing) {
+      return $this->resolveTranslation($existing, $langcode);
+    }
+
+    $entity = $this->entityTypeManager->getStorage($entity_type)->create(
+      $create_values + ['uuid' => $uuid ?? $this->uuid->generate()]
+    );
+    return [$entity, 'imported'];
+  }
+
+  /**
    * Resolve the correct translation entity and operation string.
    *
    * Extracts the repeated translation-handling block present in every

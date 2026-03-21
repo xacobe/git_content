@@ -25,29 +25,17 @@ class TaxonomyImporter extends BaseImporter {
       ])->save();
     }
 
-    $existing = $uuid ? $this->findByUuid($uuid, 'taxonomy_term', $vid) : NULL;
-
-    if ($existing) {
-      [$term, $operation] = $this->resolveTranslation($existing, $langcode);
-    }
-    else {
-      $create_values = [
-        'vid'              => $vid,
-        'langcode'         => $langcode,
-        'default_langcode' => 1,
-        'uuid'             => $uuid ?? $this->uuid->generate(),
-      ];
-      // Preserve the original tid so Views filters referencing terms by ID
-      // keep working after a fresh import. Only applied if the slot is free.
-      if (!empty($frontmatter['tid'])) {
-        $requested_tid = (int) $frontmatter['tid'];
-        if (!$this->entityTypeManager->getStorage('taxonomy_term')->load($requested_tid)) {
-          $create_values['tid'] = $requested_tid;
-        }
+    $create_values = ['vid' => $vid, 'langcode' => $langcode, 'default_langcode' => 1];
+    // Preserve the original tid so Views filters referencing terms by ID
+    // keep working after a fresh import. Only applied if the slot is free.
+    if (!empty($frontmatter['tid'])) {
+      $requested_tid = (int) $frontmatter['tid'];
+      if (!$this->entityTypeManager->getStorage('taxonomy_term')->load($requested_tid)) {
+        $create_values['tid'] = $requested_tid;
       }
-      $term = $this->entityTypeManager->getStorage('taxonomy_term')->create($create_values);
-      $operation = 'imported';
     }
+
+    [$term, $operation] = $this->resolveOrCreate('taxonomy_term', $uuid, $langcode, $create_values, FALSE, $vid);
 
     // 'name' is required; fall back to slug if empty.
     $name = !empty($frontmatter['name'])

@@ -7,6 +7,7 @@ use Drupal\git_content\Serializer\MarkdownSerializer;
 use Drupal\git_content\Utility\ChecksumTrait;
 use Drupal\git_content\Utility\ContentExportTrait;
 use Drupal\git_content\Utility\SummaryTrait;
+use Drupal\Core\Cache\CacheBackendInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Logger\LoggerChannelFactoryInterface;
 use Drupal\Core\Session\AccountProxyInterface;
@@ -48,6 +49,7 @@ class MarkdownImporter {
     protected BlockContentImporter $blockContentImporter,
     protected MenuLinkImporter $menuLinkImporter,
     protected MarkdownExporter $exporter,
+    protected CacheBackendInterface $defaultCache,
   ) {
     $this->logger = $loggerFactory->get('git_content');
   }
@@ -228,12 +230,38 @@ class MarkdownImporter {
 
         $result[$op][] = str_replace($this->contentExportDir() . '/', '', $filepath);
 
-        // After a real import/update, re-export the entity so the .md file is
-        // in the canonical exporter format.  This guarantees the next export
-        // dry-run sees the file as unchanged (checksum and content match).
-        // Use actual_uuid so the re-export can find the entity in the DB.
-        if (!$dryRun && in_array($op, ['imported', 'updated']) && $actual_uuid && $entity_type) {
-          $this->exporter->exportEntityByUuid($actual_uuid, $entity_type);
+        // Re-export the entity to its canonical .md path and clean up any
+        // stale source file that was left over from a previous install.
+        //
+        // Background: slugs for media and block_content include the entity ID
+        // (e.g. media-22-...). After a fresh Drupal install the entity keeps
+        // its UUID but gets a new ID (e.g. 64), so the canonical path changes
+        // to media-64-... while the old media-22-... file stays on disk.
+        //
+        // For imported/updated: always re-export (writes new canonical path).
+        // For skipped:          dry-run the export to see if path changed; if
+        //                       so, force a real re-export + delete old file.
+        if ($actual_uuid && $entity_type) {
+          $needsExport    = !$dryRun && in_array($op, ['imported', 'updated']);
+          $canonicalPaths = $this->exporter->exportEntityByUuid(
+            $actual_uuid,
+            $entity_type,
+            !$needsExport,   // dry-run for skipped; real for imported/updated
+          );
+          $pathChanged = !empty($canonicalPaths) && !in_array($filepath, $canonicalPaths);
+
+          // Skipped entity whose canonical path changed: force a real re-export.
+          if ($pathChanged && $op === 'skipped' && !$dryRun) {
+            $this->exporter->exportEntityByUuid($actual_uuid, $entity_type);
+          }
+
+          // Delete the stale source file (or report it in dry-run).
+          if ($pathChanged) {
+            if (!$dryRun) {
+              @unlink($filepath);
+            }
+            $result['deleted'][] = str_replace($this->contentExportDir() . '/', '', $filepath);
+          }
         }
 
         if (!$dryRun) {
@@ -277,6 +305,16 @@ class MarkdownImporter {
     }
 
     if (!$dryRun) {
+      // BlockContentUuidLookup is a CacheCollector that stores a persistent
+      // cache entry ('block_content_uuid') without cache tags, so it is NOT
+      // automatically invalidated when block_content entities are deleted or
+      // recreated (e.g. after a fresh install with different entity IDs).
+      // We clear it explicitly whenever any block_content entity was touched
+      // so the next page request re-resolves UUIDs → entity IDs from the DB.
+      if (!empty($seenUuids['block_content'])) {
+        $this->defaultCache->delete('block_content_uuid');
+      }
+
       $this->logger->notice(
         'Import finished: @summary. Total: @created created, @updated updated, @skipped skipped, @deleted deleted, @errors errors.',
         [

@@ -21,21 +21,10 @@ class MenuLinkImporter extends BaseImporter {
     $uuid = $frontmatter['uuid'] ?? NULL;
     $menu_name  = $frontmatter['menu'] ?? 'main';
 
-    $existing = $uuid
-      ? $this->findByUuid($uuid, 'menu_link_content', $menu_name)
-      : NULL;
-
-    if ($existing) {
-      [$link, $operation] = $this->resolveTranslation($existing, $langcode);
-    }
-    else {
-      $link = $this->entityTypeManager->getStorage('menu_link_content')->create([
-        'langcode'  => $langcode,
-        'menu_name' => $menu_name,
-        'uuid'      => $uuid ?? $this->uuid->generate(),
-      ]);
-      $operation = 'imported';
-    }
+    [$link, $operation] = $this->resolveOrCreate('menu_link_content', $uuid, $langcode, [
+      'langcode'  => $langcode,
+      'menu_name' => $menu_name,
+    ], FALSE, $menu_name);
 
     $link->set('title', $frontmatter['title'] ?? '');
     $link->set('weight', (int) ($frontmatter['weight'] ?? 0));

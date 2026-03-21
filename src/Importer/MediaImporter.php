@@ -16,19 +16,10 @@ class MediaImporter extends BaseImporter {
       throw new \Exception(t("The media frontmatter is missing 'bundle'."));
     }
 
-    $existing = $uuid ? $this->findByUuid($uuid, 'media', $bundle) : NULL;
-
-    if ($existing) {
-      [$media, $operation] = $this->resolveTranslation($existing, $langcode);
-    }
-    else {
-      $media = $this->entityTypeManager->getStorage('media')->create([
-        'bundle'   => $bundle,
-        'langcode' => $langcode,
-        'uuid'     => $uuid ?? $this->uuid->generate(),
-      ]);
-      $operation = 'imported';
-    }
+    [$media, $operation] = $this->resolveOrCreate('media', $uuid, $langcode, [
+      'bundle'   => $bundle,
+      'langcode' => $langcode,
+    ], FALSE, $bundle);
 
     $media->set('name', $frontmatter['name'] ?? $this->t('Unnamed'));
     $media->set('status', $this->resolveStatus($frontmatter));

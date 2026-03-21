@@ -182,28 +182,32 @@ class MarkdownExporter {
    * canonical exporter format, ensuring the next export preview shows the file
    * as unchanged.
    */
-  public function exportEntityByUuid(string $uuid, string $entityType): void {
+  public function exportEntityByUuid(string $uuid, string $entityType, bool $dryRun = FALSE): array {
+    $paths    = [];
     $exporter = $this->exporterMap()[$entityType] ?? NULL;
     if (!$exporter) {
-      return;
+      return $paths;
     }
 
     $entities = $this->entityTypeManager->getStorage($entityType)
       ->loadByProperties(['uuid' => $uuid]);
     if (empty($entities)) {
-      return;
+      return $paths;
     }
 
     $entity = reset($entities);
 
     foreach ($this->getEntityTranslations($entity) as $translation) {
       try {
-        $exporter->exportToFile($translation);
+        $result  = $exporter->exportToFile($translation, $dryRun);
+        $paths[] = is_array($result) ? $result['path'] : $result;
       }
       catch (\Exception $e) {
         // Ignore individual translation failures during normalisation.
       }
     }
+
+    return $paths;
   }
 
   /**
