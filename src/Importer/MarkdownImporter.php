@@ -128,21 +128,26 @@ class MarkdownImporter {
     }
     $exists = $uuid && !empty($existsQuery->range(0, 1)->execute());
 
-    // For file entities not found by UUID, check for an existing entity with
-    // the same URI. This handles fresh Drupal installs (e.g. Umami demo) that
-    // create file entities with different UUIDs than those in the .md files.
-    // We track the actual entity UUID so syncDeletedEntities does not delete
-    // the entity we are about to update.
+    // For file entities, look up ALL entities sharing the same URI. Drupal can
+    // create multiple file entities for the same physical file (e.g. Umami demo
+    // creates two per image). We track every sibling UUID so syncDeletedEntities
+    // does not delete entities that we simply did not have a .md file for.
+    // When the UUID is not found, we also use the first result as the entity to
+    // update (URI fallback for fresh installs with different UUIDs).
     $actual_uuid    = $uuid;
+    $sibling_uuids  = [];
     $found_by_uri   = FALSE;
-    if (!$exists && $entity_type === 'file') {
+    if ($entity_type === 'file') {
       $uri = $frontmatter['uri'] ?? NULL;
       if ($uri) {
         $existing_files = $this->entityTypeManager->getStorage('file')
           ->loadByProperties(['uri' => $uri]);
         if (!empty($existing_files)) {
-          $actual_uuid  = reset($existing_files)->uuid();
-          $found_by_uri = TRUE;
+          $sibling_uuids = array_map(fn($f) => $f->uuid(), array_values($existing_files));
+          if (!$exists) {
+            $actual_uuid  = reset($existing_files)->uuid();
+            $found_by_uri = TRUE;
+          }
         }
       }
     }
@@ -152,7 +157,7 @@ class MarkdownImporter {
     $checksum = $frontmatter['checksum'] ?? NULL;
     if ($exists && $checksum && $this->computeChecksum($frontmatter, $body) === $checksum) {
       if (!$this->hasStaleReferences($frontmatter)) {
-        return ['op' => 'skipped', 'entity_type' => $entity_type, 'type' => $type, 'uuid' => $uuid, 'actual_uuid' => $uuid, 'bundle' => $bundle];
+        return ['op' => 'skipped', 'entity_type' => $entity_type, 'type' => $type, 'uuid' => $uuid, 'actual_uuid' => $uuid, 'sibling_uuids' => $sibling_uuids, 'bundle' => $bundle];
       }
     }
 
@@ -171,7 +176,7 @@ class MarkdownImporter {
       };
     }
 
-    return ['op' => $op, 'entity_type' => $entity_type, 'type' => $type, 'uuid' => $uuid, 'actual_uuid' => $actual_uuid, 'bundle' => $bundle];
+    return ['op' => $op, 'entity_type' => $entity_type, 'type' => $type, 'uuid' => $uuid, 'actual_uuid' => $actual_uuid, 'sibling_uuids' => $sibling_uuids, 'bundle' => $bundle];
   }
 
   // ---------------------------------------------------------------------------
@@ -242,8 +247,13 @@ class MarkdownImporter {
           }
         }
 
-        if ($entity_type && $actual_uuid) {
-          $seenUuids[$entity_type][$bundle][$actual_uuid] = TRUE;
+        // Track the primary entity UUID plus any file entity siblings sharing
+        // the same URI (e.g. Umami creates multiple file entities per image).
+        $tracked = array_filter(array_unique(array_merge([$actual_uuid], $import['sibling_uuids'] ?? [])));
+        foreach ($tracked as $tracked_uuid) {
+          if ($entity_type && $tracked_uuid) {
+            $seenUuids[$entity_type][$bundle][$tracked_uuid] = TRUE;
+          }
         }
       }
       catch (\Exception $e) {
