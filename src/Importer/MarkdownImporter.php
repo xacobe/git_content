@@ -11,6 +11,7 @@ use Drupal\Core\Cache\CacheBackendInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Logger\LoggerChannelFactoryInterface;
 use Drupal\Core\Session\AccountProxyInterface;
+use Drupal\Core\StringTranslation\StringTranslationTrait;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -33,6 +34,7 @@ class MarkdownImporter {
   use ChecksumTrait;
   use ContentExportTrait;
   use SummaryTrait;
+  use StringTranslationTrait;
 
   protected LoggerInterface $logger;
 
@@ -103,7 +105,7 @@ class MarkdownImporter {
    */
   public function importFile(string $filepath, bool $dryRun = FALSE): array {
     if (!file_exists($filepath)) {
-      throw new \Exception(t('File not found: @file', ['@file' => $filepath]));
+      throw new \Exception($this->t('File not found: @file', ['@file' => $filepath]));
     }
 
     $raw         = file_get_contents($filepath);
@@ -114,7 +116,7 @@ class MarkdownImporter {
 
     $type = $frontmatter['type'] ?? NULL;
     if (!$type) {
-      throw new \Exception(t("The frontmatter is missing the 'type' field."));
+      throw new \Exception($this->t("The frontmatter is missing the 'type' field."));
     }
 
     $uuid        = $frontmatter['uuid'] ?? NULL;
@@ -201,7 +203,7 @@ class MarkdownImporter {
     $result = ['imported' => [], 'updated' => [], 'deleted' => [], 'skipped' => [], 'errors' => []];
 
     if (!is_dir($this->contentExportDir())) {
-      $result['errors'][] = t('The content_export directory does not exist.');
+      $result['errors'][] = $this->t('The content_export directory does not exist.');
       return $result;
     }
 

@@ -4,7 +4,9 @@ namespace Drupal\git_content\Normalizer;
 
 use Drupal\git_content\Handler\FieldHandlerRegistry;
 use Drupal\git_content\Serializer\MarkdownSerializer;
+use Drupal\git_content\Utility\DateParseTrait;
 use Drupal\git_content\Utility\EntityLinkRewriteTrait;
+use Drupal\git_content\Utility\SlugTrait;
 use Drupal\git_content\Utility\EntityReferenceResolver;
 use Drupal\Component\Datetime\TimeInterface;
 use Drupal\Core\Entity\EntityInterface;
@@ -26,7 +28,9 @@ use Drupal\Core\Field\FieldItemListInterface;
  */
 class FieldNormalizer {
 
+  use DateParseTrait;
   use EntityLinkRewriteTrait;
+  use SlugTrait;
 
 
   public function __construct(
@@ -121,7 +125,7 @@ class FieldNormalizer {
           elseif ($target_id && $target_type === 'node') {
             $node = $this->entityTypeManager
               ->getStorage('node')->load($target_id);
-            $normalized[] = $node ? $this->getSlugFromEntity($node) : $target_id;
+            $normalized[] = $node ? $this->getSlug($node) : $target_id;
           }
           elseif ($target_id && $target_type === 'media') {
             $media = $this->entityTypeManager
@@ -267,29 +271,7 @@ class FieldNormalizer {
   }
 
   // ---------------------------------------------------------------------------
-  // Private helpers
-  // ---------------------------------------------------------------------------
-
-  private function getSlugFromEntity(EntityInterface $entity): string {
-    if ($entity->hasField('path') && !$entity->get('path')->isEmpty()) {
-      $alias = $entity->get('path')->alias;
-      if ($alias) {
-        return ltrim(basename($alias), '/');
-      }
-    }
-    return $entity->getEntityTypeId() . '-' . $entity->id();
-  }
-
-  private function parseDate(mixed $date): int {
-    if (is_int($date) || is_numeric($date)) {
-      return (int) $date;
-    }
-    if (is_string($date)) {
-      $ts = strtotime($date);
-      return $ts !== FALSE ? $ts : $this->time->getCurrentTime();
-    }
-    return $this->time->getCurrentTime();
-  }
-
 }
+
+
 

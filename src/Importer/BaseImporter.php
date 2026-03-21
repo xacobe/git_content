@@ -5,6 +5,7 @@ namespace Drupal\git_content\Importer;
 use Drupal\git_content\Discovery\FieldDiscovery;
 use Drupal\git_content\Normalizer\FieldNormalizer;
 use Drupal\git_content\Serializer\MarkdownSerializer;
+use Drupal\git_content\Utility\DateParseTrait;
 use Drupal\git_content\Utility\ManagedFields;
 use Drupal\Component\Datetime\TimeInterface;
 use Drupal\Component\Uuid\UuidInterface;
@@ -30,6 +31,7 @@ use Psr\Log\LoggerInterface;
  */
 abstract class BaseImporter implements ImporterInterface {
 
+  use DateParseTrait;
   use EntityLinkRewriteTrait;
   use StringTranslationTrait;
 
@@ -230,21 +232,7 @@ abstract class BaseImporter implements ImporterInterface {
   }
 
 
-  // ---------------------------------------------------------------------------
-  // Utilities
-  // ---------------------------------------------------------------------------
-
-  protected function parseDate(mixed $date): int {
-    if (is_int($date) || is_numeric($date)) {
-      return (int) $date;
-    }
-    if (is_string($date)) {
-      $ts = strtotime($date);
-      return $ts !== FALSE ? $ts : $this->time->getCurrentTime();
-    }
-    return $this->time->getCurrentTime();
-  }
-
 }
+
 
 

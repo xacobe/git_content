@@ -14,7 +14,7 @@ class MenuLinkImporter extends BaseImporter {
   /**
    * UUID → real plugin_id map, populated as links are saved.
    */
-  protected array $menuLinkUuidMap = [];
+  private array $menuLinkUuidMap = [];
 
   public function handles(string $entity_type): bool {
     return $entity_type === 'menu_link_content';
@@ -83,7 +83,7 @@ class MenuLinkImporter extends BaseImporter {
    * Resolve the parent plugin_id from its UUID.
    * If the parent is a plugin from another module, return it as-is.
    */
-  protected function resolveMenuLinkParent(string $parent_ref, string $menu_name): ?string {
+  private function resolveMenuLinkParent(string $parent_ref, string $menu_name): ?string {
     // Already in the map (imported in this session).
     if (isset($this->menuLinkUuidMap[$parent_ref])) {
       return $this->menuLinkUuidMap[$parent_ref];

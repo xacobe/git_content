@@ -9,6 +9,7 @@ use Drupal\git_content\Utility\ChecksumTrait;
 use Drupal\git_content\Utility\ContentExportTrait;
 use Drupal\git_content\Utility\EntityLinkRewriteTrait;
 use Drupal\git_content\Utility\ManagedFields;
+use Drupal\git_content\Utility\SlugTrait;
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Field\FieldDefinitionInterface;
@@ -31,6 +32,7 @@ abstract class BaseExporter implements ExporterInterface {
   use ChecksumTrait;
   use ContentExportTrait;
   use EntityLinkRewriteTrait;
+  use SlugTrait;
 
   protected FieldDiscovery $fieldDiscovery;
   protected MarkdownSerializer $serializer;
@@ -170,19 +172,6 @@ abstract class BaseExporter implements ExporterInterface {
    */
   protected function normalizeField($field, FieldDefinitionInterface $definition): mixed {
     return $this->fieldNormalizer->normalize($field, $definition);
-  }
-
-  /**
-   * Get a slug based on the entity's path alias.
-   */
-  protected function getSlug(EntityInterface $entity): string {
-    if ($entity->hasField('path') && !$entity->get('path')->isEmpty()) {
-      $alias = $entity->get('path')->alias;
-      if ($alias) {
-        return ltrim(basename($alias), '/');
-      }
-    }
-    return $entity->getEntityTypeId() . '-' . $entity->id();
   }
 
   /**
