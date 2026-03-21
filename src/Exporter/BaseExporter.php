@@ -271,10 +271,10 @@ abstract class BaseExporter implements ExporterInterface {
       // Compare only the checksum field. The checksum encodes the entity
       // state at last export; if it matches the entity's current output the
       // entity has not changed, even if the file was manually edited.
-      $existing         = $this->serializer->deserialize(file_get_contents($filepath));
-      $existingChecksum = $existing['frontmatter']['checksum'] ?? NULL;
-      preg_match('/^checksum:\s*([0-9a-f]+)\s*$/m', $content, $m);
-      $generatedChecksum = $m[1] ?? NULL;
+      $existing          = $this->serializer->deserialize(file_get_contents($filepath));
+      $existingChecksum  = $existing['frontmatter']['checksum'] ?? NULL;
+      $generated         = $this->serializer->deserialize($content);
+      $generatedChecksum = $generated['frontmatter']['checksum'] ?? NULL;
       return $existingChecksum !== $generatedChecksum;
     }
 

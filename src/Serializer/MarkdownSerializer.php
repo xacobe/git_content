@@ -45,6 +45,8 @@ class MarkdownSerializer {
    * @throws \InvalidArgumentException
    */
   public function deserialize(string $raw): array {
+    // Normalize Windows line endings so the regex works on files from any OS.
+    $raw = str_replace("\r\n", "\n", $raw);
     if (!str_starts_with(ltrim($raw), '---')) {
       throw new \InvalidArgumentException('File does not contain valid YAML frontmatter (missing --- delimiter).');
     }

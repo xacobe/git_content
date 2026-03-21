@@ -202,8 +202,13 @@ class MarkdownExporter {
         $result  = $exporter->exportToFile($translation, $dryRun);
         $paths[] = is_array($result) ? $result['path'] : $result;
       }
-      catch (\Exception) {
-        // Ignore individual translation failures during normalisation.
+      catch (\Exception $e) {
+        // Re-export after import is best-effort; log but do not fail.
+        $this->logger->warning('Re-export of @uuid (@type) failed: @msg', [
+          '@uuid' => $uuid,
+          '@type' => $entityType,
+          '@msg'  => $e->getMessage(),
+        ]);
       }
     }
 
@@ -314,6 +319,7 @@ class MarkdownExporter {
   private function getEntityTranslations(EntityInterface $entity): array {
     $translations = [$entity];
     if ($entity instanceof TranslatableInterface) {
+      // FALSE = exclude the default translation; prepended above so it comes first.
       foreach ($entity->getTranslationLanguages(FALSE) as $langcode => $_) {
         $translations[] = $entity->getTranslation($langcode);
       }
