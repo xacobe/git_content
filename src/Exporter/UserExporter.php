@@ -54,6 +54,10 @@ class UserExporter extends BaseExporter {
     'preferred_langcode',
   ];
 
+  public function getEntityType(): string {
+    return 'user';
+  }
+
   protected function typeDir(): string {
     return 'users';
   }

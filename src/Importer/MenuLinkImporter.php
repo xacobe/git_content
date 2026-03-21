@@ -16,6 +16,10 @@ class MenuLinkImporter extends BaseImporter {
    */
   protected array $menuLinkUuidMap = [];
 
+  public function handles(string $entity_type): bool {
+    return $entity_type === 'menu_link_content';
+  }
+
   public function import(array $frontmatter, string $body): string {
     $langcode   = $frontmatter['lang'] ?? 'und';
     $uuid = $frontmatter['uuid'] ?? NULL;

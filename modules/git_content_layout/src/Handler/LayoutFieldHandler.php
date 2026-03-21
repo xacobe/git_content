@@ -52,7 +52,7 @@ class LayoutFieldHandler implements FieldHandlerInterface {
    *
    * Returns a clean array of section arrays for YAML frontmatter.
    */
-  public function normalize(FieldItemListInterface $field, FieldDefinitionInterface $definition): mixed {
+  public function normalize(FieldItemListInterface $field, FieldDefinitionInterface $definition): string|int|float|bool|array|null {
     if (!($field instanceof LayoutSectionItemList) || $field->isEmpty()) {
       return NULL;
     }
@@ -72,7 +72,7 @@ class LayoutFieldHandler implements FieldHandlerInterface {
    *
    * Returns [['section' => Section], ...] as expected by FieldItemList::setValue().
    */
-  public function denormalize(mixed $value, FieldDefinitionInterface $definition): mixed {
+  public function denormalize(mixed $value, FieldDefinitionInterface $definition): string|int|float|bool|array|null {
     if (!is_array($value) || empty($value)) {
       return NULL;
     }

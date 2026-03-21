@@ -16,10 +16,7 @@ namespace Drupal\git_content\Utility;
  */
 trait EntityLinkRewriteTrait {
 
-  /**
-   * Entity types whose IDs appear in CKEditor / link fields.
-   */
-  private array $rewritableEntityTypes = [
+  private const REWRITABLE_ENTITY_TYPES = [
     'node', 'media', 'taxonomy_term', 'block_content', 'file',
   ];
 
@@ -29,7 +26,7 @@ trait EntityLinkRewriteTrait {
    * Safe to call on arbitrary HTML: unresolvable IDs are left unchanged.
    */
   protected function rewriteEntityIdsToUuids(string $html): string {
-    foreach ($this->rewritableEntityTypes as $type) {
+    foreach (self::REWRITABLE_ENTITY_TYPES as $type) {
       $html = preg_replace_callback(
         '/\bentity:' . preg_quote($type, '/') . '\/(\d+)\b/',
         function (array $m) use ($type): string {
@@ -51,7 +48,7 @@ trait EntityLinkRewriteTrait {
    */
   protected function rewriteEntityUuidsToIds(string $html): string {
     $uuid = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
-    foreach ($this->rewritableEntityTypes as $type) {
+    foreach (self::REWRITABLE_ENTITY_TYPES as $type) {
       $html = preg_replace_callback(
         '/\bentity:' . preg_quote($type, '/') . '\/(' . $uuid . ')\b/i',
         function (array $m) use ($type): string {

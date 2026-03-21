@@ -28,7 +28,7 @@ use Psr\Log\LoggerInterface;
  * are privileged batch operations that run as an admin user; skipping access
  * checks is intentional and avoids false negatives on unpublished content.
  */
-abstract class BaseImporter {
+abstract class BaseImporter implements ImporterInterface {
 
   use EntityLinkRewriteTrait;
   use StringTranslationTrait;
@@ -68,17 +68,12 @@ abstract class BaseImporter {
   }
 
   /**
-   * Import or update a single entity from its parsed frontmatter and body.
-   *
-   * @param array $frontmatter
-   *   Flattened frontmatter data from the .md file.
-   * @param string $body
-   *   Markdown body content.
-   *
-   * @return string
-   *   'imported' for new entities, 'updated' for existing ones.
-   *
-   * @throws \Exception
+   * {@inheritdoc}
+   */
+  abstract public function handles(string $entity_type): bool;
+
+  /**
+   * {@inheritdoc}
    */
   abstract public function import(array $frontmatter, string $body): string;
 

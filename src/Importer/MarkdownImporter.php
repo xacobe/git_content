@@ -36,22 +36,33 @@ class MarkdownImporter {
 
   protected LoggerInterface $logger;
 
+  private array $importFileMetaCache = [];
+
+  /** @var ImporterInterface[] */
+  private array $importerList;
+
   public function __construct(
     protected MarkdownSerializer $serializer,
     protected EntityTypeManagerInterface $entityTypeManager,
     protected AccountProxyInterface $currentUser,
     LoggerChannelFactoryInterface $loggerFactory,
-    protected NodeImporter $nodeImporter,
-    protected TaxonomyImporter $taxonomyImporter,
-    protected MediaImporter $mediaImporter,
-    protected FileEntityImporter $fileEntityImporter,
-    protected UserImporter $userImporter,
-    protected BlockContentImporter $blockContentImporter,
-    protected MenuLinkImporter $menuLinkImporter,
+    iterable $importers,
     protected MarkdownExporter $exporter,
     protected CacheBackendInterface $defaultCache,
   ) {
     $this->logger = $loggerFactory->get('git_content');
+    $this->importerList = $importers instanceof \Traversable
+      ? iterator_to_array($importers)
+      : $importers;
+  }
+
+  private function getImporterForType(string $entity_type): ImporterInterface {
+    foreach ($this->importerList as $importer) {
+      if ($importer->handles($entity_type)) {
+        return $importer;
+      }
+    }
+    throw new \RuntimeException("No importer registered for entity type: $entity_type");
   }
 
   // ---------------------------------------------------------------------------
@@ -168,15 +179,7 @@ class MarkdownImporter {
       $op = ($exists || $found_by_uri) ? 'updated' : 'imported';
     }
     else {
-      $op = match ($type) {
-        'file'              => $this->fileEntityImporter->import($frontmatter, $body),
-        'user'              => $this->userImporter->import($frontmatter, $body),
-        'taxonomy_term'     => $this->taxonomyImporter->import($frontmatter, $body),
-        'media'             => $this->mediaImporter->import($frontmatter, $body),
-        'block_content'     => $this->blockContentImporter->import($frontmatter, $body),
-        'menu_link_content' => $this->menuLinkImporter->import($frontmatter, $body),
-        default             => $this->nodeImporter->import($frontmatter, $body),
-      };
+      $op = $this->getImporterForType($entity_type)->import($frontmatter, $body);
     }
 
     return ['op' => $op, 'entity_type' => $entity_type, 'type' => $type, 'uuid' => $uuid, 'actual_uuid' => $actual_uuid, 'sibling_uuids' => $sibling_uuids, 'bundle' => $bundle];
@@ -439,34 +442,29 @@ class MarkdownImporter {
   }
 
   protected function getImportFileMeta(string $filepath): array {
-    // Cache results so each file is read and parsed at most once.
-    // usort calls the comparator O(N log N) times; without this cache every
-    // file would be deserialized on each comparison.
-    static $cache = [];
-
-    if (array_key_exists($filepath, $cache)) {
-      return $cache[$filepath];
+    if (array_key_exists($filepath, $this->importFileMetaCache)) {
+      return $this->importFileMetaCache[$filepath];
     }
 
     $empty = ['type' => '', 'entity_type' => 'node', 'menu' => '', 'weight' => 0];
 
     if (!is_file($filepath) || !is_readable($filepath)) {
-      return $cache[$filepath] = $empty;
+      return $this->importFileMetaCache[$filepath] = $empty;
     }
     $raw = file_get_contents($filepath);
 
     try {
       $parsed = $this->serializer->deserialize($raw);
     }
-    catch (\Exception $e) {
-      return $cache[$filepath] = $empty;
+    catch (\Exception) {
+      return $this->importFileMetaCache[$filepath] = $empty;
     }
 
     $frontmatter = $this->serializer->flattenGroups($parsed['frontmatter']);
     $type        = $frontmatter['type'] ?? '';
     $entity_type = $this->resolveEntityType($type);
 
-    return $cache[$filepath] = [
+    return $this->importFileMetaCache[$filepath] = [
       'type'           => $type,
       'entity_type'    => $entity_type,
       'menu'           => $frontmatter['menu'] ?? '',
@@ -509,7 +507,7 @@ class MarkdownImporter {
     // references are intact.
     $all     = array_keys($uuids);
     $found   = 0;
-    foreach (['media', 'node'] as $entity_type) {
+    foreach (['media', 'node', 'block_content'] as $entity_type) {
       $found += count(
         $this->entityTypeManager->getStorage($entity_type)
           ->getQuery()

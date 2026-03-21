@@ -7,6 +7,10 @@ namespace Drupal\git_content\Importer;
  */
 class NodeImporter extends BaseImporter {
 
+  public function handles(string $entity_type): bool {
+    return TRUE; // catch-all; tagged with priority: -100 so specific importers win
+  }
+
   public function import(array $frontmatter, string $body): string {
     $bundle   = $frontmatter['type'];
     $langcode = $frontmatter['lang'] ?? 'und';

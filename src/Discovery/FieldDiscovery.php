@@ -28,12 +28,12 @@ class FieldDiscovery {
    * @return FieldDefinitionInterface[]
    *   Array of relevant field definitions.
    */
-  public function getFields(string $entity_type, string $bundle): array {
-    static $cache = [];
+  private array $cache = [];
 
+  public function getFields(string $entity_type, string $bundle): array {
     $key = "$entity_type:$bundle";
-    if (isset($cache[$key])) {
-      return $cache[$key];
+    if (isset($this->cache[$key])) {
+      return $this->cache[$key];
     }
 
     $fields = $this->entityFieldManager->getFieldDefinitions($entity_type, $bundle);
@@ -46,7 +46,7 @@ class FieldDiscovery {
       $relevant[$field_name] = $field_definition;
     }
 
-    return $cache[$key] = $relevant;
+    return $this->cache[$key] = $relevant;
   }
 
 }

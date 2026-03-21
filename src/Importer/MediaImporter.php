@@ -7,6 +7,10 @@ namespace Drupal\git_content\Importer;
  */
 class MediaImporter extends BaseImporter {
 
+  public function handles(string $entity_type): bool {
+    return $entity_type === 'media';
+  }
+
   public function import(array $frontmatter, string $body): string {
     $bundle     = $frontmatter['bundle'] ?? NULL;
     $langcode   = $frontmatter['lang'] ?? 'und';
@@ -21,7 +25,7 @@ class MediaImporter extends BaseImporter {
       'langcode' => $langcode,
     ]);
 
-    $media->set('name', $frontmatter['name'] ?? $this->t('Unnamed'));
+    $media->set('name', $frontmatter['name'] ?? 'Unnamed');
     $media->set('status', $this->resolveStatus($frontmatter));
     $this->setAuthor($media, $frontmatter);
 

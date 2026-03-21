@@ -7,6 +7,10 @@ namespace Drupal\git_content\Importer;
  */
 class BlockContentImporter extends BaseImporter {
 
+  public function handles(string $entity_type): bool {
+    return $entity_type === 'block_content';
+  }
+
   public function import(array $frontmatter, string $body): string {
     $bundle     = $frontmatter['bundle'] ?? NULL;
     $langcode   = $frontmatter['lang'] ?? 'und';
@@ -22,7 +26,7 @@ class BlockContentImporter extends BaseImporter {
       'default_langcode' => 1,
     ]);
 
-    $block->set('info', $frontmatter['title'] ?? $this->t('Untitled'));
+    $block->set('info', $frontmatter['title'] ?? 'Untitled');
     $block->set('status', $this->resolveStatus($frontmatter));
 
     $this->setBody($block, $body, $frontmatter['body_format'] ?? 'basic_html');

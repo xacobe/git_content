@@ -26,7 +26,7 @@ use Psr\Log\LoggerInterface;
  * operation; skipping access checks is intentional so unpublished content
  * is included in the export.
  */
-abstract class BaseExporter {
+abstract class BaseExporter implements ExporterInterface {
 
   use ChecksumTrait;
   use ContentExportTrait;
@@ -75,6 +75,11 @@ abstract class BaseExporter {
     $this->logger            = $loggerFactory->get('git_content');
     $this->fieldNormalizer   = $fieldNormalizer;
   }
+
+  /**
+   * {@inheritdoc}
+   */
+  abstract public function getEntityType(): string;
 
   /**
    * The subdirectory within content_export/ for this entity type.

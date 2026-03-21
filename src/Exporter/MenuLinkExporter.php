@@ -38,6 +38,10 @@ use Drupal\Core\Entity\EntityInterface;
  */
 class MenuLinkExporter extends BaseExporter {
 
+  public function getEntityType(): string {
+    return 'menu_link_content';
+  }
+
   protected function typeDir(): string {
     return 'menus';
   }

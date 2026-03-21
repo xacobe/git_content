@@ -15,6 +15,10 @@ use Drupal\Core\Entity\EntityInterface;
  */
 class TaxonomyExporter extends BaseExporter {
 
+  public function getEntityType(): string {
+    return 'taxonomy_term';
+  }
+
   protected function typeDir(): string {
     return 'taxonomy';
   }

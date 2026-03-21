@@ -51,7 +51,7 @@ interface FieldHandlerInterface {
    * @return mixed
    *   A scalar, array, or NULL suitable for YAML serialization.
    */
-  public function normalize(FieldItemListInterface $field, FieldDefinitionInterface $definition): mixed;
+  public function normalize(FieldItemListInterface $field, FieldDefinitionInterface $definition): string|int|float|bool|array|null;
 
   /**
    * Denormalize a frontmatter value back to a Drupal field value.
@@ -64,9 +64,9 @@ interface FieldHandlerInterface {
    * @param \Drupal\Core\Field\FieldDefinitionInterface $definition
    *   The field definition.
    *
-   * @return mixed
+   * @return string|int|float|bool|array|null
    *   A value suitable for EntityInterface::set($field_name, $value).
    */
-  public function denormalize(mixed $value, FieldDefinitionInterface $definition): mixed;
+  public function denormalize(mixed $value, FieldDefinitionInterface $definition): string|int|float|bool|array|null;
 
 }

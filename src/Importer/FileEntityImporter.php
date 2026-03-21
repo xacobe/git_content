@@ -10,6 +10,10 @@ namespace Drupal\git_content\Importer;
  */
 class FileEntityImporter extends BaseImporter {
 
+  public function handles(string $entity_type): bool {
+    return $entity_type === 'file';
+  }
+
   public function import(array $frontmatter, string $body): string {
     $uuid = $frontmatter['uuid'] ?? NULL;
     $uri        = $frontmatter['uri'] ?? NULL;

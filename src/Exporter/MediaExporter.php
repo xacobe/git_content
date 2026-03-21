@@ -32,6 +32,10 @@ class MediaExporter extends BaseExporter {
     'thumbnail',
   ];
 
+  public function getEntityType(): string {
+    return 'media';
+  }
+
   protected function typeDir(): string {
     return 'media';
   }

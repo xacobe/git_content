@@ -18,6 +18,10 @@ class NodeExporter extends BaseExporter {
   /** metatag is SSG-relevant for nodes; allow it through the dynamic loop. */
   protected array $allowedFields = ['metatag'];
 
+  public function getEntityType(): string {
+    return 'node';
+  }
+
   protected function typeDir(): string {
     return 'content';
   }

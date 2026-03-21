@@ -31,7 +31,7 @@ class EntityReferenceResolver {
       return NULL;
     }
     if ($target_type === 'taxonomy_term') {
-      return $this->findTermByLabel((string) $value, $definition);
+      return $this->resolveOrCreateTermByLabel((string) $value, $definition);
     }
     if ($target_type === 'node') {
       return is_numeric($value) ? (int) $value : $this->findNodeBySlug((string) $value);
@@ -48,7 +48,7 @@ class EntityReferenceResolver {
    * Creates the term if it does not exist, so content can be imported
    * without requiring all terms to be pre-seeded.
    */
-  public function findTermByLabel(string $label, FieldDefinitionInterface $definition): ?int {
+  public function resolveOrCreateTermByLabel(string $label, FieldDefinitionInterface $definition): ?int {
     $vocab_bundles = $definition->getSetting('handler_settings')['target_bundles'] ?? [];
     $storage = $this->entityTypeManager->getStorage('taxonomy_term');
 

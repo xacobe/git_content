@@ -12,6 +12,10 @@ namespace Drupal\git_content\Importer;
  */
 class UserImporter extends BaseImporter {
 
+  public function handles(string $entity_type): bool {
+    return $entity_type === 'user';
+  }
+
   public function import(array $frontmatter, string $body): string {
     $uuid = $frontmatter['uuid'] ?? NULL;
     $name       = $frontmatter['name'] ?? NULL;

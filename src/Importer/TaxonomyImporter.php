@@ -7,6 +7,10 @@ namespace Drupal\git_content\Importer;
  */
 class TaxonomyImporter extends BaseImporter {
 
+  public function handles(string $entity_type): bool {
+    return $entity_type === 'taxonomy_term';
+  }
+
   public function import(array $frontmatter, string $body): string {
     $vid        = $frontmatter['vocabulary'] ?? NULL;
     $langcode   = $frontmatter['lang'] ?? 'und';

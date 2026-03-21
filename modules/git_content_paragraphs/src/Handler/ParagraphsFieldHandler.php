@@ -93,7 +93,7 @@ class ParagraphsFieldHandler implements FieldHandlerInterface {
    * Returns a sequential list of paragraph arrays, one per item.
    * Each array contains 'type', 'uuid', and one key per non-empty field.
    */
-  public function normalize(FieldItemListInterface $field, FieldDefinitionInterface $definition): mixed {
+  public function normalize(FieldItemListInterface $field, FieldDefinitionInterface $definition): string|int|float|bool|array|null {
     $result = [];
 
     foreach ($field as $item) {
@@ -137,7 +137,7 @@ class ParagraphsFieldHandler implements FieldHandlerInterface {
    * cardinality-1 fields). Creates or updates each paragraph entity and
    * returns the target_id / target_revision_id pairs Drupal expects.
    */
-  public function denormalize(mixed $value, FieldDefinitionInterface $definition): mixed {
+  public function denormalize(mixed $value, FieldDefinitionInterface $definition): string|int|float|bool|array|null {
     if (empty($value)) {
       return NULL;
     }

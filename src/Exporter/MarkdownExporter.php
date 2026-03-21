@@ -24,23 +24,24 @@ class MarkdownExporter {
   use ContentExportTrait;
   use SummaryTrait;
 
-  const FORMAT_VERSION = 1;
+  private const FORMAT_VERSION = 1;
 
   protected LoggerInterface $logger;
+
+  /** @var array<string, ExporterInterface> */
+  private array $exporterMap;
 
   public function __construct(
     protected EntityTypeManagerInterface $entityTypeManager,
     LoggerChannelFactoryInterface $loggerFactory,
     protected LanguageManagerInterface $languageManager,
-    protected NodeExporter $nodeExporter,
-    protected TaxonomyExporter $taxonomyExporter,
-    protected MediaExporter $mediaExporter,
-    protected FileExporter $fileExporter,
-    protected UserExporter $userExporter,
-    protected BlockContentExporter $blockContentExporter,
-    protected MenuLinkExporter $menuLinkExporter,
+    iterable $exporters,
   ) {
     $this->logger = $loggerFactory->get('git_content');
+    $this->exporterMap = [];
+    foreach ($exporters as $exporter) {
+      $this->exporterMap[$exporter->getEntityType()] = $exporter;
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -60,7 +61,7 @@ class MarkdownExporter {
     $result       = ['exported' => [], 'skipped' => [], 'deleted' => [], 'errors' => []];
     $touchedSet = [];
 
-    foreach ($this->exporterMap() as $entity_type => $exporter) {
+    foreach ($this->exporterMap as $entity_type => $exporter) {
       $typeResult = $this->exportEntityType($entity_type, $exporter, TRUE);
 
       foreach ($typeResult['exported_files'] as $file) {
@@ -100,7 +101,7 @@ class MarkdownExporter {
   public function exportTypes(array $entityTypes): array {
     $result = ['exported' => [], 'skipped' => [], 'deleted' => [], 'errors' => []];
 
-    $map = array_intersect_key($this->exporterMap(), array_flip($entityTypes));
+    $map = array_intersect_key($this->exporterMap, array_flip($entityTypes));
     foreach ($map as $entity_type => $exporter) {
       $typeResult = $this->exportEntityType($entity_type, $exporter);
       array_push($result['exported'], ...$typeResult['exported_files']);
@@ -123,7 +124,7 @@ class MarkdownExporter {
     $touchedFiles = [];
     $typeCounts   = [];
 
-    foreach ($this->exporterMap() as $entity_type => $exporter) {
+    foreach ($this->exporterMap as $entity_type => $exporter) {
       $typeResult = $this->exportEntityType($entity_type, $exporter);
 
       $exp = count($typeResult['exported_files']);
@@ -185,7 +186,7 @@ class MarkdownExporter {
    */
   public function exportEntityByUuid(string $uuid, string $entityType, bool $dryRun = FALSE): array {
     $paths    = [];
-    $exporter = $this->exporterMap()[$entityType] ?? NULL;
+    $exporter = $this->exporterMap[$entityType] ?? NULL;
     if (!$exporter) {
       return $paths;
     }
@@ -239,28 +240,11 @@ class MarkdownExporter {
   }
 
   /**
-   * Returns the entity-type → exporter map used by all export methods.
-   *
-   * @return array<string, BaseExporter>
-   */
-  private function exporterMap(): array {
-    return [
-      'node'              => $this->nodeExporter,
-      'taxonomy_term'     => $this->taxonomyExporter,
-      'media'             => $this->mediaExporter,
-      'block_content'     => $this->blockContentExporter,
-      'file'              => $this->fileExporter,
-      'user'              => $this->userExporter,
-      'menu_link_content' => $this->menuLinkExporter,
-    ];
-  }
-
-  /**
    * Export all entities of a single type using the given exporter.
    *
    * @return array{exported_files: string[], skipped_files: string[], errors: string[]}
    */
-  private function exportEntityType(string $entity_type, BaseExporter $exporter, bool $dryRun = FALSE): array {
+  private function exportEntityType(string $entity_type, ExporterInterface $exporter, bool $dryRun = FALSE): array {
     $exportedFiles = [];
     $skippedFiles  = [];
     $errors        = [];

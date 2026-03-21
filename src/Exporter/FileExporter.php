@@ -39,6 +39,10 @@ use Drupal\Core\Entity\EntityInterface;
  */
 class FileExporter extends BaseExporter {
 
+  public function getEntityType(): string {
+    return 'file';
+  }
+
   protected function typeDir(): string {
     return 'files';
   }

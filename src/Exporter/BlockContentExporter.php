@@ -19,6 +19,10 @@ use Drupal\Core\Entity\EntityInterface;
  */
 class BlockContentExporter extends BaseExporter {
 
+  public function getEntityType(): string {
+    return 'block_content';
+  }
+
   protected function typeDir(): string {
     return 'blocks';
   }

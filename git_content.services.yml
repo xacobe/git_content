@@ -40,30 +40,44 @@ services:
   git_content.node_exporter:
     parent: git_content.base_exporter
     class: Drupal\git_content\Exporter\NodeExporter
+    tags:
+      - { name: git_content.exporter }
 
   git_content.taxonomy_exporter:
     parent: git_content.base_exporter
     class: Drupal\git_content\Exporter\TaxonomyExporter
+    tags:
+      - { name: git_content.exporter }
 
   git_content.file_exporter:
     parent: git_content.base_exporter
     class: Drupal\git_content\Exporter\FileExporter
+    tags:
+      - { name: git_content.exporter }
 
   git_content.user_exporter:
     parent: git_content.base_exporter
     class: Drupal\git_content\Exporter\UserExporter
+    tags:
+      - { name: git_content.exporter }
 
   git_content.menu_link_exporter:
     parent: git_content.base_exporter
     class: Drupal\git_content\Exporter\MenuLinkExporter
+    tags:
+      - { name: git_content.exporter }
 
   git_content.block_content_exporter:
     parent: git_content.base_exporter
     class: Drupal\git_content\Exporter\BlockContentExporter
+    tags:
+      - { name: git_content.exporter }
 
   git_content.media_exporter:
     parent: git_content.base_exporter
     class: Drupal\git_content\Exporter\MediaExporter
+    tags:
+      - { name: git_content.exporter }
 
   # --- Exporter orchestrator ---
 
@@ -73,13 +87,7 @@ services:
       - '@entity_type.manager'
       - '@logger.factory'
       - '@language_manager'
-      - '@git_content.node_exporter'
-      - '@git_content.taxonomy_exporter'
-      - '@git_content.media_exporter'
-      - '@git_content.file_exporter'
-      - '@git_content.user_exporter'
-      - '@git_content.block_content_exporter'
-      - '@git_content.menu_link_exporter'
+      - !tagged_iterator git_content.exporter
 
   # --- Importers ---
 
@@ -96,33 +104,48 @@ services:
       - '@current_user'
       - '@git_content.field_normalizer'
 
-  git_content.node_importer:
-    parent: git_content.base_importer
-    class: Drupal\git_content\Importer\NodeImporter
-
   git_content.taxonomy_importer:
     parent: git_content.base_importer
     class: Drupal\git_content\Importer\TaxonomyImporter
+    tags:
+      - { name: git_content.importer }
 
   git_content.media_importer:
     parent: git_content.base_importer
     class: Drupal\git_content\Importer\MediaImporter
+    tags:
+      - { name: git_content.importer }
 
   git_content.file_entity_importer:
     parent: git_content.base_importer
     class: Drupal\git_content\Importer\FileEntityImporter
+    tags:
+      - { name: git_content.importer }
 
   git_content.user_importer:
     parent: git_content.base_importer
     class: Drupal\git_content\Importer\UserImporter
+    tags:
+      - { name: git_content.importer }
 
   git_content.block_content_importer:
     parent: git_content.base_importer
     class: Drupal\git_content\Importer\BlockContentImporter
+    tags:
+      - { name: git_content.importer }
 
   git_content.menu_link_importer:
     parent: git_content.base_importer
     class: Drupal\git_content\Importer\MenuLinkImporter
+    tags:
+      - { name: git_content.importer }
+
+  # NodeImporter is the catch-all; must be checked last (priority: -100).
+  git_content.node_importer:
+    parent: git_content.base_importer
+    class: Drupal\git_content\Importer\NodeImporter
+    tags:
+      - { name: git_content.importer, priority: -100 }
 
   git_content.importer:
     class: Drupal\git_content\Importer\MarkdownImporter
@@ -131,12 +154,6 @@ services:
       - '@entity_type.manager'
       - '@current_user'
       - '@logger.factory'
-      - '@git_content.node_importer'
-      - '@git_content.taxonomy_importer'
-      - '@git_content.media_importer'
-      - '@git_content.file_entity_importer'
-      - '@git_content.user_importer'
-      - '@git_content.block_content_importer'
-      - '@git_content.menu_link_importer'
+      - !tagged_iterator git_content.importer
       - '@git_content.exporter'
       - '@cache.default'
