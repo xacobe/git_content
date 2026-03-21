@@ -212,7 +212,6 @@ class ParagraphsFieldHandler implements FieldHandlerInterface {
     $storage = $this->entityTypeManager->getStorage('paragraph');
     $ids = $storage->getQuery()
       ->accessCheck(FALSE)
-      ->condition('type', $bundle)
       ->condition('uuid', $uuid)
       ->range(0, 1)
       ->execute();

@@ -17,7 +17,7 @@ class NodeImporter extends BaseImporter {
       'langcode' => $langcode,
     ]);
 
-    $node->set('title', $frontmatter['title'] ?? $this->t('Untitled'));
+    $node->set('title', $frontmatter['title'] ?? 'Untitled');
     $node->set('status', $this->resolveStatus($frontmatter));
     $this->setAuthor($node, $frontmatter);
 
@@ -38,6 +38,22 @@ class NodeImporter extends BaseImporter {
     }
 
     return $operation;
+  }
+
+  private function savePathAlias($node, string $alias, string $langcode): void {
+    $path    = '/node/' . $node->id();
+    $storage = $this->entityTypeManager->getStorage('path_alias');
+
+    $existing = $storage->loadByProperties(['path' => $path, 'langcode' => $langcode]);
+
+    if (!empty($existing)) {
+      $alias_entity = reset($existing);
+      $alias_entity->set('alias', $alias);
+      $alias_entity->save();
+    }
+    else {
+      $storage->create(['path' => $path, 'alias' => $alias, 'langcode' => $langcode])->save();
+    }
   }
 
 }

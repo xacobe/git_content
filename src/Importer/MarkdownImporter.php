@@ -97,7 +97,8 @@ class MarkdownImporter {
 
     $raw         = file_get_contents($filepath);
     $parsed      = $this->serializer->deserialize($raw);
-    $frontmatter = $this->serializer->flattenGroups($parsed['frontmatter']);
+    $rawFrontmatter = $parsed['frontmatter'];
+    $frontmatter = $this->serializer->flattenGroups($rawFrontmatter);
     $body        = $parsed['body'];
 
     $type = $frontmatter['type'] ?? NULL;
@@ -113,7 +114,7 @@ class MarkdownImporter {
       'node'              => $type,
       'media',
       'block_content'     => $frontmatter['bundle'] ?? NULL,
-      'menu_link_content' => $frontmatter['menu_name'] ?? NULL,
+      'menu_link_content' => $frontmatter['menu'] ?? NULL,
       default             => NULL,
     };
 
@@ -158,7 +159,7 @@ class MarkdownImporter {
     // entity has been deleted (e.g. media re-imported with a new entity ID).
     $checksum = $frontmatter['checksum'] ?? NULL;
     if ($exists && $checksum && $this->computeChecksum($frontmatter, $body) === $checksum) {
-      if (!$this->hasStaleReferences($frontmatter)) {
+      if (!$this->hasStaleReferences($rawFrontmatter)) {
         return ['op' => 'skipped', 'entity_type' => $entity_type, 'type' => $type, 'uuid' => $uuid, 'actual_uuid' => $uuid, 'sibling_uuids' => $sibling_uuids, 'bundle' => $bundle];
       }
     }

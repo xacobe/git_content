@@ -12,21 +12,10 @@ use Drupal\Core\Entity\EntityFieldManagerInterface;
  */
 class FieldDiscovery {
 
-  protected EntityTypeManagerInterface $entityTypeManager;
-  protected EntityFieldManagerInterface $entityFieldManager;
-
-  /**
-   * Constructor.
-   *
-   * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entityTypeManager
-   *   The entity_type.manager service.
-   * @param \Drupal\Core\Entity\EntityFieldManagerInterface $entityFieldManager
-   *   The entity_field.manager service.
-   */
-  public function __construct(EntityTypeManagerInterface $entityTypeManager, EntityFieldManagerInterface $entityFieldManager) {
-    $this->entityTypeManager = $entityTypeManager;
-    $this->entityFieldManager = $entityFieldManager;
-  }
+  public function __construct(
+    protected EntityTypeManagerInterface $entityTypeManager,
+    protected EntityFieldManagerInterface $entityFieldManager,
+  ) {}
 
   /**
    * Get the list of relevant fields for a bundle.

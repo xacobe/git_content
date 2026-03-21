@@ -60,11 +60,10 @@ class MediaExporter extends BaseExporter {
    */
   public function export(EntityInterface $entity): string {
     $frontmatter = [];
-    $frontmatter['uuid']   = $entity->uuid();
-    $frontmatter['type']   = 'media';
-    $frontmatter['bundle'] = $entity->bundle();
-    $frontmatter['lang']   = $entity->language()->getId();
-    $frontmatter['draft']  = !(bool) $entity->get('status')->value;
+    $frontmatter['uuid']  = $entity->uuid();
+    $frontmatter['type']  = 'media';
+    $frontmatter['lang']  = $entity->language()->getId();
+    $frontmatter['draft'] = !(bool) $entity->get('status')->value;
 
     $frontmatter['name'] = $entity->label();
     $frontmatter['date'] = date('Y-m-d', $entity->get('created')->value ?? time());

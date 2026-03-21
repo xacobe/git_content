@@ -243,25 +243,6 @@ abstract class BaseImporter {
     return !empty($users) ? (int) reset($users)->id() : NULL;
   }
 
-  // ---------------------------------------------------------------------------
-  // Path alias
-  // ---------------------------------------------------------------------------
-
-  protected function savePathAlias($entity, string $alias, string $langcode): void {
-    $path = '/node/' . $entity->id();
-    $storage = $this->entityTypeManager->getStorage('path_alias');
-
-    $existing = $storage->loadByProperties(['path' => $path, 'langcode' => $langcode]);
-
-    if (!empty($existing)) {
-      $alias_entity = reset($existing);
-      $alias_entity->set('alias', $alias);
-      $alias_entity->save();
-    }
-    else {
-      $storage->create(['path' => $path, 'alias' => $alias, 'langcode' => $langcode])->save();
-    }
-  }
 
   // ---------------------------------------------------------------------------
   // Utilities

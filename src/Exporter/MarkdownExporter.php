@@ -5,6 +5,7 @@ namespace Drupal\git_content\Exporter;
 use Drupal\git_content\Utility\ContentExportTrait;
 use Drupal\git_content\Utility\SummaryTrait;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Entity\TranslatableInterface;
 use Drupal\Core\Language\LanguageManagerInterface;
 use Drupal\Core\Logger\LoggerChannelFactoryInterface;
@@ -202,7 +203,7 @@ class MarkdownExporter {
         $result  = $exporter->exportToFile($translation, $dryRun);
         $paths[] = is_array($result) ? $result['path'] : $result;
       }
-      catch (\Exception $e) {
+      catch (\Exception) {
         // Ignore individual translation failures during normalisation.
       }
     }
@@ -268,7 +269,7 @@ class MarkdownExporter {
 
     // Some entity types may not be installed (e.g. media, block_content).
     try {
-      $ids = $storage->getQuery()->accessCheck(TRUE)->execute();
+      $ids = $storage->getQuery()->accessCheck(FALSE)->execute();
     }
     catch (\Exception $e) {
       return ['exported_files' => [], 'skipped_files' => [], 'errors' => []];
@@ -328,10 +329,10 @@ class MarkdownExporter {
    *
    * @return \Drupal\Core\Entity\EntityInterface[]
    */
-  private function getEntityTranslations(\Drupal\Core\Entity\EntityInterface $entity): array {
+  private function getEntityTranslations(EntityInterface $entity): array {
     $translations = [$entity];
     if ($entity instanceof TranslatableInterface) {
-      foreach ($entity->getTranslationLanguages(FALSE) as $langcode => $language) {
+      foreach ($entity->getTranslationLanguages(FALSE) as $langcode => $_) {
         $translations[] = $entity->getTranslation($langcode);
       }
     }
