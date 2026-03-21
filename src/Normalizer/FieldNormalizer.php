@@ -5,6 +5,7 @@ namespace Drupal\git_content\Normalizer;
 use Drupal\git_content\Handler\FieldHandlerRegistry;
 use Drupal\git_content\Serializer\MarkdownSerializer;
 use Drupal\git_content\Utility\EntityLinkRewriteTrait;
+use Drupal\git_content\Utility\EntityReferenceResolver;
 use Drupal\Component\Datetime\TimeInterface;
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
@@ -33,6 +34,7 @@ class FieldNormalizer {
     protected FieldHandlerRegistry $fieldHandlerRegistry,
     protected MarkdownSerializer $serializer,
     protected TimeInterface $time,
+    protected EntityReferenceResolver $entityReferenceResolver,
   ) {}
 
   // ---------------------------------------------------------------------------
@@ -222,7 +224,7 @@ class FieldNormalizer {
 
         case 'image':
         case 'file':
-          $fid = $this->findFileByName((string) $item);
+          $fid = $this->entityReferenceResolver->findFileByName((string) $item);
           if ($fid) {
             $result[] = ['target_id' => $fid];
           }
@@ -230,7 +232,7 @@ class FieldNormalizer {
 
         case 'entity_reference':
           $target_type = $definition->getSetting('target_type');
-          $tid = $this->resolveEntityReference($item, $target_type, $definition);
+          $tid = $this->entityReferenceResolver->resolveEntityReference($item, $target_type, $definition);
           if ($tid !== NULL) {
             $result[] = ['target_id' => $tid];
           }
@@ -262,78 +264,6 @@ class FieldNormalizer {
     }
 
     return $cardinality === 1 ? $result[0] : $result;
-  }
-
-  // ---------------------------------------------------------------------------
-  // Reference resolution — public so field handlers can reuse them
-  // ---------------------------------------------------------------------------
-
-  public function resolveEntityReference(mixed $value, string $target_type, FieldDefinitionInterface $definition): ?int {
-    if ($value === NULL) {
-      return NULL;
-    }
-    if ($target_type === 'taxonomy_term') {
-      return $this->findTermByLabel((string) $value, $definition);
-    }
-    if ($target_type === 'node') {
-      return is_numeric($value) ? (int) $value : $this->findNodeBySlug((string) $value);
-    }
-    if ($target_type === 'media') {
-      return $this->findMediaByUuid((string) $value);
-    }
-    return is_numeric($value) ? (int) $value : NULL;
-  }
-
-  public function findTermByLabel(string $label, FieldDefinitionInterface $definition): ?int {
-    $vocab_bundles = $definition->getSetting('handler_settings')['target_bundles'] ?? [];
-    $storage = $this->entityTypeManager->getStorage('taxonomy_term');
-
-    $query = $storage->getQuery()->accessCheck(FALSE)->condition('name', $label);
-    if (!empty($vocab_bundles)) {
-      $query->condition('vid', array_keys($vocab_bundles), 'IN');
-    }
-    $tids = $query->execute();
-
-    if (!empty($tids)) {
-      return (int) reset($tids);
-    }
-
-    // Create the term if it does not exist.
-    if (!empty($vocab_bundles)) {
-      $term = $storage->create(['vid' => array_key_first($vocab_bundles), 'name' => $label]);
-      $term->save();
-      return (int) $term->id();
-    }
-
-    return NULL;
-  }
-
-  public function findNodeBySlug(string $slug): ?int {
-    $aliases = $this->entityTypeManager->getStorage('path_alias')
-      ->loadByProperties(['alias' => '/' . ltrim($slug, '/')]);
-
-    foreach ($aliases as $alias) {
-      if (preg_match('/^\/node\/(\d+)$/', $alias->getPath(), $m)) {
-        return (int) $m[1];
-      }
-    }
-    return NULL;
-  }
-
-  public function findFileByName(string $filename): ?int {
-    $files = $this->entityTypeManager->getStorage('file')
-      ->getQuery()->accessCheck(FALSE)->condition('filename', $filename)->execute();
-    return !empty($files) ? (int) reset($files) : NULL;
-  }
-
-  public function findMediaByUuid(string $uuid): ?int {
-    $ids = $this->entityTypeManager->getStorage('media')
-      ->getQuery()
-      ->accessCheck(FALSE)
-      ->condition('uuid', $uuid)
-      ->range(0, 1)
-      ->execute();
-    return !empty($ids) ? (int) reset($ids) : NULL;
   }
 
   // ---------------------------------------------------------------------------

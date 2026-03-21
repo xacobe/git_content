@@ -16,11 +16,15 @@ services:
     arguments:
       - !tagged_iterator git_content.field_handler
 
+  git_content.entity_reference_resolver:
+    class: Drupal\git_content\Utility\EntityReferenceResolver
+    arguments: ['@entity_type.manager']
+
   # --- Field normalizer (shared export/import logic, injectable by submodules) ---
 
   git_content.field_normalizer:
     class: Drupal\git_content\Normalizer\FieldNormalizer
-    arguments: ['@entity_type.manager', '@git_content.field_handler_registry', '@git_content.serializer', '@datetime.time']
+    arguments: ['@entity_type.manager', '@git_content.field_handler_registry', '@git_content.serializer', '@datetime.time', '@git_content.entity_reference_resolver']
 
   # --- Exporters ---
 
