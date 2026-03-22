@@ -228,14 +228,16 @@ class MarkdownImporter {
 
         $result[$op][] = str_replace($this->contentExportDir() . '/', '', $filepath);
 
-        // Newly imported entities may have a different entity ID than the one
-        // encoded in the source file's slug (e.g. media-22-... vs media-64-...).
-        // Re-export to the canonical path and delete the stale source file.
-        // Only needed for 'imported': updated/skipped entities already have
-        // the correct ID and path.
-        if ($op === 'imported' && $actual_uuid && $entity_type && !$dryRun) {
+        // Re-export the entity after import to normalise the .md file:
+        // - 'imported': entity ID may differ from the slug in the source file
+        //   (e.g. media-22-... vs media-64-...); delete the stale source file
+        //   if the canonical path changed.
+        // - 'updated': the file was manually edited and has a stale checksum;
+        //   re-exporting writes the canonical content so the next export
+        //   preview shows it as unchanged instead of "Would write".
+        if (in_array($op, ['imported', 'updated']) && $actual_uuid && $entity_type && !$dryRun) {
           $canonicalPaths = $this->exporter->exportEntityByUuid($actual_uuid, $entity_type);
-          if (!empty($canonicalPaths) && !in_array($filepath, $canonicalPaths)) {
+          if ($op === 'imported' && !empty($canonicalPaths) && !in_array($filepath, $canonicalPaths)) {
             is_file($filepath) && unlink($filepath);
             $result['deleted'][] = str_replace($this->contentExportDir() . '/', '', $filepath);
           }
