@@ -182,7 +182,7 @@ class MarkdownExporter {
    * canonical exporter format, ensuring the next export preview shows the file
    * as unchanged.
    */
-  public function exportEntityByUuid(string $uuid, string $entityType, bool $dryRun = FALSE): array {
+  public function exportEntityByUuid(string $uuid, string $entityType, bool $dryRun = FALSE, ?string $langcode = NULL): array {
     $paths    = [];
     $exporter = $this->exporterMap[$entityType] ?? NULL;
     if (!$exporter) {
@@ -198,6 +198,12 @@ class MarkdownExporter {
     $entity = reset($entities);
 
     foreach ($this->getEntityTranslations($entity) as $translation) {
+      // When a specific language is requested, skip all other translations.
+      // This prevents overwriting sibling .md files that are still pending
+      // import in the current run (which would cause them to be skipped).
+      if ($langcode !== NULL && $translation->language()->getId() !== $langcode) {
+        continue;
+      }
       try {
         $result  = $exporter->exportToFile($translation, $dryRun);
         $paths[] = $result['path'];

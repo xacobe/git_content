@@ -184,7 +184,7 @@ class MarkdownImporter {
       $op = $this->getImporterForType($entity_type)->import($frontmatter, $body);
     }
 
-    return ['op' => $op, 'entity_type' => $entity_type, 'type' => $type, 'uuid' => $uuid, 'actual_uuid' => $actual_uuid, 'sibling_uuids' => $sibling_uuids, 'bundle' => $bundle];
+    return ['op' => $op, 'entity_type' => $entity_type, 'type' => $type, 'uuid' => $uuid, 'actual_uuid' => $actual_uuid, 'sibling_uuids' => $sibling_uuids, 'bundle' => $bundle, 'lang' => $langcode];
   }
 
   // ---------------------------------------------------------------------------
@@ -225,18 +225,18 @@ class MarkdownImporter {
         // Using the actual DB uuid prevents syncDeletedEntities from deleting it.
         $actual_uuid = $import['actual_uuid'] ?? $uuid;
         $bundle      = $import['bundle'] ?? '__all';
+        $lang        = $import['lang'] ?? NULL;
 
         $result[$op][] = str_replace($this->contentExportDir() . '/', '', $filepath);
 
-        // Re-export the entity after import to normalise the .md file:
-        // - 'imported': entity ID may differ from the slug in the source file
-        //   (e.g. media-22-... vs media-64-...); delete the stale source file
-        //   if the canonical path changed.
-        // - 'updated': the file was manually edited and has a stale checksum;
-        //   re-exporting writes the canonical content so the next export
-        //   preview shows it as unchanged instead of "Would write".
+        // Re-export only this specific translation after import to normalise
+        // the .md file on disk. Exporting all translations here would overwrite
+        // sibling translation files (which are still pending import in this run)
+        // with stale Drupal content, causing those translations to be skipped.
+        // - 'imported': entity ID may differ from slug; delete stale source if path changed.
+        // - 'updated': file was manually edited; re-export to update the checksum.
         if (in_array($op, ['imported', 'updated']) && $actual_uuid && $entity_type && !$dryRun) {
-          $canonicalPaths = $this->exporter->exportEntityByUuid($actual_uuid, $entity_type);
+          $canonicalPaths = $this->exporter->exportEntityByUuid($actual_uuid, $entity_type, FALSE, $lang);
           if ($op === 'imported' && !empty($canonicalPaths) && !in_array($filepath, $canonicalPaths)) {
             is_file($filepath) && unlink($filepath);
             $result['deleted'][] = str_replace($this->contentExportDir() . '/', '', $filepath);
