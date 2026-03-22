@@ -61,7 +61,10 @@ class FileExporter extends BaseExporter {
     $dir     = $this->contentExportDir() . '/files' . ($subdir !== '.' ? '/' . $subdir : '');
     $this->ensureDir($dir, $dryRun);
 
-    $filename = $this->sanitizeFilename($entity->getFilename());
+    // Use the URI-path basename (Drupal guarantees it is unique) rather than
+    // getFilename() (display name), which can be shared by multiple file
+    // entities pointing to different physical files (e.g. via.jpg / via_2.jpg).
+    $filename = $this->sanitizeFilename(pathinfo($path, PATHINFO_FILENAME));
     $filepath = $dir . '/' . $filename . '.md';
 
     $written = $this->writeIfChanged($filepath, $markdown, $dryRun);
