@@ -60,10 +60,10 @@ class FileExporter extends BaseExporter {
     $dir     = $this->contentExportDir() . '/files' . ($subdir !== '.' ? '/' . $subdir : '');
     $this->ensureDir($dir, $dryRun);
 
-    // Use the URI-path basename (Drupal guarantees it is unique) rather than
-    // getFilename() (display name), which can be shared by multiple file
-    // entities pointing to different physical files (e.g. via.jpg / via_2.jpg).
-    $filename = $this->sanitizeFilename(pathinfo($path, PATHINFO_FILENAME));
+    // Use the full URI-path basename (including extension, sanitized) to
+    // guarantee uniqueness even when two files share the same stem but differ
+    // by extension (e.g. photo.jpg vs photo.jpeg → photo-jpg.md vs photo-jpeg.md).
+    $filename = $this->sanitizeFilename(pathinfo($path, PATHINFO_BASENAME));
     $filepath = $dir . '/' . $filename . '.md';
 
     $written = $this->writeIfChanged($filepath, $markdown, $dryRun);
@@ -99,11 +99,13 @@ class FileExporter extends BaseExporter {
   }
 
   /**
-   * Sanitize the file name for use as part of the .md file name.
+   * Sanitize a full filename (including extension) for use as a .md stem.
+   *
+   * Non-alphanumeric characters (including dots) become hyphens, so
+   * photo.jpg → photo-jpg and photo.jpeg → photo-jpeg.
    */
   private function sanitizeFilename(string $filename): string {
-    $name = pathinfo($filename, PATHINFO_FILENAME);
-    return preg_replace('/[^a-z0-9]+/', '-', mb_strtolower($name));
+    return trim(preg_replace('/[^a-z0-9]+/', '-', mb_strtolower($filename)), '-');
   }
 
 }

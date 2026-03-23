@@ -55,10 +55,10 @@ class MarkdownExporter {
    * minus actual disk writes) and returns the same array shape so callers
    * can treat preview and real results identically.
    *
-   * @return array{exported: string[], skipped: string[], deleted: string[], errors: string[]}
+   * @return array{exported: string[], skipped: string[], deleted: string[], errors: string[], warnings: string[]}
    */
   public function previewAll(): array {
-    $result       = ['exported' => [], 'skipped' => [], 'deleted' => [], 'errors' => []];
+    $result       = ['exported' => [], 'skipped' => [], 'deleted' => [], 'errors' => [], 'warnings' => []];
     $touchedSet = [];
 
     foreach ($this->exporterMap as $entity_type => $exporter) {
@@ -74,6 +74,9 @@ class MarkdownExporter {
       }
       foreach ($typeResult['errors'] as $error) {
         $result['errors'][] = $error;
+      }
+      foreach ($typeResult['warnings'] as $warning) {
+        $result['warnings'][] = $warning;
       }
     }
 
@@ -115,11 +118,11 @@ class MarkdownExporter {
   /**
    * Export all content to content_export/.
    *
-   * @return array{exported: string[], skipped: string[], deleted: string[], errors: string[]}
-   *   Relative paths of files written, unchanged, removed, and any errors.
+   * @return array{exported: string[], skipped: string[], deleted: string[], errors: string[], warnings: string[]}
+   *   Relative paths of files written, unchanged, removed, any errors, and any warnings.
    */
   public function exportAll(): array {
-    $result = ['exported' => [], 'skipped' => [], 'deleted' => [], 'errors' => []];
+    $result = ['exported' => [], 'skipped' => [], 'deleted' => [], 'errors' => [], 'warnings' => []];
 
     $touchedFiles = [];
     $typeCounts   = [];
@@ -141,6 +144,9 @@ class MarkdownExporter {
       }
       foreach ($typeResult['errors'] as $error) {
         $result['errors'][] = $error;
+      }
+      foreach ($typeResult['warnings'] as $warning) {
+        $result['warnings'][] = $warning;
       }
     }
 
@@ -254,12 +260,13 @@ class MarkdownExporter {
   /**
    * Export all entities of a single type using the given exporter.
    *
-   * @return array{exported_files: string[], skipped_files: string[], errors: string[]}
+   * @return array{exported_files: string[], skipped_files: string[], errors: string[], warnings: string[]}
    */
   private function exportEntityType(string $entity_type, ExporterInterface $exporter, bool $dryRun = FALSE): array {
     $exportedFiles = [];
     $skippedFiles  = [];
     $errors        = [];
+    $warnings      = [];
 
     $storage = $this->entityTypeManager->getStorage($entity_type);
 
@@ -282,6 +289,14 @@ class MarkdownExporter {
     // deleted by syncDeletedEntities.
     $exportedFileUris = [];
 
+    // Track relative paths written in this run to detect filename collisions.
+    // A collision occurs when two entities produce the same output path (e.g.
+    // two nodes sharing the same path alias). exportToFile() runs before we can
+    // check, so entity 2 has already overwritten entity 1 on disk. We restore
+    // entity 1's content and skip entity 2, then warn in the result.
+    // Key: relpath → entity translation (stored to allow restore on collision).
+    $writtenPaths = [];
+
     foreach ($storage->loadMultiple($ids) as $entity) {
       if ($entity_type === 'file' && $entity->hasField('uri')) {
         $uri = $entity->get('uri')->value;
@@ -300,6 +315,28 @@ class MarkdownExporter {
           $relpath    = str_replace($this->contentExportDir() . '/', '', $filepath);
           $skipped    = $fileResult['skipped'] ?? FALSE;
 
+          // Collision: entity 2 just overwrote entity 1's file.
+          // Restore entity 1's content so the file stays stable, then skip
+          // entity 2 (it will have no .md file until the alias is fixed).
+          if ($relpath && !$skipped && isset($writtenPaths[$relpath])) {
+            $entity1Translation = $writtenPaths[$relpath];
+            if (!$dryRun) {
+              file_put_contents($filepath, $exporter->export($entity1Translation));
+            }
+            $label1     = $entity1Translation->label() ?? $entity1Translation->uuid();
+            $label2     = $translation->label() ?? $translation->uuid();
+            $warnings[] = "Path collision on {$relpath}: {$label2} skipped — path already used by {$label1}. Fix the duplicate name in Drupal.";
+            $this->logger->warning(
+              'Export path collision on @path: @type @id (@label2) skipped — path already used by @label1. Fix duplicate path aliases.',
+              ['@path' => $relpath, '@type' => $entity_type, '@id' => (string) $translation->id(), '@label2' => $label2, '@label1' => $label1]
+            );
+            continue;
+          }
+
+          if ($relpath && !$skipped) {
+            $writtenPaths[$relpath] = $translation;
+          }
+
           if ($skipped) {
             $skippedFiles[] = $relpath;
           }
@@ -317,7 +354,7 @@ class MarkdownExporter {
       }
     }
 
-    return ['exported_files' => $exportedFiles, 'skipped_files' => $skippedFiles, 'errors' => $errors];
+    return ['exported_files' => $exportedFiles, 'skipped_files' => $skippedFiles, 'errors' => $errors, 'warnings' => $warnings];
   }
 
   /**

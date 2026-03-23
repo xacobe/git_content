@@ -349,9 +349,13 @@ class MarkdownImporter {
           if (isset($uuids[$entity->uuid()])) {
             continue;
           }
-          // Never touch the admin user or the currently logged-in user.
-          if ($entity_type === 'user' && ($entity->id() === 1 || $entity->id() === $this->currentUser->id())) {
-            continue;
+          // Never touch the anonymous user (uid=0), the admin (uid=1),
+          // or the currently logged-in user.
+          if ($entity_type === 'user') {
+            $uid = (int) $entity->id();
+            if ($uid === 0 || $uid === 1 || $uid === (int) $this->currentUser->id()) {
+              continue;
+            }
           }
 
           $label      = $entity->label() ?? (string) $entity->id();

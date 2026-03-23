@@ -57,6 +57,10 @@ class SyncForm extends FormBase {
 
     $form['summary'] = $this->buildSummary($pendingExport, $pendingImport);
 
+    if (!empty($exportPreview['warnings'])) {
+      $form['export_warnings'] = $this->buildWarningsBox($exportPreview['warnings']);
+    }
+
     // --- Export panel ---
     $form['export_details'] = [
       '#type'       => 'details',
@@ -143,6 +147,10 @@ class SyncForm extends FormBase {
 
       $method = $err ? 'addError' : 'addStatus';
       $this->messenger()->$method($this->joinSections($sections));
+
+      foreach ($result['warnings'] ?? [] as $warning) {
+        $this->messenger()->addWarning($warning);
+      }
     }
     else {
       $result  = $this->importer->importAll();
@@ -207,6 +215,31 @@ class SyncForm extends FormBase {
         'text'        => [
           '#markup' => '<span class="messages__icon" aria-hidden="true">' . $icon . '</span>'
             . '<div class="messages__content"><strong>' . $statusText . '</strong></div>',
+        ],
+      ],
+    ];
+  }
+
+  /**
+   * Render a list of warning strings as a Drupal messages--warning box.
+   *
+   * @param string[] $warnings
+   */
+  private function buildWarningsBox(array $warnings): array {
+    $lines = implode('<br>', array_map(fn($w) => Html::escape($w), $warnings));
+    return [
+      '#type'       => 'container',
+      '#attributes' => [
+        'class'      => ['messages', 'messages--warning'],
+        'role'       => 'status',
+        'aria-label' => $this->t('Export warnings'),
+      ],
+      'wrapper' => [
+        '#type'       => 'container',
+        '#attributes' => ['class' => ['messages__wrapper']],
+        'text'        => [
+          '#markup' => '<span class="messages__icon" aria-hidden="true">⚠</span>'
+            . '<div class="messages__content">' . $lines . '</div>',
         ],
       ],
     ];

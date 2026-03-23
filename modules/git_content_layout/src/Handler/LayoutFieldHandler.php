@@ -97,6 +97,15 @@ class LayoutFieldHandler implements FieldHandlerInterface {
     // layout_settings: always keep it — even when empty it signals to editors
     // that label, column widths, etc. can be set here by editing the .md file.
 
+    // context_mapping inside layout_settings is always {} for standard layouts
+    // (layout_onecol, etc.) — stripping it prevents spurious checksum changes
+    // caused by Drupal sometimes including and sometimes omitting the key.
+    if (isset($data['layout_settings']['context_mapping'])
+        && empty($data['layout_settings']['context_mapping'])
+    ) {
+      unset($data['layout_settings']['context_mapping']);
+    }
+
     // third_party_settings at section level: always empty in practice.
     if (isset($data['third_party_settings']) && empty($data['third_party_settings'])) {
       unset($data['third_party_settings']);
