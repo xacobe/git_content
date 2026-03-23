@@ -33,7 +33,6 @@ use Drupal\Core\Entity\EntityInterface;
  *   uuid: a1b2c3d4
  *   uri: public://images/drupal.jpg
  *   status: permanent
- *   lang: en
  *   checksum: …
  *   ---
  */
@@ -88,12 +87,14 @@ class FileExporter extends BaseExporter {
     $frontmatter['created']  = date('Y-m-d', $entity->getCreatedTime());
     $frontmatter['owner']    = $this->getAuthorName($entity);
 
-    // Drupal-internal: full URI (with stream wrapper), file status and language.
+    // Drupal-internal: full URI (with stream wrapper) and file status.
+    // Language is omitted: file entities are language-neutral ('und') and
+    // $entity->language()->getId() falls back to the site default on multilingual
+    // sites, which would produce a wrong langcode in the frontmatter.
     $frontmatter['uri']    = $entity->getFileUri();
     $frontmatter['status'] = $entity->isPermanent() ? 'permanent' : 'temporary';
-    $frontmatter['lang']   = $entity->language()->getId();
 
-    $frontmatter = $this->wrapDrupalNamespace($frontmatter, '', ['uri', 'status', 'lang']);
+    $frontmatter = $this->wrapDrupalNamespace($frontmatter, '', ['uri', 'status']);
     return $this->serializer->serialize($frontmatter);
   }
 

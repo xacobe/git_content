@@ -201,7 +201,10 @@ class MarkdownExporter {
       // When a specific language is requested, skip all other translations.
       // This prevents overwriting sibling .md files that are still pending
       // import in the current run (which would cause them to be skipped).
-      if ($langcode !== NULL && $translation->language()->getId() !== $langcode) {
+      // Use the raw langcode field value (not language()->getId()) to avoid
+      // the Drupal fallback that returns the site default for 'und' entities.
+      $translationLangcode = $translation->get('langcode')->value ?? $translation->language()->getId();
+      if ($langcode !== NULL && $translationLangcode !== $langcode) {
         continue;
       }
       try {
