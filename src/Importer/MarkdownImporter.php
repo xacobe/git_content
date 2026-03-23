@@ -358,6 +358,14 @@ class MarkdownImporter {
             }
           }
 
+          // Never delete permanent file entities that are not tracked in
+          // seenUuids. Drupal creates file entities dynamically (e.g. oembed
+          // thumbnails) that have no .md file but are still referenced.
+          // Deleting them leaves broken thumbnail__target_id references.
+          if ($entity_type === 'file' && $entity->isPermanent()) {
+            continue;
+          }
+
           $label      = $entity->label() ?? (string) $entity->id();
           $affected[] = "$entity_type:$bundle: $label ({$entity->uuid()})";
 

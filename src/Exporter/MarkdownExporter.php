@@ -275,11 +275,11 @@ class MarkdownExporter {
       $ids = $storage->getQuery()->accessCheck(FALSE)->execute();
     }
     catch (\Exception $e) {
-      return ['exported_files' => [], 'skipped_files' => [], 'errors' => []];
+      return ['exported_files' => [], 'skipped_files' => [], 'errors' => [], 'warnings' => []];
     }
 
     if (empty($ids)) {
-      return ['exported_files' => [], 'skipped_files' => [], 'errors' => []];
+      return ['exported_files' => [], 'skipped_files' => [], 'errors' => [], 'warnings' => []];
     }
 
     // For file entities, track exported URIs to skip duplicate entities that
