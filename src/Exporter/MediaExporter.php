@@ -83,7 +83,8 @@ class MediaExporter extends BaseExporter {
 
     $frontmatter['translation_of'] = $this->getTranslationOf($entity);
 
-    // Drupal-internal: bundle (encoded in file path), uploader, slug with entity ID.
+    // Drupal-internal: entity ID, bundle, uploader, slug.
+    $frontmatter['mid']    = (int) $entity->id();
     $frontmatter['bundle'] = $entity->bundle();
     $frontmatter['author'] = $this->getAuthorName($entity);
     $frontmatter['slug']   = $this->getMediaSlug($entity);

@@ -144,7 +144,8 @@ class MenuLinkExporter extends BaseExporter {
     }
 
     // Reference to the parent link (UUID of the parent menu_link_content)
-    $frontmatter['parent'] = $this->getParentUuid($entity);
+    $frontmatter['parent']  = $this->getParentUuid($entity);
+    $frontmatter['link_id'] = (int) $entity->id();
 
     $frontmatter['translation_of'] = $this->getTranslationOf($entity);
 

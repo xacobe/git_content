@@ -16,10 +16,10 @@ class NodeImporter extends BaseImporter {
     $langcode = $frontmatter['lang'] ?? 'und';
     $uuid     = $frontmatter['uuid'] ?? NULL;
 
-    [$node, $operation] = $this->resolveOrCreate('node', $uuid, $langcode, [
-      'type'     => $bundle,
-      'langcode' => $langcode,
-    ]);
+    $create_values = ['type' => $bundle, 'langcode' => $langcode];
+    $this->preserveEntityId('node', 'nid', 'nid', $create_values, $frontmatter);
+
+    [$node, $operation] = $this->resolveOrCreate('node', $uuid, $langcode, $create_values);
 
     $node->set('title', $frontmatter['title'] ?? 'Untitled');
     $node->set('status', $this->resolveStatus($frontmatter));

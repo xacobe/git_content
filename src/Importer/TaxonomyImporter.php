@@ -30,14 +30,7 @@ class TaxonomyImporter extends BaseImporter {
     }
 
     $create_values = ['vid' => $vid, 'langcode' => $langcode, 'default_langcode' => 1];
-    // Preserve the original tid so Views filters referencing terms by ID
-    // keep working after a fresh import. Only applied if the slot is free.
-    if (!empty($frontmatter['tid'])) {
-      $requested_tid = (int) $frontmatter['tid'];
-      if (!$this->entityTypeManager->getStorage('taxonomy_term')->load($requested_tid)) {
-        $create_values['tid'] = $requested_tid;
-      }
-    }
+    $this->preserveEntityId('taxonomy_term', 'tid', 'tid', $create_values, $frontmatter);
 
     [$term, $operation] = $this->resolveOrCreate('taxonomy_term', $uuid, $langcode, $create_values);
 

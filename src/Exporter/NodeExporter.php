@@ -66,6 +66,7 @@ class NodeExporter extends BaseExporter {
     $frontmatter['author'] = $this->getAuthorName($entity);
 
     $frontmatter['path']    = $this->getPathAlias($entity);
+    $frontmatter['nid']     = (int) $entity->id();
 
     // --- Grouped dynamic fields ---
     $this->applyDynamicGroups($frontmatter, $entity, 'node');

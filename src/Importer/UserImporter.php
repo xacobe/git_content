@@ -48,12 +48,15 @@ class UserImporter extends BaseImporter {
       $operation = 'updated';
     }
     else {
-      $user = $this->entityTypeManager->getStorage('user')->create([
+      $create = [
         'langcode' => $langcode,
         'uuid'     => $uuid ?? $this->uuid->generate(),
         // Secure random password; must be reset manually.
         'pass'     => $this->passwordGenerator->generate(20),
-      ]);
+      ];
+      // min_id=2: never force uid=1 (handled by the early-return above).
+      $this->preserveEntityId('user', 'uid', 'uid', $create, $frontmatter, 2);
+      $user = $this->entityTypeManager->getStorage('user')->create($create);
       $operation = 'imported';
     }
 

@@ -195,7 +195,7 @@ abstract class BaseExporter implements ExporterInterface {
    * The checksum covers all entity data (SSG-visible + Drupal-internal).
    */
   protected function wrapDrupalNamespace(array $frontmatter, string $body, array $extra = []): array {
-    $drupal_keys = ['uuid', 'translation_of', 'body_format', 'tid', ...$extra];
+    $drupal_keys = ['uuid', 'translation_of', 'body_format', 'tid', 'nid', 'mid', 'fid', 'uid', 'block_id', 'link_id', ...$extra];
 
     // Split frontmatter into SSG fields and Drupal-internal fields.
     $ssg    = [];

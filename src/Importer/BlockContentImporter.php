@@ -20,11 +20,10 @@ class BlockContentImporter extends BaseImporter {
       throw new \Exception($this->t("The block_content frontmatter is missing 'bundle'."));
     }
 
-    [$block, $operation] = $this->resolveOrCreate('block_content', $uuid, $langcode, [
-      'type'             => $bundle,
-      'langcode'         => $langcode,
-      'default_langcode' => 1,
-    ]);
+    $create_values = ['type' => $bundle, 'langcode' => $langcode, 'default_langcode' => 1];
+    $this->preserveEntityId('block_content', 'id', 'block_id', $create_values, $frontmatter);
+
+    [$block, $operation] = $this->resolveOrCreate('block_content', $uuid, $langcode, $create_values);
 
     $block->set('info', $frontmatter['title'] ?? 'Untitled');
     $block->set('status', $this->resolveStatus($frontmatter));

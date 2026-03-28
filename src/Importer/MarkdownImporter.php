@@ -113,8 +113,7 @@ class MarkdownImporter {
 
     $raw         = file_get_contents($filepath);
     $parsed      = $this->serializer->deserialize($raw);
-    $rawFrontmatter = $parsed['frontmatter'];
-    $frontmatter = $this->serializer->flattenGroups($rawFrontmatter);
+    $frontmatter = $this->serializer->flattenGroups($parsed['frontmatter']);
     $body        = $parsed['body'];
 
     $type = $frontmatter['type'] ?? NULL;
@@ -147,37 +146,27 @@ class MarkdownImporter {
     }
     $exists = $uuid && !empty($existsQuery->range(0, 1)->execute());
 
-    // For file entities, look up ALL entities sharing the same URI. Drupal can
-    // create multiple file entities for the same physical file (e.g. Umami demo
-    // creates two per image). We track every sibling UUID so syncDeletedEntities
-    // does not delete entities that we simply did not have a .md file for.
-    // When the UUID is not found, we also use the first result as the entity to
-    // update (URI fallback for fresh installs with different UUIDs).
-    $actual_uuid    = $uuid;
-    $sibling_uuids  = [];
-    $found_by_uri   = FALSE;
-    if ($entity_type === 'file') {
+    // URI fallback: if the entity is not found by UUID, look it up by URI.
+    // This handles fresh installs where a file entity already exists with the
+    // same URI but a different UUID (e.g. a leftover from demo content).
+    $actual_uuid  = $uuid;
+    $found_by_uri = FALSE;
+    if ($entity_type === 'file' && !$exists) {
       $uri = $frontmatter['uri'] ?? NULL;
       if ($uri) {
-        $existing_files = $this->entityTypeManager->getStorage('file')
+        $existing = $this->entityTypeManager->getStorage('file')
           ->loadByProperties(['uri' => $uri]);
-        if (!empty($existing_files)) {
-          $sibling_uuids = array_map(fn($f) => $f->uuid(), array_values($existing_files));
-          if (!$exists) {
-            $actual_uuid  = reset($existing_files)->uuid();
-            $found_by_uri = TRUE;
-          }
+        if (!empty($existing)) {
+          $actual_uuid  = reset($existing)->uuid();
+          $found_by_uri = TRUE;
         }
       }
     }
 
-    // Checksum match AND entity exists in DB → skip, unless any referenced
-    // entity has been deleted (e.g. media re-imported with a new entity ID).
+    // Checksum match AND entity exists in DB → skip.
     $checksum = $frontmatter['checksum'] ?? NULL;
     if ($exists && $checksum && $this->computeChecksum($frontmatter, $body) === $checksum) {
-      if (!$this->hasStaleReferences($rawFrontmatter)) {
-        return ['op' => 'skipped', 'entity_type' => $entity_type, 'type' => $type, 'uuid' => $uuid, 'actual_uuid' => $uuid, 'sibling_uuids' => $sibling_uuids, 'bundle' => $bundle];
-      }
+      return ['op' => 'skipped', 'entity_type' => $entity_type, 'type' => $type, 'uuid' => $uuid, 'actual_uuid' => $uuid, 'bundle' => $bundle];
     }
 
     if ($dryRun) {
@@ -187,7 +176,7 @@ class MarkdownImporter {
       $op = $this->getImporterForType($entity_type)->import($frontmatter, $body);
     }
 
-    return ['op' => $op, 'entity_type' => $entity_type, 'type' => $type, 'uuid' => $uuid, 'actual_uuid' => $actual_uuid, 'sibling_uuids' => $sibling_uuids, 'bundle' => $bundle, 'lang' => $langcode];
+    return ['op' => $op, 'entity_type' => $entity_type, 'type' => $type, 'uuid' => $uuid, 'actual_uuid' => $actual_uuid, 'bundle' => $bundle, 'lang' => $langcode];
   }
 
   // ---------------------------------------------------------------------------
@@ -257,13 +246,8 @@ class MarkdownImporter {
           }
         }
 
-        // Track the primary entity UUID plus any file entity siblings sharing
-        // the same URI (e.g. Umami creates multiple file entities per image).
-        $tracked = array_filter(array_unique(array_merge([$actual_uuid], $import['sibling_uuids'] ?? [])));
-        foreach ($tracked as $tracked_uuid) {
-          if ($entity_type && $tracked_uuid) {
-            $seenUuids[$entity_type][$bundle][$tracked_uuid] = TRUE;
-          }
+        if ($entity_type && $actual_uuid) {
+          $seenUuids[$entity_type][$bundle][$actual_uuid] = TRUE;
         }
       }
       catch (\Exception $e) {
@@ -498,53 +482,6 @@ class MarkdownImporter {
       'weight'         => (int) ($frontmatter['weight'] ?? 0),
       'is_translation' => !empty($frontmatter['translation_of']) ? 1 : 0,
     ];
-  }
-
-  /**
-   * Check whether any entity reference in the frontmatter points to a deleted
-   * entity, making the stored checksum stale even though the file is unchanged.
-   *
-   * Only inspects the `references` group (media and node UUIDs).
-   * A stale reference means the cached entity ID on disk no longer exists in
-   * the database, so the entity must be re-imported to update the reference.
-   */
-  private function hasStaleReferences(array $frontmatter): bool {
-    $references = $frontmatter['references'] ?? [];
-    if (empty($references)) {
-      return FALSE;
-    }
-
-    // Collect all UUIDs from references (scalar or array values).
-    $uuids = [];
-    foreach ($references as $value) {
-      foreach ((array) $value as $candidate) {
-        if (is_string($candidate) && strlen($candidate) === 36) {
-          $uuids[$candidate] = TRUE;
-        }
-      }
-    }
-
-    if (empty($uuids)) {
-      return FALSE;
-    }
-
-    // Two IN queries (one per entity type) instead of 2×N individual queries.
-    // Drupal UUIDs are globally unique, so each UUID appears in at most one
-    // storage. If the total found count equals the number of UUIDs, all
-    // references are intact.
-    $all     = array_keys($uuids);
-    $found   = 0;
-    foreach (['media', 'node', 'block_content'] as $entity_type) {
-      $found += count(
-        $this->entityTypeManager->getStorage($entity_type)
-          ->getQuery()
-          ->accessCheck(FALSE)
-          ->condition('uuid', $all, 'IN')
-          ->execute()
-      );
-    }
-
-    return $found < count($uuids);
   }
 
 }

@@ -118,6 +118,7 @@ class UserExporter extends BaseExporter {
     $this->applyDynamicGroups($frontmatter, $entity, 'user');
 
     // Drupal-internal: not useful for SSG. NEVER export the password.
+    $frontmatter['uid']      = (int) $entity->id();
     $frontmatter['lang']     = $entity->language()->getId();
     $frontmatter['mail']     = $entity->getEmail();
     $frontmatter['timezone'] = $entity->getTimeZone() ?: 'UTC';

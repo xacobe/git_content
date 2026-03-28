@@ -25,10 +25,10 @@ class MenuLinkImporter extends BaseImporter {
     $uuid = $frontmatter['uuid'] ?? NULL;
     $menu_name  = $frontmatter['menu'] ?? 'main';
 
-    [$link, $operation] = $this->resolveOrCreate('menu_link_content', $uuid, $langcode, [
-      'langcode'  => $langcode,
-      'menu_name' => $menu_name,
-    ]);
+    $create_values = ['langcode' => $langcode, 'menu_name' => $menu_name];
+    $this->preserveEntityId('menu_link_content', 'id', 'link_id', $create_values, $frontmatter);
+
+    [$link, $operation] = $this->resolveOrCreate('menu_link_content', $uuid, $langcode, $create_values);
 
     $link->set('title', $frontmatter['title'] ?? '');
     $link->set('weight', (int) ($frontmatter['weight'] ?? 0));

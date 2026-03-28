@@ -20,10 +20,10 @@ class MediaImporter extends BaseImporter {
       throw new \Exception($this->t("The media frontmatter is missing 'bundle'."));
     }
 
-    [$media, $operation] = $this->resolveOrCreate('media', $uuid, $langcode, [
-      'bundle'   => $bundle,
-      'langcode' => $langcode,
-    ]);
+    $create_values = ['bundle' => $bundle, 'langcode' => $langcode];
+    $this->preserveEntityId('media', 'mid', 'mid', $create_values, $frontmatter);
+
+    [$media, $operation] = $this->resolveOrCreate('media', $uuid, $langcode, $create_values);
 
     $media->set('name', $frontmatter['name'] ?? 'Unnamed');
     $media->set('status', $this->resolveStatus($frontmatter));

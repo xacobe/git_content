@@ -32,10 +32,9 @@ class FileEntityImporter extends BaseImporter {
       $operation = 'updated';
     }
     else {
-      $file = $this->entityTypeManager->getStorage('file')->create([
-        'langcode' => $langcode,
-        'uuid'     => $uuid ?? $this->uuid->generate(),
-      ]);
+      $create = ['langcode' => $langcode, 'uuid' => $uuid ?? $this->uuid->generate()];
+      $this->preserveEntityId('file', 'fid', 'fid', $create, $frontmatter);
+      $file = $this->entityTypeManager->getStorage('file')->create($create);
       $operation = 'imported';
     }
 

@@ -91,6 +91,7 @@ class FileExporter extends BaseExporter {
     // Language is omitted: file entities are language-neutral ('und') and
     // $entity->language()->getId() falls back to the site default on multilingual
     // sites, which would produce a wrong langcode in the frontmatter.
+    $frontmatter['fid']    = (int) $entity->id();
     $frontmatter['uri']    = $entity->getFileUri();
     $frontmatter['status'] = $entity->isPermanent() ? 'permanent' : 'temporary';
 

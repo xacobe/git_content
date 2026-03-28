@@ -123,6 +123,39 @@ abstract class BaseImporter implements ImporterInterface {
   }
 
   /**
+   * Inject the entity's original ID into $create_values when the slot is free.
+   *
+   * Called before resolveOrCreate() to preserve entity IDs across DB resets so
+   * references stored by ID (views filters, site config, etc.) keep working.
+   *
+   * @param string $entity_type  The entity type machine name.
+   * @param string $entity_field The entity storage ID field (e.g. 'nid', 'mid', 'id').
+   * @param string $fm_key       The frontmatter key holding the ID (e.g. 'nid', 'block_id').
+   * @param array  $create_values Passed by reference; ID is added when the slot is free.
+   * @param array  $frontmatter  Parsed frontmatter from the .md file.
+   * @param int    $min_id       Minimum acceptable ID (default 1); use 2 for users to skip uid=1.
+   */
+  protected function preserveEntityId(
+    string $entity_type,
+    string $entity_field,
+    string $fm_key,
+    array &$create_values,
+    array $frontmatter,
+    int $min_id = 1,
+  ): void {
+    if (empty($frontmatter[$fm_key])) {
+      return;
+    }
+    $requested_id = (int) $frontmatter[$fm_key];
+    if ($requested_id < $min_id) {
+      return;
+    }
+    if (!$this->entityTypeManager->getStorage($entity_type)->load($requested_id)) {
+      $create_values[$entity_field] = $requested_id;
+    }
+  }
+
+  /**
    * Look up an entity by UUID (or create it) and resolve its translation.
    *
    * Encapsulates the repeated lookup → resolveTranslation / create pattern
