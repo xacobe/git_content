@@ -33,8 +33,8 @@ final class ManagedFields {
     // Comment fields — not used in static content workflows
     'comment', 'comment_count', 'comment_status', 'last_comment_timestamp',
     'last_comment_name', 'last_comment_uid',
-    // block_content system fields
-    'reusable', 'info',
+    // block_content: info is handled as 'title' by BlockContentExporter
+    'info',
   ];
 
 }
