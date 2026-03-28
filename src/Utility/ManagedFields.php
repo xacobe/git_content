@@ -35,6 +35,12 @@ final class ManagedFields {
     'last_comment_name', 'last_comment_uid',
     // block_content: info is handled as 'title' by BlockContentExporter
     'info',
+    // block_content: reusable is managed by Layout Builder, not by git_content.
+    // Non-reusable blocks trigger SetInlineBlockDependency on save, which
+    // throws when the inline_block_usage table is empty (e.g. after DB reset).
+    // Layout Builder sets reusable=false automatically when the parent node's
+    // layout_section field is saved.
+    'reusable',
   ];
 
 }

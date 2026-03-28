@@ -13,6 +13,7 @@ use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Logger\LoggerChannelFactoryInterface;
 use Drupal\Core\Session\AccountProxyInterface;
 use Drupal\Core\StringTranslation\StringTranslationTrait;
+use Drupal\path_alias\AliasManagerInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Yaml\Yaml;
 
@@ -59,6 +60,7 @@ class MarkdownImporter {
     protected MarkdownExporter $exporter,
     protected CacheBackendInterface $defaultCache,
     protected ConfigFactoryInterface $configFactory,
+    protected AliasManagerInterface $aliasManager,
   ) {
     $this->logger = $loggerFactory->get('git_content');
 
@@ -292,15 +294,20 @@ class MarkdownImporter {
       }
 
       // Restore the site front page from site.yaml.
-      // drush cim overwrites system.site with the version-controlled value
-      // (often /node/NNN), but the canonical path alias is stored here.
+      // site.yaml stores the path alias for portability (the node ID may change
+      // after a DB reset). At this point all nodes and their aliases have been
+      // imported, so we can resolve the alias back to the current internal path.
+      // Drupal requires an internal path for page.front — using an alias causes
+      // Drupal to redirect the visitor from / to the alias URL, which breaks the
+      // <front> route and prevents page--front.html.twig from loading.
       $siteYamlPath = $this->contentExportDir() . '/site.yaml';
       if (is_file($siteYamlPath)) {
         $siteData   = Yaml::parseFile($siteYamlPath);
-        $front_page = $siteData['front_page'] ?? NULL;
-        if ($front_page) {
+        $alias      = $siteData['front_page'] ?? NULL;
+        if ($alias) {
+          $internal = $this->aliasManager->getPathByAlias($alias);
           $this->configFactory->getEditable('system.site')
-            ->set('page.front', $front_page)
+            ->set('page.front', $internal ?: $alias)
             ->save();
         }
       }

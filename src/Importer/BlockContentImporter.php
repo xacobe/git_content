@@ -54,6 +54,14 @@ class BlockContentImporter extends BaseImporter {
     $definitions = $this->fieldDiscovery->getFields('block_content', $bundle);
     $this->populateDynamicFields($block, $frontmatter, $definitions);
 
+    // Force reusable=true before save. Layout Builder's
+    // SetInlineBlockDependency throws on non-reusable blocks that lack an
+    // inline_block_usage record (empty after DB reset). Layout Builder will
+    // set reusable=false when the parent node's layout_section is saved.
+    if ($block->hasField('reusable')) {
+      $block->set('reusable', TRUE);
+    }
+
     $block->save();
 
     return $operation;

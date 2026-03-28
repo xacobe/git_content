@@ -158,3 +158,4 @@ services:
       - '@git_content.exporter'
       - '@cache.default'
       - '@config.factory'
+      - '@path_alias.manager'
