@@ -2,7 +2,7 @@
 
 namespace Drupal\git_content\Utility;
 
-use Drupal\Component\Utility\Settings;
+use Drupal\Core\Site\Settings;
 
 /**
  * Provides shared file-system helpers for the content_export/ directory.
