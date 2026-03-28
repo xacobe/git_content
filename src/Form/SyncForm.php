@@ -390,20 +390,21 @@ class SyncForm extends FormBase {
   }
 
   private function buildExportDirInfo(): array {
-    $dir = $this->exporter->getExportDir();
-    $override = '<code>$settings[\'git_content_export_dir\'] = \'../my-export\';</code>';
+    $dir      = Html::escape($this->exporter->getExportDir());
+    $snippet  = Html::escape('$settings[\'git_content_export_dir\'] = \'../my-export\';');
     return [
-      '#type'       => 'details',
-      '#title'      => $this->t('Export directory'),
-      '#open'       => FALSE,
-      'text'        => [
-        '#type'       => 'html_tag',
-        '#tag'        => 'p',
-        '#value'      => $this->t(
-          'Current path: <code>@dir</code><br>To override, add the following line to your <code>settings.php</code>:<br>@override<br>Relative paths are resolved from the Drupal root.',
-          ['@dir' => $dir, '@override' => $override]
+      '#type'  => 'details',
+      '#title' => $this->t('Export directory'),
+      '#open'  => FALSE,
+      'text'   => [
+        '#markup' => Markup::create(
+          '<p class="description">'
+          . $this->t('Current path:') . ' <code>' . $dir . '</code><br>'
+          . $this->t('To override, add the following line to your <code>settings.php</code>:') . '<br>'
+          . '<code>' . $snippet . '</code><br>'
+          . $this->t('Relative paths are resolved from the Drupal root.')
+          . '</p>'
         ),
-        '#attributes' => ['class' => ['description']],
       ],
     ];
   }
