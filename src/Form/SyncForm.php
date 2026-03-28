@@ -118,6 +118,8 @@ class SyncForm extends FormBase {
       '#disabled'    => $pendingImport === 0 && empty($importPreview['errors']),
     ];
 
+    $form['export_dir_info'] = $this->buildExportDirInfo();
+
     return $form;
   }
 
@@ -385,6 +387,25 @@ class SyncForm extends FormBase {
       // Nodes: use a generic 'content' key; bundle is unknown from entity type alone.
       default             => 'content',
     };
+  }
+
+  private function buildExportDirInfo(): array {
+    $dir = $this->exporter->getExportDir();
+    $override = '<code>$settings[\'git_content_export_dir\'] = \'../my-export\';</code>';
+    return [
+      '#type'       => 'details',
+      '#title'      => $this->t('Export directory'),
+      '#open'       => FALSE,
+      'text'        => [
+        '#type'       => 'html_tag',
+        '#tag'        => 'p',
+        '#value'      => $this->t(
+          'Current path: <code>@dir</code><br>To override, add the following line to your <code>settings.php</code>:<br>@override<br>Relative paths are resolved from the Drupal root.',
+          ['@dir' => $dir, '@override' => $override]
+        ),
+        '#attributes' => ['class' => ['description']],
+      ],
+    ];
   }
 
   private function labelFromDir(string $dir): string {

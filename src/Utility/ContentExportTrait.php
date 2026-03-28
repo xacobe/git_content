@@ -2,11 +2,18 @@
 
 namespace Drupal\git_content\Utility;
 
+use Drupal\Component\Utility\Settings;
+
 /**
  * Provides shared file-system helpers for the content_export/ directory.
  *
  * Used by both MarkdownExporter and MarkdownImporter so the base path and
  * the recursive .md scanner are defined in exactly one place.
+ *
+ * The export directory defaults to content_export/ in the Drupal root.
+ * Override per environment in settings.php:
+ *   $settings['git_content_export_dir'] = '../my-custom-export';
+ * Relative paths are resolved from DRUPAL_ROOT.
  */
 trait ContentExportTrait {
 
@@ -14,6 +21,10 @@ trait ContentExportTrait {
    * Absolute path to the content_export directory.
    */
   protected function contentExportDir(): string {
+    $configured = Settings::get('git_content_export_dir');
+    if ($configured) {
+      return str_starts_with($configured, '/') ? $configured : DRUPAL_ROOT . '/' . $configured;
+    }
     return DRUPAL_ROOT . '/content_export';
   }
 

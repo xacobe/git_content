@@ -65,6 +65,15 @@ class MarkdownExporter {
     return $map;
   }
 
+  /**
+   * Return the resolved absolute path to the content export directory.
+   *
+   * Exposed publicly so the UI can display the active path to the user.
+   */
+  public function getExportDir(): string {
+    return $this->contentExportDir();
+  }
+
   // ---------------------------------------------------------------------------
   // Bulk export
   // ---------------------------------------------------------------------------
