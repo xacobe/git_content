@@ -51,11 +51,32 @@ class FileExporter extends BaseExporter {
   }
 
   /**
+   * URI prefixes for Drupal-generated cache files that must never be exported.
+   *
+   * These files are regenerated automatically by Drupal on page render and
+   * are not real content — exporting them causes permanent "Would write" noise
+   * in the sync form because Drupal recreates them after every import.
+   */
+  private const SKIP_URI_PREFIXES = [
+    'public://styles/',          // Image style derivatives — regenerated on render.
+    'public://oembed_thumbnails/', // oEmbed thumbnails — fetched/cached by Drupal.
+    'public://media-icons/',     // Media type icons — bundled with Drupal core.
+  ];
+
+  /**
    * {@inheritdoc}
    *
    * @return array{path: string, skipped: bool}
    */
   public function exportToFile(EntityInterface $entity, bool $dryRun = FALSE): array {
+    $uri = $entity->getFileUri();
+
+    foreach (self::SKIP_URI_PREFIXES as $prefix) {
+      if (str_starts_with($uri, $prefix)) {
+        return ['path' => '', 'skipped' => TRUE];
+      }
+    }
+
     $markdown = $this->export($entity);
 
     $uri     = $entity->getFileUri();

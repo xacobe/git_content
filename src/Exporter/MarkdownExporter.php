@@ -370,7 +370,10 @@ class MarkdownExporter {
           }
 
           if ($skipped) {
-            $skippedFiles[] = $relpath;
+            // Empty path = silently excluded (e.g. auto-generated cache files).
+            if ($relpath !== '') {
+              $skippedFiles[] = $relpath;
+            }
           }
           else {
             $exportedFiles[] = $relpath;
