@@ -88,6 +88,7 @@ services:
       - '@logger.factory'
       - '@language_manager'
       - !tagged_iterator git_content.exporter
+      - '@config.factory'
 
   # --- Importers ---
 
@@ -157,3 +158,4 @@ services:
       - !tagged_iterator git_content.importer
       - '@git_content.exporter'
       - '@cache.default'
+      - '@config.factory'

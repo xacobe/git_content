@@ -4,6 +4,7 @@ namespace Drupal\git_content\Exporter;
 
 use Drupal\git_content\Utility\ContentExportTrait;
 use Drupal\git_content\Utility\SummaryTrait;
+use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Entity\TranslatableInterface;
@@ -36,6 +37,7 @@ class MarkdownExporter {
     LoggerChannelFactoryInterface $loggerFactory,
     protected LanguageManagerInterface $languageManager,
     iterable $exporters,
+    protected ConfigFactoryInterface $configFactory,
   ) {
     $this->logger = $loggerFactory->get('git_content');
     $this->exporterMap = [];
@@ -239,13 +241,15 @@ class MarkdownExporter {
    * output and only rewrites the file when something has changed.
    */
   private function writeSiteYaml(): void {
-    $languages = array_keys($this->languageManager->getLanguages());
-    $default   = $this->languageManager->getDefaultLanguage()->getId();
+    $languages  = array_keys($this->languageManager->getLanguages());
+    $default    = $this->languageManager->getDefaultLanguage()->getId();
+    $front_page = $this->configFactory->get('system.site')->get('page.front') ?? '/';
 
     $data = [
       'git_content_format' => self::FORMAT_VERSION,
       'languages'          => $languages,
       'default_language'   => $default,
+      'front_page'         => $front_page,
     ];
 
     $yaml    = Yaml::dump($data, 2, 2);

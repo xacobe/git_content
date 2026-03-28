@@ -8,11 +8,13 @@ use Drupal\git_content\Utility\ChecksumTrait;
 use Drupal\git_content\Utility\ContentExportTrait;
 use Drupal\git_content\Utility\SummaryTrait;
 use Drupal\Core\Cache\CacheBackendInterface;
+use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Logger\LoggerChannelFactoryInterface;
 use Drupal\Core\Session\AccountProxyInterface;
 use Drupal\Core\StringTranslation\StringTranslationTrait;
 use Psr\Log\LoggerInterface;
+use Symfony\Component\Yaml\Yaml;
 
 /**
  * Orchestrates the import of all .md files from content_export/.
@@ -51,6 +53,7 @@ class MarkdownImporter {
     iterable $importers,
     protected MarkdownExporter $exporter,
     protected CacheBackendInterface $defaultCache,
+    protected ConfigFactoryInterface $configFactory,
   ) {
     $this->logger = $loggerFactory->get('git_content');
     $this->importerList = $importers instanceof \Traversable
@@ -292,6 +295,20 @@ class MarkdownImporter {
       // so the next page request re-resolves UUIDs → entity IDs from the DB.
       if (!empty($seenUuids['block_content'])) {
         $this->defaultCache->delete('block_content_uuid');
+      }
+
+      // Restore the site front page from site.yaml.
+      // drush cim overwrites system.site with the version-controlled value
+      // (often /node/NNN), but the canonical path alias is stored here.
+      $siteYamlPath = $this->contentExportDir() . '/site.yaml';
+      if (is_file($siteYamlPath)) {
+        $siteData   = Yaml::parseFile($siteYamlPath);
+        $front_page = $siteData['front_page'] ?? NULL;
+        if ($front_page) {
+          $this->configFactory->getEditable('system.site')
+            ->set('page.front', $front_page)
+            ->save();
+        }
       }
 
       $this->logger->notice(
