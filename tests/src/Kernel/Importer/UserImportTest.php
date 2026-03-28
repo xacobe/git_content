@@ -40,9 +40,9 @@ class UserImportTest extends KernelTestBase {
       $this->markTestSkipped('Anonymous user not available in this environment.');
     }
 
-    // Build frontmatter that would resolve to uid=0 via UUID lookup.
+    // Build frontmatter that would resolve to uid=0 via uid lookup.
     $frontmatter = [
-      'uuid' => $anonymous->uuid(),
+      'uid'  => (int) $anonymous->id(),
       'name' => $anonymous->getAccountName() ?: 'anonymous',
       'mail' => '',
       'lang' => 'en',
@@ -59,13 +59,12 @@ class UserImportTest extends KernelTestBase {
    */
   public function testNewUserIsImported(): void {
     $frontmatter = [
-      'uuid'   => '11111111-1111-1111-1111-111111111111',
       'name'   => 'new-editor',
       'mail'   => 'new-editor@example.com',
       'status' => 'active',
       'lang'   => 'en',
       'drupal' => [
-        'uuid'     => '11111111-1111-1111-1111-111111111111',
+        'uid'      => 100,
         'lang'     => 'en',
         'mail'     => 'new-editor@example.com',
         'timezone' => 'UTC',
@@ -85,7 +84,7 @@ class UserImportTest extends KernelTestBase {
   }
 
   /**
-   * An existing user matched by UUID is updated, not duplicated.
+   * An existing user matched by uid is updated, not duplicated.
    */
   public function testExistingUserIsUpdated(): void {
     $user = User::create([
@@ -96,12 +95,12 @@ class UserImportTest extends KernelTestBase {
     $user->save();
 
     $frontmatter = [
-      'uuid'   => $user->uuid(),
+      'uid'    => (int) $user->id(),
       'name'   => 'existing-user',
       'status' => 'active',
       'lang'   => 'en',
       'drupal' => [
-        'uuid'     => $user->uuid(),
+        'uid'      => (int) $user->id(),
         'lang'     => 'en',
         'mail'     => 'existing@example.com',
         'timezone' => 'Europe/Madrid',
@@ -135,12 +134,12 @@ class UserImportTest extends KernelTestBase {
     $originalName = $user1->getAccountName();
 
     $frontmatter = [
-      'uuid'   => $user1->uuid(),
+      'uid'    => 1,
       'name'   => 'should-not-change',
       'status' => 'active',
       'lang'   => 'en',
       'drupal' => [
-        'uuid'     => $user1->uuid(),
+        'uid'      => 1,
         'lang'     => 'en',
         'mail'     => 'admin@example.com',
         'timezone' => 'America/New_York',
@@ -164,7 +163,7 @@ class UserImportTest extends KernelTestBase {
   public function testMissingNameThrowsException(): void {
     $this->expectException(\Exception::class);
     $this->container->get('git_content.user_importer')
-      ->import(['uuid' => 'some-uuid', 'lang' => 'en'], '');
+      ->import(['lang' => 'en'], '');
   }
 
 }

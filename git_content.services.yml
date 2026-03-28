@@ -99,7 +99,6 @@ services:
       - '@git_content.field_discovery'
       - '@git_content.serializer'
       - '@entity_type.manager'
-      - '@uuid'
       - '@password_generator'
       - '@datetime.time'
       - '@logger.factory'

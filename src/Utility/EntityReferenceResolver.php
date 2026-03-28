@@ -9,8 +9,8 @@ use Drupal\Core\Field\FieldDefinitionInterface;
  * Resolves human-readable frontmatter references to Drupal entity IDs.
  *
  * Centralises the import-time entity lookups that convert the portable
- * identifiers stored in .md files (term labels, node slugs, file names,
- * media UUIDs) back into the integer IDs Drupal field values require.
+ * identifiers stored in .md files (term labels, node slugs, file names)
+ * back into the integer IDs Drupal field values require.
  *
  * This is a separate service from FieldNormalizer because reference resolution
  * is import-specific business logic (and may write to the database, e.g.

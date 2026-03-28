@@ -237,11 +237,14 @@ abstract class BaseExporter implements ExporterInterface {
   }
 
   /**
-   * Return the UUID of the original entity when this is a translation.
+   * Return TRUE when this entity is a non-default translation, NULL otherwise.
+   *
+   * Used by the importer to sort default translations before non-default ones
+   * so the base entity is always created first.
    */
-  protected function getTranslationOf(EntityInterface $entity): ?string {
+  protected function getTranslationOf(EntityInterface $entity): ?bool {
     if (!$entity->isDefaultTranslation()) {
-      return $entity->getUntranslated()->uuid();
+      return TRUE;
     }
     return NULL;
   }

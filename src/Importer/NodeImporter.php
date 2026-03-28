@@ -14,12 +14,12 @@ class NodeImporter extends BaseImporter {
   public function import(array $frontmatter, string $body): string {
     $bundle   = $frontmatter['type'];
     $langcode = $frontmatter['lang'] ?? 'und';
-    $uuid     = $frontmatter['uuid'] ?? NULL;
+    $nid      = !empty($frontmatter['nid']) ? (int) $frontmatter['nid'] : NULL;
 
     $create_values = ['type' => $bundle, 'langcode' => $langcode];
     $this->preserveEntityId('node', 'nid', 'nid', $create_values, $frontmatter);
 
-    [$node, $operation] = $this->resolveOrCreate('node', $uuid, $langcode, $create_values);
+    [$node, $operation] = $this->resolveOrCreate('node', $nid, $langcode, $create_values);
 
     $node->set('title', $frontmatter['title'] ?? 'Untitled');
     $node->set('status', $this->resolveStatus($frontmatter));

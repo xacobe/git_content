@@ -9,7 +9,8 @@ use Drupal\Core\Entity\EntityInterface;
  *
  * Menu configuration (name, description) is handled by `drush cex`.
  * This exporter is responsible for the menu link entities created by editors,
- * which have their own UUID and are translatable.
+ * which are translatable. UUID is preserved because Drupal's menu system uses
+ * 'menu_link_content:{uuid}' as plugin IDs for parent hierarchy.
  *
  * Output structure:
  *   content_export/

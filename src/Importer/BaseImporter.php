@@ -8,7 +8,6 @@ use Drupal\git_content\Serializer\MarkdownSerializer;
 use Drupal\git_content\Utility\DateParseTrait;
 use Drupal\git_content\Utility\ManagedFields;
 use Drupal\Component\Datetime\TimeInterface;
-use Drupal\Component\Uuid\UuidInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Field\FieldDefinitionInterface;
 use Drupal\Core\Logger\LoggerChannelFactoryInterface;
@@ -21,7 +20,7 @@ use Psr\Log\LoggerInterface;
  * Shared base for all per-entity-type importer classes.
  *
  * Holds the injected services and every helper used by more than one concrete
- * importer: UUID resolution, field denormalization, path aliases, etc.
+ * importer: entity ID resolution, field denormalization, path aliases, etc.
  * Each subclass must implement import() for its specific entity type.
  *
  * All entity queries in this class use accessCheck(FALSE). Import and export
@@ -40,7 +39,6 @@ abstract class BaseImporter implements ImporterInterface {
     protected FieldDiscovery $fieldDiscovery,
     protected MarkdownSerializer $serializer,
     protected EntityTypeManagerInterface $entityTypeManager,
-    protected UuidInterface $uuid,
     protected PasswordGeneratorInterface $passwordGenerator,
     protected TimeInterface $time,
     LoggerChannelFactoryInterface $loggerFactory,
@@ -154,40 +152,39 @@ abstract class BaseImporter implements ImporterInterface {
   }
 
   /**
-   * Look up an entity by UUID (or create it) and resolve its translation.
+   * Look up an entity by ID (or create it) and resolve its translation.
    *
    * Encapsulates the repeated lookup → resolveTranslation / create pattern
-   * present in every concrete importer. Callers pass the entity type, UUID,
-   * langcode, and the values to use when creating a new entity.
+   * present in every concrete importer. Callers pass the entity type, primary
+   * ID, langcode, and the values to use when creating a new entity.
    *
    * @param string $entity_type
    *   The entity type machine name (e.g. 'node', 'media').
-   * @param string|null $uuid
-   *   The UUID from the frontmatter, or NULL if none.
+   * @param int|null $entity_id
+   *   The entity ID from the frontmatter (nid, tid, mid, etc.), or NULL.
    * @param string $langcode
    *   The langcode from the frontmatter.
    * @param array $create_values
-   *   Values passed to storage->create() for new entities. The 'uuid' key is
-   *   always set automatically from $uuid (or a new UUID is generated).
+   *   Values passed to storage->create() for new entities.
    *
    * @return array{0: mixed, 1: string}
    *   [entity_or_translation, 'imported'|'updated']
    */
   protected function resolveOrCreate(
     string $entity_type,
-    ?string $uuid,
+    ?int $entity_id,
     string $langcode,
     array $create_values,
   ): array {
-    $existing = $uuid ? $this->findByUuid($uuid, $entity_type) : NULL;
+    $existing = $entity_id
+      ? $this->entityTypeManager->getStorage($entity_type)->load($entity_id)
+      : NULL;
 
     if ($existing) {
       return $this->resolveTranslation($existing, $langcode);
     }
 
-    $entity = $this->entityTypeManager->getStorage($entity_type)->create(
-      $create_values + ['uuid' => $uuid ?? $this->uuid->generate()]
-    );
+    $entity = $this->entityTypeManager->getStorage($entity_type)->create($create_values);
     return [$entity, 'imported'];
   }
 
@@ -224,20 +221,6 @@ abstract class BaseImporter implements ImporterInterface {
   // ---------------------------------------------------------------------------
   // Reference resolution
   // ---------------------------------------------------------------------------
-
-  protected function findByUuid(string $uuid, string $entity_type): mixed {
-    $storage = $this->entityTypeManager->getStorage($entity_type);
-    $ids = $storage->getQuery()
-      ->accessCheck(FALSE)
-      ->condition('uuid', $uuid)
-      ->range(0, 1)
-      ->execute();
-
-    if (empty($ids)) {
-      return NULL;
-    }
-    return $storage->load(reset($ids));
-  }
 
   protected function setAuthor($entity, array $frontmatter): void {
     if (!empty($frontmatter['author']) && $entity->hasField('uid')) {

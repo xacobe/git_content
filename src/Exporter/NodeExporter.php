@@ -54,7 +54,6 @@ class NodeExporter extends BaseExporter {
 
     // --- Base fields ---
     $frontmatter = [];
-    $frontmatter['uuid']   = $entity->uuid();
     $frontmatter['type']   = $entity->bundle();
     $frontmatter['lang']   = $langcode;
     $frontmatter['draft'] = !$entity->isPublished();

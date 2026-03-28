@@ -5,7 +5,7 @@ namespace Drupal\git_content\Importer;
 /**
  * Imports or updates user accounts from Markdown frontmatter.
  *
- * If the user already exists (by UUID, name, or email) it is updated.
+ * If the user already exists (by uid, name, or email) it is updated.
  * User 1 is only partially updated to avoid overwriting production credentials.
  * Passwords are never imported; new users receive a random password that must
  * be reset manually.
@@ -17,7 +17,7 @@ class UserImporter extends BaseImporter {
   }
 
   public function import(array $frontmatter, string $body): string {
-    $uuid = $frontmatter['uuid'] ?? NULL;
+    $uid        = !empty($frontmatter['uid']) ? (int) $frontmatter['uid'] : NULL;
     $name       = $frontmatter['name'] ?? NULL;
     $mail       = $frontmatter['mail'] ?? NULL;
     $langcode   = $frontmatter['lang'] ?? 'und';
@@ -26,8 +26,8 @@ class UserImporter extends BaseImporter {
       throw new \Exception($this->t("The user frontmatter is missing 'name'."));
     }
 
-    // Look up by UUID first, then by name, then by email.
-    $existing = $uuid ? $this->findByUuid($uuid, 'user') : NULL;
+    // Look up by uid first, then by name, then by email.
+    $existing = $uid ? $this->entityTypeManager->getStorage('user')->load($uid) : NULL;
     $existing ??= $name ? $this->loadOneByProperty('user', 'name', $name) : NULL;
     $existing ??= $mail ? $this->loadOneByProperty('user', 'mail', $mail) : NULL;
 
@@ -50,7 +50,6 @@ class UserImporter extends BaseImporter {
     else {
       $create = [
         'langcode' => $langcode,
-        'uuid'     => $uuid ?? $this->uuid->generate(),
         // Secure random password; must be reset manually.
         'pass'     => $this->passwordGenerator->generate(20),
       ];

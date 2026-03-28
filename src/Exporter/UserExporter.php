@@ -34,7 +34,7 @@ use Drupal\git_content\Utility\ManagedFields;
  *     - content_manager
  *
  *   # Drupal
- *   uuid: a1b2c3d4
+ *   uid: 2
  *   lang: en
  *   mail: editor@example.com
  *   timezone: Europe/Madrid
@@ -95,7 +95,6 @@ class UserExporter extends BaseExporter {
     ));
 
     $frontmatter = [];
-    $frontmatter['uuid']   = $entity->uuid();
     $frontmatter['type']   = 'user';
     $frontmatter['status'] = $entity->isActive() ? 'active' : 'blocked';
 

@@ -14,16 +14,21 @@ class BlockContentImporter extends BaseImporter {
   public function import(array $frontmatter, string $body): string {
     $bundle     = $frontmatter['bundle'] ?? NULL;
     $langcode   = $frontmatter['lang'] ?? 'und';
-    $uuid = $frontmatter['uuid'] ?? NULL;
+    $block_id   = !empty($frontmatter['block_id']) ? (int) $frontmatter['block_id'] : NULL;
 
     if (!$bundle) {
       throw new \Exception($this->t("The block_content frontmatter is missing 'bundle'."));
     }
 
+    // UUID is preserved for block_content because Layout Builder references
+    // inline blocks by UUID (block_uuid in component configuration).
     $create_values = ['type' => $bundle, 'langcode' => $langcode, 'default_langcode' => 1];
+    if (!empty($frontmatter['uuid'])) {
+      $create_values['uuid'] = $frontmatter['uuid'];
+    }
     $this->preserveEntityId('block_content', 'id', 'block_id', $create_values, $frontmatter);
 
-    [$block, $operation] = $this->resolveOrCreate('block_content', $uuid, $langcode, $create_values);
+    [$block, $operation] = $this->resolveOrCreate('block_content', $block_id, $langcode, $create_values);
 
     $block->set('info', $frontmatter['title'] ?? 'Untitled');
     $block->set('status', $this->resolveStatus($frontmatter));

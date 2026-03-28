@@ -14,7 +14,7 @@ class MediaImporter extends BaseImporter {
   public function import(array $frontmatter, string $body): string {
     $bundle     = $frontmatter['bundle'] ?? NULL;
     $langcode   = $frontmatter['lang'] ?? 'und';
-    $uuid = $frontmatter['uuid'] ?? NULL;
+    $mid        = !empty($frontmatter['mid']) ? (int) $frontmatter['mid'] : NULL;
 
     if (!$bundle) {
       throw new \Exception($this->t("The media frontmatter is missing 'bundle'."));
@@ -23,7 +23,7 @@ class MediaImporter extends BaseImporter {
     $create_values = ['bundle' => $bundle, 'langcode' => $langcode];
     $this->preserveEntityId('media', 'mid', 'mid', $create_values, $frontmatter);
 
-    [$media, $operation] = $this->resolveOrCreate('media', $uuid, $langcode, $create_values);
+    [$media, $operation] = $this->resolveOrCreate('media', $mid, $langcode, $create_values);
 
     $media->set('name', $frontmatter['name'] ?? 'Unnamed');
     $media->set('status', $this->resolveStatus($frontmatter));

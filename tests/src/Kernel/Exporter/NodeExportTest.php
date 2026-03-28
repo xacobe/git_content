@@ -63,8 +63,10 @@ class NodeExportTest extends KernelTestBase {
     $this->assertArrayHasKey('date', $fm);
     // Drupal-internal fields under drupal:.
     $this->assertArrayHasKey('drupal', $fm);
-    $this->assertArrayHasKey('uuid', $fm['drupal']);
+    $this->assertArrayHasKey('nid', $fm['drupal']);
     $this->assertArrayHasKey('checksum', $fm['drupal']);
+    // UUID is not exported for nodes.
+    $this->assertArrayNotHasKey('uuid', $fm['drupal'] ?? []);
   }
 
   /**
@@ -94,7 +96,7 @@ class NodeExportTest extends KernelTestBase {
   }
 
   /**
-   * uuid and translation_of go under drupal: namespace, not at root.
+   * nid and translation_of go under drupal: namespace, not at root.
    */
   public function testDrupalNamespaceContainsInternalFields(): void {
     $node = Node::create(['type' => 'article', 'title' => 'Namespaced', 'status' => 1]);
@@ -103,8 +105,8 @@ class NodeExportTest extends KernelTestBase {
     $markdown = $this->container->get('git_content.node_exporter')->export($node);
     $fm = (new MarkdownSerializer())->deserialize($markdown)['frontmatter'];
 
-    // uuid and checksum live under drupal:.
-    $this->assertArrayHasKey('uuid', $fm['drupal']);
+    // nid and checksum live under drupal:.
+    $this->assertArrayHasKey('nid', $fm['drupal']);
     $this->assertArrayHasKey('checksum', $fm['drupal']);
     // translation_of must not appear at root (it's in drupal: when set).
     $this->assertArrayNotHasKey('translation_of', $fm);

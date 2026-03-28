@@ -257,7 +257,7 @@ class SyncForm extends FormBase {
   private function buildChangesPreview(array $preview, array $ops): array {
     // Group items by entity type.
     // Items can be either file paths (content_types/article/en/foo.md)
-    // or entity description strings (node:article: Title (uuid)) for
+    // or entity description strings (node:article: Title (id)) for
     // import deletions returned by syncDeletedEntities().
     $byDir = [];
     foreach ($ops as $key => $info) {
@@ -350,7 +350,7 @@ class SyncForm extends FormBase {
    *   users/admin.md                  → 'users'
    *
    * Entity description strings (import deletions):
-   *   "node:article: Title (uuid)"    → 'articles'
+   *   "node:article: Title (42)"      → 'articles'
    *   "taxonomy_term:tags: …"         → 'taxonomy'
    */
   private function groupKeyFromPath(string $path): string {

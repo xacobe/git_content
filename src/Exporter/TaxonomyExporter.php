@@ -47,7 +47,6 @@ class TaxonomyExporter extends BaseExporter {
    */
   public function export(EntityInterface $entity): string {
     $frontmatter = [];
-    $frontmatter['uuid']       = $entity->uuid();
     $frontmatter['tid']        = (int) $entity->id();
     $frontmatter['type']       = 'taxonomy_term';
     $frontmatter['vocabulary'] = $entity->bundle();

@@ -87,7 +87,7 @@ class MarkdownImporter {
    * Preview what importAll() would do without modifying any data.
    *
    * Returns the same array shape as importAll() but no entities are created,
-   * updated, or deleted. Uses checksum comparison and UUID lookups only.
+   * updated, or deleted. Uses checksum comparison and entity ID lookups only.
    *
    * @return array{imported: string[], updated: string[], skipped: string[], deleted: string[], errors: string[]}
    */
@@ -101,7 +101,7 @@ class MarkdownImporter {
    * @param bool $dryRun
    *   When TRUE, determines the operation without saving anything.
    *
-   * @return array{op: string, entity_type: string, type: string, uuid?: string|null, bundle?: string|null}
+   * @return array{op: string, entity_type: string, type: string, entity_id?: int|null, bundle?: string|null}
    *   'op' is one of 'imported', 'updated', 'skipped'.
    *
    * @throws \Exception
@@ -121,8 +121,8 @@ class MarkdownImporter {
       throw new \Exception($this->t("The frontmatter is missing the 'type' field."));
     }
 
-    $uuid        = $frontmatter['uuid'] ?? NULL;
     $entity_type = $this->resolveEntityType($type);
+    $entity_id   = $this->extractEntityId($frontmatter, $entity_type);
 
     $bundle = match ($entity_type) {
       'taxonomy_term'     => $frontmatter['vocabulary'] ?? NULL,
@@ -134,22 +134,20 @@ class MarkdownImporter {
     };
 
     // Check whether this specific language version of the entity already exists.
-    // The langcode condition prevents treating an existing English node as a
-    // match when importing its Spanish translation (same UUID, different lang).
     $langcode   = $frontmatter['lang'] ?? NULL;
-    $existsQuery = $this->entityTypeManager->getStorage($entity_type)
-      ->getQuery()
-      ->accessCheck(FALSE)
-      ->condition('uuid', $uuid);
-    if ($langcode && $langcode !== 'und') {
-      $existsQuery->condition('langcode', $langcode);
+    $exists     = FALSE;
+    $actual_id  = $entity_id;
+    if ($entity_id) {
+      $entity = $this->entityTypeManager->getStorage($entity_type)->load($entity_id);
+      if ($entity) {
+        $exists = ($langcode && $langcode !== 'und')
+          ? $entity->hasTranslation($langcode)
+          : TRUE;
+      }
     }
-    $exists = $uuid && !empty($existsQuery->range(0, 1)->execute());
 
-    // URI fallback: if the entity is not found by UUID, look it up by URI.
-    // This handles fresh installs where a file entity already exists with the
-    // same URI but a different UUID (e.g. a leftover from demo content).
-    $actual_uuid  = $uuid;
+    // URI fallback for file entities: a file may already exist with the same
+    // URI but a different fid (e.g. a leftover from demo content).
     $found_by_uri = FALSE;
     if ($entity_type === 'file' && !$exists) {
       $uri = $frontmatter['uri'] ?? NULL;
@@ -157,7 +155,7 @@ class MarkdownImporter {
         $existing = $this->entityTypeManager->getStorage('file')
           ->loadByProperties(['uri' => $uri]);
         if (!empty($existing)) {
-          $actual_uuid  = reset($existing)->uuid();
+          $actual_id    = (int) reset($existing)->id();
           $found_by_uri = TRUE;
         }
       }
@@ -166,7 +164,7 @@ class MarkdownImporter {
     // Checksum match AND entity exists in DB → skip.
     $checksum = $frontmatter['checksum'] ?? NULL;
     if ($exists && $checksum && $this->computeChecksum($frontmatter, $body) === $checksum) {
-      return ['op' => 'skipped', 'entity_type' => $entity_type, 'type' => $type, 'uuid' => $uuid, 'actual_uuid' => $uuid, 'bundle' => $bundle];
+      return ['op' => 'skipped', 'entity_type' => $entity_type, 'type' => $type, 'entity_id' => $entity_id, 'actual_id' => $entity_id, 'bundle' => $bundle];
     }
 
     if ($dryRun) {
@@ -176,7 +174,7 @@ class MarkdownImporter {
       $op = $this->getImporterForType($entity_type)->import($frontmatter, $body);
     }
 
-    return ['op' => $op, 'entity_type' => $entity_type, 'type' => $type, 'uuid' => $uuid, 'actual_uuid' => $actual_uuid, 'bundle' => $bundle, 'lang' => $langcode];
+    return ['op' => $op, 'entity_type' => $entity_type, 'type' => $type, 'entity_id' => $entity_id, 'actual_id' => $actual_id, 'bundle' => $bundle, 'lang' => $langcode];
   }
 
   // ---------------------------------------------------------------------------
@@ -203,7 +201,7 @@ class MarkdownImporter {
     usort($files, fn($a, $b) => $this->compareImportFiles($a, $b));
 
     $typeCounts = [];
-    $seenUuids  = array_fill_keys(array_keys(self::IMPORT_ORDER), []);
+    $seenIds    = array_fill_keys(array_keys(self::IMPORT_ORDER), []);
 
     foreach ($files as $filepath) {
       try {
@@ -211,11 +209,10 @@ class MarkdownImporter {
         $op          = $import['op'];
         $type        = $import['type'];
         $entity_type = $import['entity_type'] ?? NULL;
-        $uuid        = $import['uuid'] ?? NULL;
-        // actual_uuid may differ from uuid when a file entity was found by URI
-        // rather than by UUID (e.g. after a fresh Drupal install with demo content).
-        // Using the actual DB uuid prevents syncDeletedEntities from deleting it.
-        $actual_uuid = $import['actual_uuid'] ?? $uuid;
+        $entity_id   = $import['entity_id'] ?? NULL;
+        // actual_id may differ from entity_id when a file entity was found by
+        // URI rather than by fid (e.g. after a fresh install with demo content).
+        $actual_id   = $import['actual_id'] ?? $entity_id;
         $bundle      = $import['bundle'] ?? '__all';
         $lang        = $import['lang'] ?? NULL;
 
@@ -227,8 +224,8 @@ class MarkdownImporter {
         // with stale Drupal content, causing those translations to be skipped.
         // - 'imported': entity ID may differ from slug; delete stale source if path changed.
         // - 'updated': file was manually edited; re-export to update the checksum.
-        if (in_array($op, ['imported', 'updated']) && $actual_uuid && $entity_type && !$dryRun) {
-          $canonicalPaths = $this->exporter->exportEntityByUuid($actual_uuid, $entity_type, FALSE, $lang);
+        if (in_array($op, ['imported', 'updated']) && $actual_id && $entity_type && !$dryRun) {
+          $canonicalPaths = $this->exporter->exportEntityById($actual_id, $entity_type, FALSE, $lang);
           if ($op === 'imported' && !empty($canonicalPaths) && !in_array($filepath, $canonicalPaths)) {
             is_file($filepath) && unlink($filepath);
             $result['deleted'][] = str_replace($this->contentExportDir() . '/', '', $filepath);
@@ -246,8 +243,8 @@ class MarkdownImporter {
           }
         }
 
-        if ($entity_type && $actual_uuid) {
-          $seenUuids[$entity_type][$bundle][$actual_uuid] = TRUE;
+        if ($entity_type && $actual_id) {
+          $seenIds[$entity_type][$bundle][$actual_id] = TRUE;
         }
       }
       catch (\Exception $e) {
@@ -255,7 +252,7 @@ class MarkdownImporter {
       }
     }
 
-    foreach ($this->syncDeletedEntities($seenUuids, !$dryRun) as $item) {
+    foreach ($this->syncDeletedEntities($seenIds, !$dryRun) as $item) {
       $result['deleted'][] = $item;
 
       if (!$dryRun) {
@@ -277,7 +274,7 @@ class MarkdownImporter {
       // recreated (e.g. after a fresh install with different entity IDs).
       // We clear it explicitly whenever any block_content entity was touched
       // so the next page request re-resolves UUIDs → entity IDs from the DB.
-      if (!empty($seenUuids['block_content'])) {
+      if (!empty($seenIds['block_content'])) {
         $this->defaultCache->delete('block_content_uuid');
       }
 
@@ -312,17 +309,17 @@ class MarkdownImporter {
   }
 
   /**
-   * Find entities not present in seenUuids and optionally delete them.
+   * Find entities not present in seenIds and optionally delete them.
    *
    * @param bool $delete
    *   When FALSE (dry run) returns the list without deleting anything.
    *
    * @return string[] Human-readable list of affected entities.
    */
-  private function syncDeletedEntities(array $seenUuids, bool $delete): array {
+  private function syncDeletedEntities(array $seenIds, bool $delete): array {
     $affected = [];
 
-    foreach ($seenUuids as $entity_type => $bundles) {
+    foreach ($seenIds as $entity_type => $bundles) {
       // Only sync entity types we deliberately manage.
       if (!isset(self::IMPORT_ORDER[$entity_type])) {
         continue;
@@ -335,7 +332,7 @@ class MarkdownImporter {
 
       $storage = $this->entityTypeManager->getStorage($entity_type);
 
-      foreach ($bundles as $bundle => $uuids) {
+      foreach ($bundles as $bundle => $ids) {
         $query = $storage->getQuery()->accessCheck(FALSE);
 
         switch ($entity_type) {
@@ -347,7 +344,7 @@ class MarkdownImporter {
         }
 
         foreach ($storage->loadMultiple($query->execute()) as $entity) {
-          if (isset($uuids[$entity->uuid()])) {
+          if (isset($ids[(int) $entity->id()])) {
             continue;
           }
           // Never touch the anonymous user (uid=0), the admin (uid=1),
@@ -360,7 +357,7 @@ class MarkdownImporter {
           }
 
           // Never delete permanent file entities that are not tracked in
-          // seenUuids. Drupal creates file entities dynamically (e.g. oembed
+          // seenIds. Drupal creates file entities dynamically (e.g. oembed
           // thumbnails) that have no .md file but are still referenced.
           // Deleting them leaves broken thumbnail__target_id references.
           if ($entity_type === 'file' && $entity->isPermanent()) {
@@ -368,7 +365,7 @@ class MarkdownImporter {
           }
 
           $label      = $entity->label() ?? (string) $entity->id();
-          $affected[] = "$entity_type:$bundle: $label ({$entity->uuid()})";
+          $affected[] = "$entity_type:$bundle: $label ({$entity->id()})";
 
           if ($delete) {
             $entity->delete();
@@ -384,6 +381,25 @@ class MarkdownImporter {
   // Helpers
   // ---------------------------------------------------------------------------
 
+  /**
+   * Extract the entity's primary ID from frontmatter.
+   *
+   * Maps entity type to the corresponding frontmatter key (nid, tid, mid, etc.).
+   */
+  private function extractEntityId(array $frontmatter, string $entity_type): ?int {
+    $key = match ($entity_type) {
+      'node'              => 'nid',
+      'taxonomy_term'     => 'tid',
+      'media'             => 'mid',
+      'file'              => 'fid',
+      'user'              => 'uid',
+      'block_content'     => 'block_id',
+      'menu_link_content' => 'link_id',
+      default             => 'nid',
+    };
+    return !empty($frontmatter[$key]) ? (int) $frontmatter[$key] : NULL;
+  }
+
   private function resolveEntityType(string $type): string {
     // Non-node types use their frontmatter type as entity_type directly.
     // Node bundle names ('article', 'page', …) all map to 'node'.
@@ -398,7 +414,7 @@ class MarkdownImporter {
    * Dependency order for import: earlier = imported first.
    *
    * Doubles as the authoritative list of entity types managed by this module.
-   * Used for import ordering, seenUuids initialisation, and deletion sync.
+   * Used for import ordering, seenIds initialisation, and deletion sync.
    *
    * Dependencies:
    *   media        → file

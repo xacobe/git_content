@@ -186,26 +186,23 @@ class MarkdownExporter {
   // ---------------------------------------------------------------------------
 
   /**
-   * Re-export a single entity (all translations) identified by UUID.
+   * Re-export a single entity (all translations) identified by entity ID.
    *
    * Used by the importer after a real import to normalise the .md file to the
    * canonical exporter format, ensuring the next export preview shows the file
    * as unchanged.
    */
-  public function exportEntityByUuid(string $uuid, string $entityType, bool $dryRun = FALSE, ?string $langcode = NULL): array {
+  public function exportEntityById(int $entityId, string $entityType, bool $dryRun = FALSE, ?string $langcode = NULL): array {
     $paths    = [];
     $exporter = $this->exporterMap[$entityType] ?? NULL;
     if (!$exporter) {
       return $paths;
     }
 
-    $entities = $this->entityTypeManager->getStorage($entityType)
-      ->loadByProperties(['uuid' => $uuid]);
-    if (empty($entities)) {
+    $entity = $this->entityTypeManager->getStorage($entityType)->load($entityId);
+    if (!$entity) {
       return $paths;
     }
-
-    $entity = reset($entities);
 
     foreach ($this->getEntityTranslations($entity) as $translation) {
       // When a specific language is requested, skip all other translations.
@@ -223,9 +220,9 @@ class MarkdownExporter {
       }
       catch (\Exception $e) {
         // Re-export after import is best-effort; log but do not fail.
-        $this->logger->warning('Re-export of @uuid (@type) failed: @msg', [
-          '@uuid' => $uuid,
+        $this->logger->warning('Re-export of @type @id failed: @msg', [
           '@type' => $entityType,
+          '@id'   => (string) $entityId,
           '@msg'  => $e->getMessage(),
         ]);
       }

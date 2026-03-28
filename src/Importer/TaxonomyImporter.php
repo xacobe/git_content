@@ -14,7 +14,7 @@ class TaxonomyImporter extends BaseImporter {
   public function import(array $frontmatter, string $body): string {
     $vid        = $frontmatter['vocabulary'] ?? NULL;
     $langcode   = $frontmatter['lang'] ?? 'und';
-    $uuid = $frontmatter['uuid'] ?? NULL;
+    $tid        = !empty($frontmatter['tid']) ? (int) $frontmatter['tid'] : NULL;
 
     if (!$vid) {
       throw new \Exception($this->t("The term frontmatter is missing 'vocabulary'."));
@@ -32,7 +32,7 @@ class TaxonomyImporter extends BaseImporter {
     $create_values = ['vid' => $vid, 'langcode' => $langcode, 'default_langcode' => 1];
     $this->preserveEntityId('taxonomy_term', 'tid', 'tid', $create_values, $frontmatter);
 
-    [$term, $operation] = $this->resolveOrCreate('taxonomy_term', $uuid, $langcode, $create_values);
+    [$term, $operation] = $this->resolveOrCreate('taxonomy_term', $tid, $langcode, $create_values);
 
     // 'name' is required; fall back to slug if empty.
     $name = !empty($frontmatter['name'])

@@ -22,13 +22,18 @@ class MenuLinkImporter extends BaseImporter {
 
   public function import(array $frontmatter, string $body): string {
     $langcode   = $frontmatter['lang'] ?? 'und';
-    $uuid = $frontmatter['uuid'] ?? NULL;
+    $link_id    = !empty($frontmatter['link_id']) ? (int) $frontmatter['link_id'] : NULL;
     $menu_name  = $frontmatter['menu'] ?? 'main';
 
+    // UUID is preserved for menu_link_content because Drupal's menu system
+    // uses 'menu_link_content:{uuid}' as plugin IDs for parent hierarchy.
     $create_values = ['langcode' => $langcode, 'menu_name' => $menu_name];
+    if (!empty($frontmatter['uuid'])) {
+      $create_values['uuid'] = $frontmatter['uuid'];
+    }
     $this->preserveEntityId('menu_link_content', 'id', 'link_id', $create_values, $frontmatter);
 
-    [$link, $operation] = $this->resolveOrCreate('menu_link_content', $uuid, $langcode, $create_values);
+    [$link, $operation] = $this->resolveOrCreate('menu_link_content', $link_id, $langcode, $create_values);
 
     $link->set('title', $frontmatter['title'] ?? '');
     $link->set('weight', (int) ($frontmatter['weight'] ?? 0));
@@ -94,10 +99,11 @@ class MenuLinkImporter extends BaseImporter {
       return $parent_ref;
     }
 
-    // Look up in the database by UUID.
-    $existing = $this->findByUuid($parent_ref, 'menu_link_content');
-    if ($existing) {
-      return 'menu_link_content:' . $existing->uuid();
+    // Look up in the database by UUID (Drupal's menu plugin system requires it).
+    $links = $this->entityTypeManager->getStorage('menu_link_content')
+      ->loadByProperties(['uuid' => $parent_ref]);
+    if (!empty($links)) {
+      return 'menu_link_content:' . reset($links)->uuid();
     }
 
     return NULL;

@@ -30,7 +30,7 @@ use Drupal\Core\Entity\EntityInterface;
  *   owner: admin
  *
  *   # Drupal
- *   uuid: a1b2c3d4
+ *   fid: 42
  *   uri: public://images/drupal.jpg
  *   status: permanent
  *   checksum: …
@@ -76,7 +76,6 @@ class FileExporter extends BaseExporter {
    */
   public function export(EntityInterface $entity): string {
     $frontmatter = [];
-    $frontmatter['uuid']     = $entity->uuid();
     $frontmatter['type']     = 'file';
 
     $frontmatter['filename'] = $entity->getFilename();
