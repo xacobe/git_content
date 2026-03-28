@@ -77,6 +77,7 @@ class MenuLinkImporter extends BaseImporter {
     $link->save();
 
     // Register the real plugin_id so children can resolve it later.
+    $uuid = $frontmatter['uuid'] ?? NULL;
     if ($uuid) {
       $this->menuLinkUuidMap[$uuid] = 'menu_link_content:' . $link->uuid();
     }
