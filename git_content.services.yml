@@ -89,6 +89,7 @@ services:
       - '@language_manager'
       - !tagged_iterator git_content.exporter
       - '@config.factory'
+      - '@path_alias.manager'
 
   # --- Importers ---
 

@@ -10,6 +10,7 @@ use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Entity\TranslatableInterface;
 use Drupal\Core\Language\LanguageManagerInterface;
 use Drupal\Core\Logger\LoggerChannelFactoryInterface;
+use Drupal\path_alias\AliasManagerInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Yaml\Yaml;
 
@@ -38,6 +39,7 @@ class MarkdownExporter {
     protected LanguageManagerInterface $languageManager,
     iterable $exporters,
     protected ConfigFactoryInterface $configFactory,
+    protected AliasManagerInterface $aliasManager,
   ) {
     $this->logger = $loggerFactory->get('git_content');
     $this->exporterMap = [];
@@ -243,7 +245,10 @@ class MarkdownExporter {
   private function writeSiteYaml(): void {
     $languages  = array_keys($this->languageManager->getLanguages());
     $default    = $this->languageManager->getDefaultLanguage()->getId();
-    $front_page = $this->configFactory->get('system.site')->get('page.front') ?? '/';
+    $raw_front  = $this->configFactory->get('system.site')->get('page.front') ?? '/';
+    // Resolve to the path alias so the stored value survives a DB reset where
+    // node IDs change (e.g. /node/26 → /pagina-basica/inicio).
+    $front_page = $this->aliasManager->getAliasByPath($raw_front) ?: $raw_front;
 
     $data = [
       'git_content_format' => self::FORMAT_VERSION,
