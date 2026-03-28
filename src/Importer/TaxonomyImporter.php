@@ -46,10 +46,7 @@ class TaxonomyImporter extends BaseImporter {
     }
 
     if (!empty($frontmatter['parent'])) {
-      $parent = $this->findByUuid((string) $frontmatter['parent'], 'taxonomy_term');
-      if ($parent) {
-        $term->set('parent', [(int) $parent->id()]);
-      }
+      $term->set('parent', [(int) $frontmatter['parent']]);
     }
 
     if ($term->hasField('description') && !empty($body)) {

@@ -15,7 +15,6 @@ use Drupal\Core\Logger\LoggerChannelFactoryInterface;
 use Drupal\Core\Password\PasswordGeneratorInterface;
 use Drupal\Core\Session\AccountProxyInterface;
 use Drupal\Core\StringTranslation\StringTranslationTrait;
-use Drupal\git_content\Utility\EntityLinkRewriteTrait;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -32,7 +31,6 @@ use Psr\Log\LoggerInterface;
 abstract class BaseImporter implements ImporterInterface {
 
   use DateParseTrait;
-  use EntityLinkRewriteTrait;
   use StringTranslationTrait;
 
 
@@ -217,7 +215,7 @@ abstract class BaseImporter implements ImporterInterface {
     if ($entity->hasField('body') && !empty($body)) {
       $html = $format === 'full_html' ? $body : $this->serializer->markdownToHtml($body);
       $entity->set('body', [
-        'value'  => $this->rewriteEntityUuidsToIds($html),
+        'value'  => $html,
         'format' => $format,
       ]);
     }

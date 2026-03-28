@@ -37,7 +37,7 @@ class EntityReferenceResolver {
       return is_numeric($value) ? (int) $value : $this->findNodeBySlug((string) $value);
     }
     if ($target_type === 'media') {
-      return $this->findMediaByUuid((string) $value);
+      return is_numeric($value) ? (int) $value : NULL;
     }
     return is_numeric($value) ? (int) $value : NULL;
   }
@@ -93,19 +93,6 @@ class EntityReferenceResolver {
   public function findFileByName(string $filename): ?int {
     $ids = $this->entityTypeManager->getStorage('file')
       ->getQuery()->accessCheck(FALSE)->condition('filename', $filename)->execute();
-    return !empty($ids) ? (int) reset($ids) : NULL;
-  }
-
-  /**
-   * Find a media entity by its UUID.
-   */
-  public function findMediaByUuid(string $uuid): ?int {
-    $ids = $this->entityTypeManager->getStorage('media')
-      ->getQuery()
-      ->accessCheck(FALSE)
-      ->condition('uuid', $uuid)
-      ->range(0, 1)
-      ->execute();
     return !empty($ids) ? (int) reset($ids) : NULL;
   }
 

@@ -58,8 +58,7 @@ class TaxonomyExporter extends BaseExporter {
     $frontmatter['slug']   = $this->getTermSlug($entity);
     $frontmatter['weight'] = (int) ($entity->get('weight')->value ?? 0);
 
-    // Parent term (UUID for portability across environments)
-    $frontmatter['parent'] = $this->getParentUuid($entity);
+    $frontmatter['parent'] = $this->getParentTid($entity);
 
     // Extra dynamic fields for the vocabulary
     $groups = $this->buildDynamicGroups($entity, 'taxonomy_term');
@@ -92,23 +91,14 @@ class TaxonomyExporter extends BaseExporter {
   }
 
   /**
-   * Get the parent term UUID, or NULL for root terms.
-   *
-   * UUIDs are portable across environments (unlike tids).
+   * Get the parent term tid, or NULL for root terms.
    */
-  private function getParentUuid(EntityInterface $entity): ?string {
-    if ($entity->hasField('parent')) {
-      $parents = $entity->get('parent')->getValue();
-      if (!empty($parents[0]['target_id']) && (int) $parents[0]['target_id'] !== 0) {
-        $parent = $this->entityTypeManager
-          ->getStorage('taxonomy_term')
-          ->load((int) $parents[0]['target_id']);
-        if ($parent) {
-          return $parent->uuid();
-        }
-      }
+  private function getParentTid(EntityInterface $entity): ?int {
+    if (!$entity->hasField('parent')) {
+      return NULL;
     }
-    return NULL;
+    $target_id = (int) ($entity->get('parent')->getValue()[0]['target_id'] ?? 0);
+    return $target_id !== 0 ? $target_id : NULL;
   }
 
 }

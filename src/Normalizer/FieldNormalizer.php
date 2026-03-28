@@ -5,7 +5,6 @@ namespace Drupal\git_content\Normalizer;
 use Drupal\git_content\Handler\FieldHandlerRegistry;
 use Drupal\git_content\Serializer\MarkdownSerializer;
 use Drupal\git_content\Utility\DateParseTrait;
-use Drupal\git_content\Utility\EntityLinkRewriteTrait;
 use Drupal\git_content\Utility\SlugTrait;
 use Drupal\git_content\Utility\EntityReferenceResolver;
 use Drupal\Component\Datetime\TimeInterface;
@@ -29,7 +28,6 @@ use Drupal\Core\Field\FieldItemListInterface;
 class FieldNormalizer {
 
   use DateParseTrait;
-  use EntityLinkRewriteTrait;
   use SlugTrait;
 
 
@@ -92,7 +90,7 @@ class FieldNormalizer {
 
         case 'link':
           $normalized[] = [
-            'url'   => $this->rewriteEntityIdsToUuids($item['uri'] ?? ''),
+            'url'   => $item['uri'] ?? '',
             'title' => $item['title'] ?? NULL,
           ];
           break;
@@ -128,9 +126,7 @@ class FieldNormalizer {
             $normalized[] = $node ? $this->getSlug($node) : $target_id;
           }
           elseif ($target_id && $target_type === 'media') {
-            $media = $this->entityTypeManager
-              ->getStorage('media')->load($target_id);
-            $normalized[] = $media ? $media->uuid() : NULL;
+            $normalized[] = (int) $target_id;
           }
           else {
             $normalized[] = $target_id;
@@ -143,10 +139,10 @@ class FieldNormalizer {
           $value  = $item['value'] ?? NULL;
           $format = $item['format'] ?? 'basic_html';
           if ($format === 'full_html') {
-            $normalized[] = ['value' => $this->serializer->prettyHtml($this->rewriteEntityIdsToUuids($value ?? '')), 'format' => 'full_html'];
+            $normalized[] = ['value' => $this->serializer->prettyHtml($value ?? ''), 'format' => 'full_html'];
           }
           else {
-            $normalized[] = $value !== NULL ? $this->serializer->htmlToMarkdown($this->rewriteEntityIdsToUuids($value)) : NULL;
+            $normalized[] = $value !== NULL ? $this->serializer->htmlToMarkdown($value) : NULL;
           }
           break;
 
@@ -221,7 +217,7 @@ class FieldNormalizer {
         case 'link':
           $uri = is_array($item) ? ($item['url'] ?? '') : (string) $item;
           $result[] = [
-            'uri'   => $this->rewriteEntityUuidsToIds($uri),
+            'uri'   => $uri,
             'title' => is_array($item) ? ($item['title'] ?? '') : '',
           ];
           break;
@@ -247,13 +243,13 @@ class FieldNormalizer {
         case 'text_with_summary':
           // Explicit format stored as array (exported from a full_html field).
           if (is_array($item) && isset($item['format'])) {
-            $result[] = ['value' => $this->rewriteEntityUuidsToIds($item['value'] ?? ''), 'format' => $item['format']];
+            $result[] = ['value' => $item['value'] ?? '', 'format' => $item['format']];
             break;
           }
           // Plain string — treat as Markdown and convert to HTML.
           $html = is_string($item) ? $this->serializer->markdownToHtml($item) : (string) $item;
           $result[] = [
-            'value'  => $this->rewriteEntityUuidsToIds($html),
+            'value'  => $html,
             'format' => 'basic_html',
           ];
           break;
