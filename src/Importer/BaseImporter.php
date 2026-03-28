@@ -51,7 +51,27 @@ abstract class BaseImporter implements ImporterInterface {
   /**
    * {@inheritdoc}
    */
-  abstract public function handles(string $entity_type): bool;
+  abstract public function getEntityType(): ?string;
+
+  /**
+   * {@inheritdoc}
+   */
+  abstract public function getImportWeight(): int;
+
+  /**
+   * {@inheritdoc}
+   */
+  abstract public function extractEntityId(array $frontmatter): ?int;
+
+  /**
+   * {@inheritdoc}
+   */
+  abstract public function resolveBundle(array $frontmatter): ?string;
+
+  /**
+   * {@inheritdoc}
+   */
+  abstract public function getBundleQueryField(): ?string;
 
   /**
    * {@inheritdoc}

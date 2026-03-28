@@ -7,8 +7,24 @@ namespace Drupal\git_content\Importer;
  */
 class BlockContentImporter extends BaseImporter {
 
-  public function handles(string $entity_type): bool {
-    return $entity_type === 'block_content';
+  public function getEntityType(): ?string {
+    return 'block_content';
+  }
+
+  public function getImportWeight(): int {
+    return 50;
+  }
+
+  public function extractEntityId(array $frontmatter): ?int {
+    return !empty($frontmatter['block_id']) ? (int) $frontmatter['block_id'] : NULL;
+  }
+
+  public function resolveBundle(array $frontmatter): ?string {
+    return $frontmatter['bundle'] ?? NULL;
+  }
+
+  public function getBundleQueryField(): ?string {
+    return 'type';
   }
 
   public function import(array $frontmatter, string $body): string {

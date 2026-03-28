@@ -36,6 +36,10 @@ class MediaExporter extends BaseExporter {
     return 'media';
   }
 
+  public function getCliName(): string {
+    return 'media';
+  }
+
   protected function typeDir(): string {
     return 'media';
   }
@@ -66,7 +70,7 @@ class MediaExporter extends BaseExporter {
     $frontmatter = [];
     $frontmatter['type']  = 'media';
     $frontmatter['lang']  = $entity->language()->getId();
-    $frontmatter['draft'] = !(bool) $entity->get('status')->value;
+    $frontmatter['draft'] = $this->isDraft($entity);
 
     $frontmatter['name'] = $entity->label();
     $frontmatter['date'] = date('Y-m-d', $entity->get('created')->value ?? time());

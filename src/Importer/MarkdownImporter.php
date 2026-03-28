@@ -42,8 +42,13 @@ class MarkdownImporter {
 
   private array $importFileMetaCache = [];
 
-  /** @var ImporterInterface[] */
-  private array $importerList;
+  /** @var array<string, ImporterInterface> entity_type => importer */
+  private array $importerMap = [];
+
+  /** @var array<string, int> entity_type => weight */
+  private array $importWeights = [];
+
+  private ?ImporterInterface $catchAllImporter = NULL;
 
   public function __construct(
     protected MarkdownSerializer $serializer,
@@ -56,16 +61,30 @@ class MarkdownImporter {
     protected ConfigFactoryInterface $configFactory,
   ) {
     $this->logger = $loggerFactory->get('git_content');
-    $this->importerList = $importers instanceof \Traversable
-      ? iterator_to_array($importers)
-      : $importers;
+
+    foreach ($importers as $importer) {
+      $type = $importer->getEntityType();
+      if ($type === NULL) {
+        $this->catchAllImporter = $importer;
+      }
+      else {
+        $this->importerMap[$type] = $importer;
+        $this->importWeights[$type] = $importer->getImportWeight();
+      }
+    }
+
+    // The catch-all handles 'node' (and any unrecognised type).
+    if ($this->catchAllImporter) {
+      $this->importWeights['node'] = $this->catchAllImporter->getImportWeight();
+    }
   }
 
   private function getImporterForType(string $entity_type): ImporterInterface {
-    foreach ($this->importerList as $importer) {
-      if ($importer->handles($entity_type)) {
-        return $importer;
-      }
+    if (isset($this->importerMap[$entity_type])) {
+      return $this->importerMap[$entity_type];
+    }
+    if ($this->catchAllImporter) {
+      return $this->catchAllImporter;
     }
     throw new \RuntimeException("No importer registered for entity type: $entity_type");
   }
@@ -124,14 +143,8 @@ class MarkdownImporter {
     $entity_type = $this->resolveEntityType($type);
     $entity_id   = $this->extractEntityId($frontmatter, $entity_type);
 
-    $bundle = match ($entity_type) {
-      'taxonomy_term'     => $frontmatter['vocabulary'] ?? NULL,
-      'node'              => $type,
-      'media',
-      'block_content'     => $frontmatter['bundle'] ?? NULL,
-      'menu_link_content' => $frontmatter['menu'] ?? NULL,
-      default             => NULL,
-    };
+    $importer = $this->getImporterForType($entity_type);
+    $bundle   = $importer->resolveBundle($frontmatter);
 
     // Check whether this specific language version of the entity already exists.
     $langcode   = $frontmatter['lang'] ?? NULL;
@@ -201,7 +214,7 @@ class MarkdownImporter {
     usort($files, fn($a, $b) => $this->compareImportFiles($a, $b));
 
     $typeCounts = [];
-    $seenIds    = array_fill_keys(array_keys(self::IMPORT_ORDER), []);
+    $seenIds    = array_fill_keys(array_keys($this->importWeights), []);
 
     foreach ($files as $filepath) {
       try {
@@ -321,7 +334,7 @@ class MarkdownImporter {
 
     foreach ($seenIds as $entity_type => $bundles) {
       // Only sync entity types we deliberately manage.
-      if (!isset(self::IMPORT_ORDER[$entity_type])) {
+      if (!isset($this->importWeights[$entity_type])) {
         continue;
       }
       // If no files were seen for this type, skip deletion to avoid wiping
@@ -330,17 +343,15 @@ class MarkdownImporter {
         continue;
       }
 
-      $storage = $this->entityTypeManager->getStorage($entity_type);
+      $storage  = $this->entityTypeManager->getStorage($entity_type);
+      $importer = $this->getImporterForType($entity_type);
 
       foreach ($bundles as $bundle => $ids) {
         $query = $storage->getQuery()->accessCheck(FALSE);
 
-        switch ($entity_type) {
-          case 'node':             $query->condition('type', $bundle); break;
-          case 'taxonomy_term':    $query->condition('vid', $bundle); break;
-          case 'media':            $query->condition('bundle', $bundle); break;
-          case 'block_content':    $query->condition('type', $bundle); break;
-          case 'menu_link_content': $query->condition('menu_name', $bundle); break;
+        $bundle_field = $importer->getBundleQueryField();
+        if ($bundle_field && $bundle !== '__all') {
+          $query->condition($bundle_field, $bundle);
         }
 
         foreach ($storage->loadMultiple($query->execute()) as $entity) {
@@ -382,28 +393,20 @@ class MarkdownImporter {
   // ---------------------------------------------------------------------------
 
   /**
-   * Extract the entity's primary ID from frontmatter.
-   *
-   * Maps entity type to the corresponding frontmatter key (nid, tid, mid, etc.).
+   * Extract the entity's primary ID from frontmatter via the importer.
    */
   private function extractEntityId(array $frontmatter, string $entity_type): ?int {
-    $key = match ($entity_type) {
-      'node'              => 'nid',
-      'taxonomy_term'     => 'tid',
-      'media'             => 'mid',
-      'file'              => 'fid',
-      'user'              => 'uid',
-      'block_content'     => 'block_id',
-      'menu_link_content' => 'link_id',
-      default             => 'nid',
-    };
-    return !empty($frontmatter[$key]) ? (int) $frontmatter[$key] : NULL;
+    return $this->getImporterForType($entity_type)->extractEntityId($frontmatter);
   }
 
+  /**
+   * Resolve the frontmatter 'type' value to a Drupal entity type machine name.
+   *
+   * Non-node types use their frontmatter type directly (e.g. 'taxonomy_term').
+   * Node bundle names ('article', 'page', ...) all map to 'node'.
+   */
   private function resolveEntityType(string $type): string {
-    // Non-node types use their frontmatter type as entity_type directly.
-    // Node bundle names ('article', 'page', …) all map to 'node'.
-    return (isset(self::IMPORT_ORDER[$type]) && $type !== 'node') ? $type : 'node';
+    return isset($this->importerMap[$type]) ? $type : 'node';
   }
 
   // ---------------------------------------------------------------------------
@@ -411,31 +414,9 @@ class MarkdownImporter {
   // ---------------------------------------------------------------------------
 
   /**
-   * Dependency order for import: earlier = imported first.
-   *
-   * Doubles as the authoritative list of entity types managed by this module.
-   * Used for import ordering, seenIds initialisation, and deletion sync.
-   *
-   * Dependencies:
-   *   media        → file
-   *   block_content → media (blocks can reference media entities)
-   *   node         → taxonomy_term, block_content, media, file
-   *   menu_link_content → node (links point to node paths)
-   */
-  private const IMPORT_ORDER = [
-    'file'              => 1,
-    'user'              => 2,
-    'taxonomy_term'     => 3,
-    'media'             => 4,
-    'block_content'     => 5,
-    'node'              => 6,
-    'menu_link_content' => 7,
-  ];
-
-  /**
    * Compare two import files to guarantee a stable, dependency-aware order.
    *
-   * Entity types are sorted by IMPORT_ORDER so dependencies are always present
+   * Entity types are sorted by import weight so dependencies are always present
    * before the entities that reference them. Within menu_link_content, items
    * are further sorted by menu name and weight (parents before children).
    * Within the same entity type, files are sorted alphabetically.
@@ -444,28 +425,27 @@ class MarkdownImporter {
     $metaA = $this->getImportFileMeta($a);
     $metaB = $this->getImportFileMeta($b);
 
-    $orderA = self::IMPORT_ORDER[$metaA['entity_type']] ?? 6;
-    $orderB = self::IMPORT_ORDER[$metaB['entity_type']] ?? 6;
+    return $this->compareByEntityWeight($metaA, $metaB)
+        ?: $this->compareByTranslation($metaA, $metaB)
+        ?: $this->compareByMenuHierarchy($metaA, $metaB)
+        ?: $a <=> $b;
+  }
 
-    if ($orderA !== $orderB) {
-      return $orderA <=> $orderB;
+  private function compareByEntityWeight(array $a, array $b): int {
+    $default = $this->catchAllImporter?->getImportWeight() ?? 60;
+    return ($this->importWeights[$a['entity_type']] ?? $default)
+       <=> ($this->importWeights[$b['entity_type']] ?? $default);
+  }
+
+  private function compareByTranslation(array $a, array $b): int {
+    return $a['is_translation'] <=> $b['is_translation'];
+  }
+
+  private function compareByMenuHierarchy(array $a, array $b): int {
+    if ($a['entity_type'] !== 'menu_link_content') {
+      return 0;
     }
-
-    // Default translations (no translation_of) before non-default translations,
-    // so the entity is created with the correct original language first.
-    if ($metaA['is_translation'] !== $metaB['is_translation']) {
-      return $metaA['is_translation'] <=> $metaB['is_translation'];
-    }
-
-    // Within menu_link_content: sort by menu, then by weight (parents first).
-    if ($metaA['entity_type'] === 'menu_link_content') {
-      if ($metaA['menu'] !== $metaB['menu']) {
-        return $metaA['menu'] <=> $metaB['menu'];
-      }
-      return $metaA['weight'] <=> $metaB['weight'];
-    }
-
-    return $a <=> $b;
+    return ($a['menu'] <=> $b['menu']) ?: ($a['weight'] <=> $b['weight']);
   }
 
   private function getImportFileMeta(string $filepath): array {

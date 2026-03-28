@@ -19,6 +19,10 @@ class TaxonomyExporter extends BaseExporter {
     return 'taxonomy_term';
   }
 
+  public function getCliName(): string {
+    return 'taxonomy';
+  }
+
   protected function typeDir(): string {
     return 'taxonomy';
   }
@@ -52,7 +56,7 @@ class TaxonomyExporter extends BaseExporter {
     $frontmatter['vocabulary'] = $entity->bundle();
     $frontmatter['lang']       = $entity->language()->getId();
 
-    $frontmatter['draft'] = !(bool) $entity->get('status')->value;
+    $frontmatter['draft'] = $this->isDraft($entity);
     $frontmatter['name']   = $entity->label();
     $frontmatter['slug']   = $this->getTermSlug($entity);
     $frontmatter['weight'] = (int) ($entity->get('weight')->value ?? 0);

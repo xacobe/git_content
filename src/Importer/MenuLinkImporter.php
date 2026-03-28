@@ -16,8 +16,24 @@ class MenuLinkImporter extends BaseImporter {
    */
   private array $menuLinkUuidMap = [];
 
-  public function handles(string $entity_type): bool {
-    return $entity_type === 'menu_link_content';
+  public function getEntityType(): ?string {
+    return 'menu_link_content';
+  }
+
+  public function getImportWeight(): int {
+    return 70;
+  }
+
+  public function extractEntityId(array $frontmatter): ?int {
+    return !empty($frontmatter['link_id']) ? (int) $frontmatter['link_id'] : NULL;
+  }
+
+  public function resolveBundle(array $frontmatter): ?string {
+    return $frontmatter['menu'] ?? NULL;
+  }
+
+  public function getBundleQueryField(): ?string {
+    return 'menu_name';
   }
 
   public function import(array $frontmatter, string $body): string {

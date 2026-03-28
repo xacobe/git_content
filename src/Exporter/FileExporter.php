@@ -42,6 +42,10 @@ class FileExporter extends BaseExporter {
     return 'file';
   }
 
+  public function getCliName(): string {
+    return 'files';
+  }
+
   protected function typeDir(): string {
     return 'files';
   }

@@ -7,8 +7,24 @@ namespace Drupal\git_content\Importer;
  */
 class MediaImporter extends BaseImporter {
 
-  public function handles(string $entity_type): bool {
-    return $entity_type === 'media';
+  public function getEntityType(): ?string {
+    return 'media';
+  }
+
+  public function getImportWeight(): int {
+    return 40;
+  }
+
+  public function extractEntityId(array $frontmatter): ?int {
+    return !empty($frontmatter['mid']) ? (int) $frontmatter['mid'] : NULL;
+  }
+
+  public function resolveBundle(array $frontmatter): ?string {
+    return $frontmatter['bundle'] ?? NULL;
+  }
+
+  public function getBundleQueryField(): ?string {
+    return 'bundle';
   }
 
   public function import(array $frontmatter, string $body): string {

@@ -10,8 +10,24 @@ namespace Drupal\git_content\Importer;
  */
 class FileEntityImporter extends BaseImporter {
 
-  public function handles(string $entity_type): bool {
-    return $entity_type === 'file';
+  public function getEntityType(): ?string {
+    return 'file';
+  }
+
+  public function getImportWeight(): int {
+    return 10;
+  }
+
+  public function extractEntityId(array $frontmatter): ?int {
+    return !empty($frontmatter['fid']) ? (int) $frontmatter['fid'] : NULL;
+  }
+
+  public function resolveBundle(array $frontmatter): ?string {
+    return NULL;
+  }
+
+  public function getBundleQueryField(): ?string {
+    return NULL;
   }
 
   public function import(array $frontmatter, string $body): string {

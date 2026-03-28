@@ -43,6 +43,10 @@ class MenuLinkExporter extends BaseExporter {
     return 'menu_link_content';
   }
 
+  public function getCliName(): string {
+    return 'menus';
+  }
+
   protected function typeDir(): string {
     return 'menus';
   }
@@ -175,8 +179,7 @@ class MenuLinkExporter extends BaseExporter {
 
     // Format: "menu_link_content:{full-uuid}"
     if (str_starts_with($parent_plugin_id, 'menu_link_content:')) {
-      $uuid = explode(':', $parent_plugin_id, 2)[1];
-      return $uuid;
+      return substr($parent_plugin_id, strlen('menu_link_content:'));
     }
 
     // If the parent is a link from another plugin (module route, etc.),

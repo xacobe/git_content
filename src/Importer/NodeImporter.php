@@ -7,8 +7,24 @@ namespace Drupal\git_content\Importer;
  */
 class NodeImporter extends BaseImporter {
 
-  public function handles(string $entity_type): bool {
-    return TRUE; // catch-all; tagged with priority: -100 so specific importers win
+  public function getEntityType(): ?string {
+    return NULL;
+  }
+
+  public function getImportWeight(): int {
+    return 60;
+  }
+
+  public function extractEntityId(array $frontmatter): ?int {
+    return !empty($frontmatter['nid']) ? (int) $frontmatter['nid'] : NULL;
+  }
+
+  public function resolveBundle(array $frontmatter): ?string {
+    return $frontmatter['type'] ?? NULL;
+  }
+
+  public function getBundleQueryField(): ?string {
+    return 'type';
   }
 
   public function import(array $frontmatter, string $body): string {

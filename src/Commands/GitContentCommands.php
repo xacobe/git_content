@@ -31,8 +31,8 @@ class GitContentCommands extends DrushCommands {
    * Export Drupal content to versionable Markdown files.
    *
    * @param string $type
-   *   Content type to export: all (default), nodes, taxonomy, media, blocks,
-   *   files, users, menus.
+   *   Content type to export: all (default), or one of the registered CLI
+   *   names (nodes, taxonomy, media, blocks, files, users, menus).
    *
    * @command git-content:export
    * @aliases gce
@@ -42,16 +42,7 @@ class GitContentCommands extends DrushCommands {
    *   Export nodes only (no orphan cleanup).
    */
   public function export(string $type = 'all'): void {
-    // Map display names to Drupal entity type machine names.
-    $typeMap = [
-      'nodes'    => 'node',
-      'taxonomy' => 'taxonomy_term',
-      'media'    => 'media',
-      'blocks'   => 'block_content',
-      'files'    => 'file',
-      'users'    => 'user',
-      'menus'    => 'menu_link_content',
-    ];
+    $typeMap = $this->exporter->getCliTypeMap();
 
     if ($type === 'all') {
       $this->logger()->notice('Exporting all content...');

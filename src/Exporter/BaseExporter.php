@@ -82,13 +82,14 @@ abstract class BaseExporter implements ExporterInterface {
   abstract public function getEntityType(): string;
 
   /**
+   * {@inheritdoc}
+   */
+  abstract public function getCliName(): string;
+
+  /**
    * The subdirectory within content_export/ for this entity type.
    *
-   * e.g. 'content_types', 'taxonomy', 'media', 'blocks', 'files', 'users', 'menus'.
-   *
-   * Phase 2 migration: this will become non-abstract in BaseExporter, reading
-   * from config (git_content.settings) and falling back to defaultTypeDir()
-   * (rename of this method). No changes needed in subclasses beyond the rename.
+   * E.g. 'content', 'taxonomy', 'media', 'blocks', 'files', 'users', 'menus'.
    */
   abstract protected function typeDir(): string;
 
@@ -176,13 +177,8 @@ abstract class BaseExporter implements ExporterInterface {
    * Get the full path alias for the entity.
    */
   protected function getPathAlias(EntityInterface $entity): string {
-    if ($entity->hasField('path') && !$entity->get('path')->isEmpty()) {
-      $alias = $entity->get('path')->alias;
-      if ($alias) {
-        return $alias;
-      }
-    }
-    return '/' . $entity->getEntityTypeId() . '/' . $entity->id();
+    $alias = $entity->hasField('path') ? $entity->get('path')?->alias : NULL;
+    return $alias ?: '/' . $entity->getEntityTypeId() . '/' . $entity->id();
   }
 
   /**
@@ -223,6 +219,16 @@ abstract class BaseExporter implements ExporterInterface {
     $result['checksum'] = $checksum;
 
     return $result;
+  }
+
+  /**
+   * Whether the entity is unpublished (draft).
+   *
+   * Reads the 'status' field as a boolean. Entities without a status field
+   * are considered published.
+   */
+  protected function isDraft(EntityInterface $entity): bool {
+    return $entity->hasField('status') && !(bool) $entity->get('status')->value;
   }
 
   /**
@@ -329,13 +335,6 @@ abstract class BaseExporter implements ExporterInterface {
    */
   protected function stripStreamWrapper(string $uri): string {
     return preg_replace('/^[a-z][a-z0-9+\-.]*:\/\//', '', $uri);
-  }
-
-  /**
-   * Convert a string to a URL-safe slug.
-   */
-  protected function slugify(string $text): string {
-    return trim(preg_replace('/[^a-z0-9]+/', '-', mb_strtolower($text)), '-');
   }
 
   /**

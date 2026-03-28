@@ -12,8 +12,24 @@ namespace Drupal\git_content\Importer;
  */
 class UserImporter extends BaseImporter {
 
-  public function handles(string $entity_type): bool {
-    return $entity_type === 'user';
+  public function getEntityType(): ?string {
+    return 'user';
+  }
+
+  public function getImportWeight(): int {
+    return 20;
+  }
+
+  public function extractEntityId(array $frontmatter): ?int {
+    return !empty($frontmatter['uid']) ? (int) $frontmatter['uid'] : NULL;
+  }
+
+  public function resolveBundle(array $frontmatter): ?string {
+    return NULL;
+  }
+
+  public function getBundleQueryField(): ?string {
+    return NULL;
   }
 
   public function import(array $frontmatter, string $body): string {

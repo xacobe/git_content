@@ -21,6 +21,14 @@ interface ExporterInterface {
   public function getEntityType(): string;
 
   /**
+   * Human-readable short name for Drush CLI display.
+   *
+   * E.g. 'nodes', 'taxonomy', 'media'. Used by the Drush command to build
+   * the type map dynamically instead of a hardcoded list.
+   */
+  public function getCliName(): string;
+
+  /**
    * Generate the full Markdown contents for the entity.
    *
    * @return string

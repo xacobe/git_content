@@ -22,6 +22,10 @@ class NodeExporter extends BaseExporter {
     return 'node';
   }
 
+  public function getCliName(): string {
+    return 'nodes';
+  }
+
   protected function typeDir(): string {
     return 'content';
   }
@@ -56,7 +60,7 @@ class NodeExporter extends BaseExporter {
     $frontmatter = [];
     $frontmatter['type']   = $entity->bundle();
     $frontmatter['lang']   = $langcode;
-    $frontmatter['draft'] = !$entity->isPublished();
+    $frontmatter['draft'] = $this->isDraft($entity);
 
     $frontmatter['title']  = $entity->label();
     $frontmatter['slug']   = $this->getSlug($entity);

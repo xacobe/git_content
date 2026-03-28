@@ -23,6 +23,10 @@ class BlockContentExporter extends BaseExporter {
     return 'block_content';
   }
 
+  public function getCliName(): string {
+    return 'blocks';
+  }
+
   protected function typeDir(): string {
     return 'blocks';
   }
@@ -57,7 +61,7 @@ class BlockContentExporter extends BaseExporter {
     $frontmatter['type']   = 'block_content';
     $frontmatter['bundle'] = $entity->bundle();
     $frontmatter['lang']   = $langcode;
-    $frontmatter['draft'] = !(bool) $entity->get('status')->value;
+    $frontmatter['draft'] = $this->isDraft($entity);
 
     $frontmatter['title']    = $entity->label();
     $frontmatter['slug']     = $this->getBlockSlug($entity);

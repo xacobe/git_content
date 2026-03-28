@@ -58,6 +58,10 @@ class UserExporter extends BaseExporter {
     return 'user';
   }
 
+  public function getCliName(): string {
+    return 'users';
+  }
+
   protected function typeDir(): string {
     return 'users';
   }

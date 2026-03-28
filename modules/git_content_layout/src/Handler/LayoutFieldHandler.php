@@ -31,7 +31,7 @@ use Drupal\layout_builder\Section;
  *     block_revision_id.
  *
  * Block content entities must be imported before nodes that reference them.
- * The MarkdownImporter import order (IMPORT_ORDER constant) guarantees this.
+ * The MarkdownImporter import order (driven by each importer's getImportWeight()) guarantees this.
  */
 class LayoutFieldHandler implements FieldHandlerInterface {
 

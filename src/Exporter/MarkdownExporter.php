@@ -48,6 +48,23 @@ class MarkdownExporter {
     }
   }
 
+  /**
+   * Build the CLI name → entity type map from registered exporters.
+   *
+   * Used by GitContentCommands to auto-discover valid export types
+   * without hardcoding the list.
+   *
+   * @return array<string, string>
+   *   CLI name => entity type machine name (e.g. 'nodes' => 'node').
+   */
+  public function getCliTypeMap(): array {
+    $map = [];
+    foreach ($this->exporterMap as $exporter) {
+      $map[$exporter->getCliName()] = $exporter->getEntityType();
+    }
+    return $map;
+  }
+
   // ---------------------------------------------------------------------------
   // Bulk export
   // ---------------------------------------------------------------------------

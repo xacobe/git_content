@@ -7,8 +7,24 @@ namespace Drupal\git_content\Importer;
  */
 class TaxonomyImporter extends BaseImporter {
 
-  public function handles(string $entity_type): bool {
-    return $entity_type === 'taxonomy_term';
+  public function getEntityType(): ?string {
+    return 'taxonomy_term';
+  }
+
+  public function getImportWeight(): int {
+    return 30;
+  }
+
+  public function extractEntityId(array $frontmatter): ?int {
+    return !empty($frontmatter['tid']) ? (int) $frontmatter['tid'] : NULL;
+  }
+
+  public function resolveBundle(array $frontmatter): ?string {
+    return $frontmatter['vocabulary'] ?? NULL;
+  }
+
+  public function getBundleQueryField(): ?string {
+    return 'vid';
   }
 
   public function import(array $frontmatter, string $body): string {

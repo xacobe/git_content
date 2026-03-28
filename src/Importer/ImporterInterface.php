@@ -8,18 +8,51 @@ namespace Drupal\git_content\Importer;
  * Implement this interface (by extending BaseImporter) and tag the service
  * with 'git_content.importer' to register it with MarkdownImporter's registry.
  *
- * Tag priority controls dispatch order. The catch-all (NodeImporter) should
- * be tagged with priority: -100 so specific importers are checked first.
+ * Each importer declares its entity type via getEntityType(). Return NULL
+ * for the catch-all importer (NodeImporter) which handles any type not
+ * claimed by a specific importer.
  */
 interface ImporterInterface {
 
   /**
-   * Whether this importer handles the given entity type.
+   * The Drupal entity type machine name handled by this importer.
    *
-   * @param string $entity_type
-   *   The resolved entity type machine name (e.g. 'node', 'taxonomy_term').
+   * Used by MarkdownImporter to build the entity-type registry automatically.
+   * Return NULL for the catch-all importer (NodeImporter) which handles all
+   * entity types not claimed by a specific importer.
    */
-  public function handles(string $entity_type): bool;
+  public function getEntityType(): ?string;
+
+  /**
+   * Import priority weight (lower = imported first).
+   *
+   * Controls the order entities are imported to satisfy dependencies.
+   * E.g., files (10) before media (40), media before nodes (60).
+   */
+  public function getImportWeight(): int;
+
+  /**
+   * Extract the entity's primary ID from frontmatter.
+   *
+   * @return int|null
+   *   The entity ID, or NULL if not present in the frontmatter.
+   */
+  public function extractEntityId(array $frontmatter): ?int;
+
+  /**
+   * Resolve the bundle from frontmatter, or NULL if not applicable.
+   *
+   * Used by MarkdownImporter for import tracking and deletion sync.
+   */
+  public function resolveBundle(array $frontmatter): ?string;
+
+  /**
+   * The entity storage field name used for bundle queries in deletion sync.
+   *
+   * E.g. 'type' for node, 'vid' for taxonomy_term, 'bundle' for media.
+   * Return NULL if deletion sync should not filter by bundle.
+   */
+  public function getBundleQueryField(): ?string;
 
   /**
    * Import or update a single entity from its parsed frontmatter and body.
